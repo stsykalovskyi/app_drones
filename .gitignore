@@ -1,0 +1,38 @@
+# Django
+*.pyc
+__pycache__/
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+
+# Django Environment Variables
+.env
+*.env
+
+# Python
+*.log
+*.pot
+*.py[co]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+*.~.swp
+
+# Virtual Environments
+venv/
+.env/
+env/
+ENV/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# JetBrains / PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws

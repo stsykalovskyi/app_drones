@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Flight Ops Wiki{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Knowledge Library</h2>
+    <p class="muted">Search across procedures, payload guides, regulations, and planning references.</p>
+    <form class="search" role="search" method="get">
+        <input type="search" name="q" value="{{ query }}" placeholder="Search articles, tags, doctrine…" />
+        <button type="submit">Search</button>
+    </form>
+    {% if topics %}
+    <div class="meta-grid">
+        {% for topic in topics %}
+        {% if topic.slug %}
+        <a class="button" style="background:#0f172a;"
+           href="{% url 'wiki:topic_articles' topic.slug %}">
+            {{ topic.icon }} {{ topic.name }}
+        </a>
+        {% else %}
+        <span class="button">{{ topic.name }}</span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+
+{% if page_obj.object_list %}
+{% for article in page_obj.object_list %}
+<article class="card">
+    <h3>
+        <a href="{% url 'wiki:article_detail' slug=article.slug %}">{{ article.title }}</a>
+    </h3>
+    {% if article.topic %}
+    <p class="muted">{{ article.topic.icon }} {{ article.topic.name }}</p>
+    {% endif %}
+    {% if article.summary %}
+    <p>{{ article.summary }}</p>
+    {% endif %}
+    {% if article.tag_list %}
+    <p class="muted">
+        {% for tag in article.tag_list %}
+        #{{ tag }}
+        {% endfor %}
+    </p>
+    {% endif %}
+</article>
+{% endfor %}
+{% else %}
+<section class="card">
+    <p>No knowledge entries found yet. Add one from the admin portal.</p>
+</section>
+{% endif %}
+
+{% if is_paginated %}
+<div class="card">
+    <div class="meta-grid">
+        {% if page_obj.has_previous %}
+        <a class="button" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Newer</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a class="button" href="?q={{ query }}&page={{ page_obj.next_page_number }}">Older</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

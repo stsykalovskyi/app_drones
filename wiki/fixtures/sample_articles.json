@@ -1,0 +1,58 @@
+[
+    {
+        "model": "wiki.topic",
+        "pk": 1,
+        "fields": {
+            "name": "Mission Planning",
+            "slug": "mission-planning",
+            "description": "Checklists, risk assessments, and briefing templates.",
+            "icon": "🗺️",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "wiki.topic",
+        "pk": 2,
+        "fields": {
+            "name": "Payloads",
+            "slug": "payloads",
+            "description": "Guides for EO/IR, LiDAR, mapping pods, and integrations.",
+            "icon": "🎯",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "wiki.article",
+        "pk": 1,
+        "fields": {
+            "topic": 1,
+            "title": "Pre-flight Mission Brief Template",
+            "slug": "pre-flight-mission-brief-template",
+            "summary": "Checklist-driven mission brief capturing crew, risk, and communication plans.",
+            "tags": "planning,briefing,crew",
+            "body": "## Mission Brief Template\\n\\n1. Objectives & success criteria\\n2. Airspace coordination / NOTAMs\\n3. Weather window & alternates\\n4. Crew roles, call signs, and comm plan\\n5. Risk actions & abort criteria",
+            "hero_image_url": "",
+            "references": "https://example.com/mission-brief",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "wiki.article",
+        "pk": 2,
+        "fields": {
+            "topic": 2,
+            "title": "EO/IR Sensor Warm-Up Checklist",
+            "slug": "eo-ir-sensor-warm-up-checklist",
+            "summary": "Process to stabilize cooled sensors before deployment.",
+            "tags": "payloads,eo/ir,checklist",
+            "body": "1. Connect payload power and confirm firmware version.\\n2. Allow 8-10 minutes for cooler warm-up.\\n3. Calibrate gimbal limits and verify video stream.\\n4. Run NUC (non-uniformity correction) prior to launch.",
+            "hero_image_url": "",
+            "references": "https://example.com/eo-ir-guide",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }
+    }
+]

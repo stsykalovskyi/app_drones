@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }} • Flight Ops Wiki{% endblock %}
+
+{% block content %}
+<article class="card">
+    <a href="{% url 'wiki:article_list' %}" class="button" style="float:right;">Back</a>
+    <h2>{{ article.title }}</h2>
+    {% if article.topic %}
+    <p class="muted">{{ article.topic.icon }} {{ article.topic.name }}</p>
+    {% endif %}
+    {% if article.summary %}
+    <p>{{ article.summary }}</p>
+    {% endif %}
+    {% if article.hero_image_url %}
+    <img src="{{ article.hero_image_url }}" alt="" style="max-width:100%;border-radius:12px;margin:1rem 0;" />
+    {% endif %}
+    <div>
+        {{ article.body|linebreaks }}
+    </div>
+    {% if article.tag_list %}
+    <p class="muted">
+        Tags:
+        {% for tag in article.tag_list %}
+        #{{ tag }}
+        {% endfor %}
+    </p>
+    {% endif %}
+</article>
+
+{% if article.references %}
+<section class="card">
+    <h3>References</h3>
+    <ul>
+        {% for ref in article.references.splitlines %}
+        {% if ref %}
+        <li><a href="{{ ref }}" target="_blank" rel="noopener">{{ ref }}</a></li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if topics %}
+<section class="card">
+    <h3>Browse Topics</h3>
+    <div class="meta-grid">
+        {% for topic in topics %}
+        <a class="button" href="{% url 'wiki:topic_articles' topic.slug %}">
+            {{ topic.icon }} {{ topic.name }}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
