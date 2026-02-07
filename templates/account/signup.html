@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load socialaccount %}
+{% now "Hi" as zulu_time %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Приєднатися до Flight Ops</h2>
+        <p>Запит доступу для пілотів, операторів та інженерів. Нові учасники отримують рівень доступу лише після ручного підтвердження штабу.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Черга перевірок</span>
+            14 запитів в обробці
+          </li>
+          <li>
+            <span class="label">Остання синхронізація</span>
+            {{ zulu_time }} ZULU
+          </li>
+          <li>
+            <span class="label">Необхідно</span>
+            Позивний + MFA
+          </li>
+        </ul>
+        <p class="callout">Підготовте робочу пошту та контакт офіцера для оперативної верифікації.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>Запросити допуск</h3>
+        <p class="callout">Заповніть форму або використайте союзну ідентифікацію (Google SSO).</p>
+        <form method="post" action="{% url 'account_signup' %}">
+          {% csrf_token %}
+          {{ form.as_p }}
+          {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+          {% endif %}
+          <button type="submit" class="primary-btn">Підключити підрозділ</button>
+        </form>
+        <a class="google-button" href="{% provider_login_url 'google' process='signup' %}">
+          <span>Вхід через Google</span>
+        </a>
+        <div class="supporting-links">
+          Маєш допуск? <a href="{% url 'login' %}">Повернутися до входу</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

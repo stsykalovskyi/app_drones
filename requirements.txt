@@ -1,4 +1,5 @@
-django
+django>=4.2,<5
+django-allauth
 gunicorn
 python-dotenv
 setuptools

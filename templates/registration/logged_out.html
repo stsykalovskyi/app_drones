@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% now "Hi" as zulu_time %}
+
+{% block title %}Вихід виконано{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Сеанс завершено</h2>
+        <p>Ви вийшли з Flight Ops. Телеметрія очищена, привілеї скинуті, а доступ до каналів даних призупинено.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Час виходу</span>
+            {{ zulu_time }} ZULU
+          </li>
+          <li>
+            <span class="label">Статус доступу</span>
+            Відʼєднано
+          </li>
+          <li>
+            <span class="label">Моніторинг</span>
+            SOC підтверджено
+          </li>
+        </ul>
+        <p class="callout">За потреби ви можете одразу повторно автентифікуватися або повернутися до головного порталу.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>Що далі?</h3>
+        <p class="callout">Обирайте наступну дію. Повторний вхід активує попередні привілеї.</p>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <a class="primary-btn" href="{% url 'login' %}">Увійти знову</a>
+          <a class="google-button" href="{% url 'wiki:article_list' %}">Повернутися на головну</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

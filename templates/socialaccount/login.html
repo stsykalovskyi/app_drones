@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% now "Hi" as zulu_time %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Підтвердження {{ provider.name }}</h2>
+        <p>Ми виявили запит від постачальника ідентифікації <strong>{{ provider.name }}</strong>. Щоб продовжити, переконайтесь, що ви увійшли до правильного акаунта і готові надати доступ Flight Ops.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Синхронізація</span>
+            {{ zulu_time }} ZULU
+          </li>
+          <li>
+            <span class="label">Процес</span>
+            {% if process == "connect" %}
+              Звʼязування профілю
+            {% else %}
+              Вхід через союзника
+            {% endif %}
+          </li>
+          <li>
+            <span class="label">Рівень контролю</span>
+            SOC моніторинг
+          </li>
+        </ul>
+        <p class="callout">Підтвердження продовжить процес авторизації та додасть запис до журналу безпеки.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>
+          {% if process == "connect" %}
+            Підключити акаунт
+          {% else %}
+            Продовжити вхід
+          {% endif %}
+        </h3>
+        <p class="callout">
+          {% if process == "connect" %}
+            Звʼязуємо поточний профіль Flight Ops з акаунтом {{ provider.name }}.
+          {% else %}
+            Завершуємо авторизацію через акаунт {{ provider.name }}.
+          {% endif %}
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="primary-btn">
+            {% if process == "connect" %}
+              Підтвердити звʼязок
+            {% else %}
+              Продовжити з {{ provider.name }}
+            {% endif %}
+          </button>
+        </form>
+        <div class="supporting-links">
+          <a href="{% url 'login' %}">Змінити спосіб входу</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

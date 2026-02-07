@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load socialaccount %}
+{% now "Hi" as zulu_time %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Доступ до місії</h2>
+        <p>Шифрований канал для екіпажів, тактиків та аналітиків. Авторизуйтеся, щоб отримати живі доктрини, дані про корисне навантаження та контрольні списки готовності.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Захищені вузли</span>
+            29 активних театрів
+          </li>
+          <li>
+            <span class="label">Остання синхронізація</span>
+            {{ zulu_time }} ZULU
+          </li>
+          <li>
+            <span class="label">Рівень допуску</span>
+            MIL-CERT + MFA
+          </li>
+        </ul>
+        <p class="callout">Уся активність моніториться. Несанкціоновані спроби входу фіксуються та передаються до штабу.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>Безпечний вхід</h3>
+        <p class="callout">Введіть облікові дані або скористайтесь союзним протоколом ідентифікації.</p>
+        <form method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+          {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+          <button type="submit" class="primary-btn">Авторизуватися</button>
+        </form>
+        <a class="google-button" href="{% provider_login_url 'google' process='login' %}">
+          <span>Вхід через Google</span>
+        </a>
+        <div class="supporting-links">
+          Немає облікового запису? <a href="{% url 'account_signup' %}">Запросити допуск</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

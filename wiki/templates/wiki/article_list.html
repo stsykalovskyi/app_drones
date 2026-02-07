@@ -2,68 +2,206 @@
 
 {% block title %}Flight Ops Wiki{% endblock %}
 
+{% block head %}
+  {{ block.super }}
+  <style>
+    .intel-hero {
+      background: radial-gradient(circle at 0% 0%, rgba(41, 171, 226, 0.15), rgba(8, 18, 28, 0.9));
+      border: 1px solid rgba(84, 246, 199, 0.2);
+      border-radius: 24px;
+      padding: clamp(1.75rem, 4vw, 3rem);
+      margin-bottom: 2rem;
+      box-shadow: 0 25px 65px rgba(2, 6, 23, 0.45);
+    }
+    .intel-hero h2 {
+      margin: 0 0 0.5rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #e3ff89;
+    }
+    .intel-hero p {
+      color: #94a3b8;
+      max-width: 580px;
+      line-height: 1.6;
+    }
+    .intel-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .intel-stats li {
+      list-style: none;
+      border: 1px solid rgba(84, 246, 199, 0.2);
+      border-radius: 16px;
+      padding: 1rem;
+      background: rgba(2, 8, 20, 0.8);
+      font-size: 0.95rem;
+      color: #e2edf8;
+    }
+    .intel-stats .label {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      color: #54f6c7;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+    .topic-band {
+      display: flex;
+      gap: 0.75rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+    .topic-chip {
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 999px;
+      padding: 0.35rem 0.9rem;
+      text-decoration: none;
+      color: #e2edf8;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .intel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .intel-card {
+      background: rgba(17, 24, 39, 0.85);
+      border-radius: 20px;
+      padding: 1.6rem;
+      border: 1px solid rgba(84, 246, 199, 0.18);
+      box-shadow: 0 20px 40px rgba(2, 6, 23, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .intel-card h3 {
+      margin: 0;
+    }
+    .intel-card h3 a {
+      color: #f8fafc;
+      text-decoration: none;
+    }
+    .intel-card h3 a:hover {
+      color: #54f6c7;
+    }
+    .intel-card .summary {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      flex: 1;
+    }
+    .tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .tag-chip {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 999px;
+      padding: 0.2rem 0.8rem;
+      color: #94a3b8;
+    }
+    .pager {
+      margin-top: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
-<section class="card">
-    <h2>Knowledge Library</h2>
-    <p class="muted">Search across procedures, payload guides, regulations, and planning references.</p>
+<section class="intel-hero">
+    <h2>Flight Ops Knowledge</h2>
+    <p>Живе досьє по техніці, процедурних картах, доктринах та перевірених польових нотатках. Шукайте по ключових словах або оберіть тематику, щоб миттєво потрапити до потрібного брифу.</p>
+    <ul class="intel-stats">
+        <li>
+            <span class="label">Документів</span>
+            {{ page_obj.paginator.count }}
+        </li>
+        <li>
+            <span class="label">Сторінка</span>
+            {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}
+        </li>
+        <li>
+            <span class="label">Запит</span>
+            {{ query|default:"—" }}
+        </li>
+    </ul>
     <form class="search" role="search" method="get">
-        <input type="search" name="q" value="{{ query }}" placeholder="Search articles, tags, doctrine…" />
-        <button type="submit">Search</button>
+        <input type="search" name="q" value="{{ query }}" placeholder="Шукати статті, теги, доктрини…" />
+        <button type="submit">Сканувати</button>
     </form>
     {% if topics %}
-    <div class="meta-grid">
+    <div class="topic-band">
         {% for topic in topics %}
-        {% if topic.slug %}
-        <a class="button" style="background:#0f172a;"
-           href="{% url 'wiki:topic_articles' topic.slug %}">
-            {{ topic.icon }} {{ topic.name }}
-        </a>
-        {% else %}
-        <span class="button">{{ topic.name }}</span>
-        {% endif %}
+            {% if topic.slug %}
+                <a class="topic-chip" href="{% url 'wiki:topic_articles' topic.slug %}">
+                    {{ topic.icon }} {{ topic.name }}
+                </a>
+            {% else %}
+                <span class="topic-chip">{{ topic.name }}</span>
+            {% endif %}
         {% endfor %}
     </div>
     {% endif %}
 </section>
 
 {% if page_obj.object_list %}
-{% for article in page_obj.object_list %}
-<article class="card">
-    <h3>
-        <a href="{% url 'wiki:article_detail' slug=article.slug %}">{{ article.title }}</a>
-    </h3>
-    {% if article.topic %}
-    <p class="muted">{{ article.topic.icon }} {{ article.topic.name }}</p>
-    {% endif %}
-    {% if article.summary %}
-    <p>{{ article.summary }}</p>
-    {% endif %}
-    {% if article.tag_list %}
-    <p class="muted">
-        {% for tag in article.tag_list %}
-        #{{ tag }}
-        {% endfor %}
-    </p>
-    {% endif %}
-</article>
-{% endfor %}
+<div class="intel-grid">
+    {% for article in page_obj.object_list %}
+    <article class="intel-card">
+        <div>
+            <p class="muted" style="margin:0;">
+                {% if article.topic %}{{ article.topic.icon }} {{ article.topic.name }}{% else %}Окрема нотатка{% endif %}
+            </p>
+            <h3>
+                <a href="{% url 'wiki:article_detail' slug=article.slug %}">{{ article.title }}</a>
+            </h3>
+        </div>
+        {% if article.summary %}
+        <p class="summary">{{ article.summary }}</p>
+        {% endif %}
+        {% if article.tag_list %}
+        <div class="tag-grid">
+            {% for tag in article.tag_list %}
+            <span class="tag-chip">#{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </article>
+    {% endfor %}
+</div>
 {% else %}
 <section class="card">
-    <p>No knowledge entries found yet. Add one from the admin portal.</p>
+    <p>Журнал поки порожній. Додайте статтю через адмін-панель.</p>
 </section>
 {% endif %}
 
 {% if is_paginated %}
-<div class="card">
-    <div class="meta-grid">
-        {% if page_obj.has_previous %}
-        <a class="button" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Newer</a>
-        {% endif %}
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-        <a class="button" href="?q={{ query }}&page={{ page_obj.next_page_number }}">Older</a>
-        {% endif %}
-    </div>
+<div class="pager">
+    {% if page_obj.has_previous %}
+        <a class="button ghost" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Новіші</a>
+    {% else %}
+        <span class="muted">Початок журналу</span>
+    {% endif %}
+    <span class="muted">Сторінка {{ page_obj.number }} з {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+        <a class="button" href="?q={{ query }}&page={{ page_obj.next_page_number }}">Старіші</a>
+    {% else %}
+        <span class="muted">Кінець журналу</span>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

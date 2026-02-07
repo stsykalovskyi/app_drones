@@ -2,51 +2,140 @@
 
 {% block title %}{{ article.title }} • Flight Ops Wiki{% endblock %}
 
+{% block head %}
+  {{ block.super }}
+  <style>
+    .article-hero {
+      background: linear-gradient(135deg, rgba(35, 63, 102, 0.6), rgba(3, 7, 18, 0.9));
+      border: 1px solid rgba(84, 246, 199, 0.2);
+      border-radius: 24px;
+      padding: clamp(1.5rem, 4vw, 3rem);
+      margin-bottom: 2rem;
+      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
+    }
+    .article-hero h2 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      color: #f8fafc;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .tag-chip {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 999px;
+      padding: 0.2rem 0.8rem;
+      color: #94a3b8;
+    }
+    .intel-body {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(84, 246, 199, 0.15);
+      border-radius: 18px;
+      padding: clamp(1.25rem, 3vw, 2rem);
+      box-shadow: 0 15px 40px rgba(2, 6, 23, 0.5);
+    }
+    .intel-body img {
+      max-width: 100%;
+      border-radius: 16px;
+      margin: 1.5rem 0;
+    }
+    .intel-body p {
+      line-height: 1.7;
+      color: #d1d5db;
+    }
+    .reference-card {
+      margin-top: 2rem;
+      border: 1px solid rgba(84, 246, 199, 0.2);
+      border-radius: 18px;
+      padding: 1.5rem;
+      background: rgba(2, 8, 20, 0.85);
+    }
+    .reference-card ul {
+      padding-left: 1.25rem;
+      color: #e3ff89;
+      line-height: 1.6;
+    }
+    .topic-band {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .topic-chip {
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 999px;
+      padding: 0.35rem 0.9rem;
+      text-decoration: none;
+      color: #e2edf8;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.7);
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
-<article class="card">
-    <a href="{% url 'wiki:article_list' %}" class="button" style="float:right;">Back</a>
+<section class="article-hero">
+    <div class="hero-actions">
+        <a href="{% url 'wiki:article_list' %}" class="button ghost">← Повернутися</a>
+        {% if article.topic %}
+            <span class="status-pill alt">{{ article.topic.icon }} {{ article.topic.name }}</span>
+        {% endif %}
+    </div>
     <h2>{{ article.title }}</h2>
-    {% if article.topic %}
-    <p class="muted">{{ article.topic.icon }} {{ article.topic.name }}</p>
-    {% endif %}
     {% if article.summary %}
-    <p>{{ article.summary }}</p>
+        <p class="muted">{{ article.summary }}</p>
     {% endif %}
+    {% if article.tag_list %}
+        <div class="tag-grid">
+            {% for tag in article.tag_list %}
+            <span class="tag-chip">#{{ tag }}</span>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+
+<article class="intel-body">
     {% if article.hero_image_url %}
-    <img src="{{ article.hero_image_url }}" alt="" style="max-width:100%;border-radius:12px;margin:1rem 0;" />
+    <img src="{{ article.hero_image_url }}" alt="">
     {% endif %}
-    <div>
+    <div class="intel-copy">
         {{ article.body|linebreaks }}
     </div>
-    {% if article.tag_list %}
-    <p class="muted">
-        Tags:
-        {% for tag in article.tag_list %}
-        #{{ tag }}
-        {% endfor %}
-    </p>
-    {% endif %}
 </article>
 
 {% if article.references %}
-<section class="card">
-    <h3>References</h3>
+<section class="reference-card">
+    <h3>Джерела</h3>
     <ul>
         {% for ref in article.references.splitlines %}
-        {% if ref %}
-        <li><a href="{{ ref }}" target="_blank" rel="noopener">{{ ref }}</a></li>
-        {% endif %}
+            {% if ref %}
+                <li><a href="{{ ref }}" target="_blank" rel="noopener">{{ ref }}</a></li>
+            {% endif %}
         {% endfor %}
     </ul>
 </section>
 {% endif %}
 
 {% if topics %}
-<section class="card">
-    <h3>Browse Topics</h3>
-    <div class="meta-grid">
+<section class="reference-card">
+    <h3>Інші теми</h3>
+    <div class="topic-band">
         {% for topic in topics %}
-        <a class="button" href="{% url 'wiki:topic_articles' topic.slug %}">
+        <a class="topic-chip" href="{% url 'wiki:topic_articles' topic.slug %}">
             {{ topic.icon }} {{ topic.name }}
         </a>
         {% endfor %}
