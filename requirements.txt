@@ -4,5 +4,6 @@ sqlparse>=0.5.0
 django-allauth
 gunicorn
 python-dotenv
+PyJWT>=2.7
 setuptools
 requests
