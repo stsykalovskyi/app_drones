@@ -5,5 +5,6 @@ django-allauth
 gunicorn
 python-dotenv
 PyJWT>=2.7
+cryptography>=41
 setuptools
 requests
