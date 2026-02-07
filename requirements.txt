@@ -1,5 +1,8 @@
 django>=4.2,<5
+asgiref>=3.6.0,<4
+sqlparse>=0.5.0
 django-allauth
 gunicorn
 python-dotenv
 setuptools
+requests
