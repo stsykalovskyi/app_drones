@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Drone Knowledge Base{% endblock %}</title>
+    <title>{% block title %}Drones{% endblock %}</title>
     <style>
         :root {
             color-scheme: light dark;
@@ -272,22 +272,16 @@
                 <header class="command-bar">
                     <div class="command-brand">
                         <a href="{% url 'wiki:article_list' %}">
-                            <h1>Flight Ops Wiki</h1>
-                            <p class="muted">Центральний довідник по дронах, payload'ах та протоколах</p>
+                            <h1>Drones</h1>
+                            <p class="muted">Центральний довідник</p>
                         </a>
                     </div>
-                    <div class="command-panel">
-                        <span class="status-pill">Канал: ONLINE</span>
-                        <span class="status-pill alt">Синхро: {{ header_sync }} ZULU</span>
-                        <div class="command-actions">
-                            {% if user.is_authenticated %}
-                                <span class="user-badge">Позивний: {{ user.get_username }}</span>
-                                <a class="button ghost" href="{% url 'logout' %}">Вийти</a>
-                            {% else %}
-                                <a class="button" href="{% url 'login' %}">Увійти</a>
-                            {% endif %}
-                        </div>
-                    </div>
+                    <nav class="main-nav">
+                        <ul>
+                            <li><a href="#">Документація</a></li>
+                            <li><a href="#">Облік технічних засобів</a></li>
+                        </ul>
+                    </nav>
                 </header>
                 <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-pressed="false">
                     <span class="toggle-icon" aria-hidden="true"></span>
