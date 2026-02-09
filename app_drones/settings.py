@@ -79,7 +79,16 @@ DEBUG = str_to_bool(os.getenv('DEBUG', 'True'))
 
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", default="*").split(",")
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", default="https://").split(",")
+if DEBUG:
+    default_csrf_origins = "http://127.0.0.1:8000,http://localhost:8000"
+else:
+    default_csrf_origins = None
+
+csrf_origins_str = os.getenv("CSRF_TRUSTED_ORIGINS", default=default_csrf_origins)
+if csrf_origins_str:
+    CSRF_TRUSTED_ORIGINS = csrf_origins_str.split(",")
+else:
+    CSRF_TRUSTED_ORIGINS = []
 
 
 
