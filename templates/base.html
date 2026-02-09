@@ -294,14 +294,33 @@
     </div>
     <script>
         const toggle = document.querySelector('[data-sidebar-toggle]');
-        if (toggle) {
-            const syncLabel = () => {
-                const pressed = document.body.classList.contains('sidebar-collapsed');
-                toggle.setAttribute('aria-pressed', String(pressed));
-            };
+        const body = document.body;
+
+        const checkScreenWidth = () => {
+            if (window.innerWidth <= 960) {
+                body.classList.add('sidebar-collapsed');
+            } else {
+                body.classList.remove('sidebar-collapsed');
+            }
             syncLabel();
+        };
+
+        const syncLabel = () => {
+            if (toggle) {
+                const pressed = body.classList.contains('sidebar-collapsed');
+                toggle.setAttribute('aria-pressed', String(pressed));
+            }
+        };
+
+        // Initial check on page load
+        checkScreenWidth();
+
+        // Update on window resize
+        window.addEventListener('resize', checkScreenWidth);
+
+        if (toggle) {
             toggle.addEventListener('click', () => {
-                document.body.classList.toggle('sidebar-collapsed');
+                body.classList.toggle('sidebar-collapsed');
                 syncLabel();
             });
         }
