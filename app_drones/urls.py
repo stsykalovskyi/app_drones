@@ -30,6 +30,7 @@ urlpatterns = [
 
 urlpatterns += [
     path('', include('wiki.urls')),
+    path('documentation/', include('documentation.urls')), # New line
 ]
 
 if settings.DEBUG:

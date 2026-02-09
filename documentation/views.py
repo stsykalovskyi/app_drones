@@ -1,0 +1,4 @@
+from django.shortcuts import render
+
+def documentation_view(request):
+    return render(request, 'documentation/documentation_page.html', {'title': 'Документація'})
