@@ -278,12 +278,66 @@
                 width: 100%;
                 border-right: none;
                 border-bottom: 1px solid rgba(84, 246, 199, 0.2);
-                flex-direction: column;
+                flex-direction: row; /* Horizontal for medium screens */
+                justify-content: space-between;
+                align-items: center;
                 box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+                flex: none; /* Remove flex-basis for horizontal layout */
+                padding: 1.5rem clamp(1.2rem, 3vw, 2.5rem);
+            }
+            .command-bar .command-brand {
+                max-width: unset; /* Remove max-width constraint */
+            }
+            .command-bar .main-nav {
+                margin-top: 0; /* Remove top margin */
+            }
+            .command-bar .main-nav ul {
+                flex-direction: row; /* Horizontal navigation */
+                gap: 1rem; /* Adjust spacing for horizontal */
             }
             .sidebar-toggle {
-                left: auto;
-                right: 1rem;
+                display: none; /* Hide toggle for medium screens */
+            }
+
+            /* Styles for small screens (mobile) */
+            @media (max-width: 600px) {
+                .command-bar {
+                    flex-direction: column; /* Vertical for mobile */
+                    align-items: flex-start;
+                    padding: 2.5rem clamp(1.2rem, 3vw, 2.5rem);
+                    transition: flex-basis 0.3s ease, padding 0.3s ease, opacity 0.25s ease, border 0.3s ease, width 0.3s ease, height 0.3s ease;
+                }
+                .command-bar .main-nav ul {
+                    flex-direction: column; /* Vertical navigation */
+                    gap: 0.5rem;
+                }
+                .sidebar-toggle {
+                    display: flex; /* Show toggle for mobile */
+                    position: fixed;
+                    top: 1rem;
+                    right: 1rem;
+                    left: auto;
+                }
+
+                body.sidebar-collapsed .command-bar {
+                    flex-basis: 0;
+                    padding: 0;
+                    opacity: 0;
+                    border-right: 0;
+                    box-shadow: none;
+                    pointer-events: none;
+                    width: 0;
+                    overflow: hidden;
+                    height: 0; /* Also collapse height for mobile when hidden */
+                }
+                body.sidebar-collapsed .command-brand,
+                body.sidebar-collapsed .main-nav { /* Also hide main-nav when collapsed */
+                    opacity: 0;
+                }
+                /* Adjust app-shell transition when sidebar collapses on mobile */
+                .app-shell {
+                    transition: none; /* Remove padding-left transition when in column layout */
+                }
             }
         }
     </style>
