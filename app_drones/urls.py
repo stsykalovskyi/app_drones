@@ -32,6 +32,7 @@ urlpatterns += [
     path('', include('wiki.urls')),
     path('documentation/', include('documentation.urls')), # New line
     path('equipment-accounting/', include('equipment_accounting.urls')), # New line
+    path('technical-docs-accounting/', include('technical_docs_accounting.urls')), # New line
 ]
 
 if settings.DEBUG:
