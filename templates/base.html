@@ -140,7 +140,7 @@
             align-items: flex-start;
             justify-content: flex-start;
             box-shadow: 15px 0 35px rgba(0, 0, 0, 0.35);
-            transition: flex-basis 0.3s ease, padding 0.3s ease, opacity 0.25s ease, border 0.3s ease;
+            transition: flex-basis 0.3s ease, padding 0.3s ease, opacity 0.25s ease, border 0.3s ease, width 0.3s ease;
         }
         .command-brand {
             max-width: 420px;
@@ -234,6 +234,8 @@
             border-right: 0;
             box-shadow: none;
             pointer-events: none;
+            width: 0; /* Ensure width is also 0 when collapsed */
+            overflow: hidden; /* Hide content that might spill */
         }
         body.sidebar-collapsed .command-brand,
         body.sidebar-collapsed .command-panel {
