@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'wiki',
     'documentation',
+    'equipment_accounting',
 ]
 
 MIDDLEWARE = [
