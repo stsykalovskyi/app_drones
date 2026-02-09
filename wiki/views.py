@@ -1,3 +1,4 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.views.generic import DetailView, ListView
 
@@ -15,7 +16,7 @@ class TopicContextMixin:
         return context
 
 
-class ArticleListView(TopicContextMixin, ListView):
+class ArticleListView(LoginRequiredMixin, TopicContextMixin, ListView):
     template_name = "wiki/article_list.html"
     context_object_name = "articles"
     paginate_by = 12
@@ -46,7 +47,7 @@ class ArticleListView(TopicContextMixin, ListView):
         return context
 
 
-class ArticleDetailView(TopicContextMixin, DetailView):
+class ArticleDetailView(LoginRequiredMixin, TopicContextMixin, DetailView):
     template_name = "wiki/article_detail.html"
     context_object_name = "article"
     model = Article

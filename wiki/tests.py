@@ -1,11 +1,14 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.contrib.auth.models import User
 
 from .models import Article, Topic
 
 
 class ArticleViewTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='password')
+        self.client.login(username='testuser', password='password')
         self.topic = Topic.objects.create(
             name="Mission Planning",
             description="Checklists and reference workflows",
