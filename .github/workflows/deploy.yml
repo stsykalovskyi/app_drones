@@ -15,16 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sanity check secret is available (no leak)
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "ERROR: secrets.SSH_PRIVATE_KEY is empty in this workflow context."
-            echo "Most common causes: environment-scoped secret, fork/PR context, wrong repo, or approvals required."
-            exit 1
-          fi
-          echo "OK: secret is non-empty."
-
       - name: Prepare SSH key + known_hosts
         shell: bash
         run: |
