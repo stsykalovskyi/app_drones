@@ -6,17 +6,20 @@
   {{ block.super }}
   <style>
     .article-hero {
-      background: linear-gradient(135deg, rgba(35, 63, 102, 0.6), rgba(3, 7, 18, 0.9));
-      border: 1px solid rgba(84, 246, 199, 0.2);
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
       border-radius: 24px;
       padding: clamp(1.5rem, 4vw, 3rem);
       margin-bottom: 2rem;
-      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
+      box-shadow: var(--shadow-card);
+      transition: background 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
     }
     .article-hero h2 {
       margin: 0;
       font-size: clamp(2rem, 4vw, 2.8rem);
-      color: #f8fafc;
+      color: var(--text);
     }
     .hero-actions {
       display: flex;
@@ -34,17 +37,21 @@
       font-size: 0.75rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--border-active);
       border-radius: 999px;
       padding: 0.2rem 0.8rem;
-      color: #94a3b8;
+      color: var(--text-muted);
+      transition: color 0.2s ease;
     }
     .intel-body {
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(84, 246, 199, 0.15);
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
       border-radius: 18px;
       padding: clamp(1.25rem, 3vw, 2rem);
-      box-shadow: 0 15px 40px rgba(2, 6, 23, 0.5);
+      box-shadow: var(--shadow-card);
+      transition: background 0.35s var(--ease), border-color 0.35s var(--ease);
     }
     .intel-body img {
       max-width: 100%;
@@ -53,18 +60,25 @@
     }
     .intel-body p {
       line-height: 1.7;
-      color: #d1d5db;
+      color: var(--text-secondary);
     }
     .reference-card {
       margin-top: 2rem;
-      border: 1px solid rgba(84, 246, 199, 0.2);
+      border: 1px solid var(--border);
       border-radius: 18px;
       padding: 1.5rem;
-      background: rgba(2, 8, 20, 0.85);
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-card);
+      transition: background 0.35s var(--ease), border-color 0.35s var(--ease);
+    }
+    .reference-card h3 {
+      color: var(--text);
     }
     .reference-card ul {
       padding-left: 1.25rem;
-      color: #e3ff89;
+      color: var(--accent);
       line-height: 1.6;
     }
     .topic-band {
@@ -74,15 +88,30 @@
       margin-top: 1.5rem;
     }
     .topic-chip {
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--border-active);
       border-radius: 999px;
       padding: 0.35rem 0.9rem;
       text-decoration: none;
-      color: #e2edf8;
+      color: var(--text-secondary);
       font-size: 0.85rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      background: rgba(15, 23, 42, 0.7);
+      background: var(--accent-dim);
+      transition: border-color 0.2s ease, color 0.2s ease;
+    }
+    .topic-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .status-pill {
+      border: 1px solid var(--border-active);
+      border-radius: 999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
     }
   </style>
 {% endblock %}
@@ -92,7 +121,7 @@
     <div class="hero-actions">
         <a href="{% url 'wiki:article_list' %}" class="button ghost">← Повернутися</a>
         {% if article.topic %}
-            <span class="status-pill alt">{{ article.topic.icon }} {{ article.topic.name }}</span>
+            <span class="status-pill">{{ article.topic.icon }} {{ article.topic.name }}</span>
         {% endif %}
     </div>
     <h2>{{ article.title }}</h2>

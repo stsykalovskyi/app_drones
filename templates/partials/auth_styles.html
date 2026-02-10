@@ -1,13 +1,6 @@
 <style>
   body.login-page {
-    background: radial-gradient(circle at 20% 20%, #19324c 0%, #040b12 55%, #02060b 100%);
-    color: #d6e4f5;
-  }
-
-  body.login-page header {
-    background: rgba(5, 11, 18, 0.85);
-    border-bottom: 1px solid rgba(84, 246, 199, 0.15);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    background: var(--bg);
   }
 
   body.login-page main {
@@ -36,14 +29,14 @@
 
   .auth-wrapper::before {
     background-image:
-      linear-gradient(90deg, rgba(84, 246, 199, 0.05) 1px, transparent 0),
-      linear-gradient(0deg, rgba(84, 246, 199, 0.05) 1px, transparent 0);
+      linear-gradient(90deg, var(--accent-dim) 1px, transparent 0),
+      linear-gradient(0deg, var(--accent-dim) 1px, transparent 0);
     background-size: 140px 140px;
     opacity: 0.5;
   }
 
   .auth-wrapper::after {
-    background: radial-gradient(circle at 80% 10%, rgba(0, 170, 255, 0.18), transparent 40%);
+    background: radial-gradient(circle at 80% 10%, var(--accent-glow), transparent 40%);
   }
 
   .auth-grid {
@@ -56,24 +49,25 @@
   }
 
   .intel-panel {
-    background: rgba(12, 30, 41, 0.8);
-    border: 1px solid rgba(84, 246, 199, 0.3);
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
     border-radius: 20px;
     padding: 2rem;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-elevated);
   }
 
   .intel-panel h2 {
     font-size: clamp(2.25rem, 3vw, 3.25rem);
     margin: 0 0 1rem;
-    color: #f8fafc;
+    color: var(--text);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .intel-panel p {
-    color: #8db1c4;
+    color: var(--text-secondary);
     font-size: 1.05rem;
     line-height: 1.7;
   }
@@ -87,43 +81,44 @@
 
   .intel-metrics li {
     list-style: none;
-    border: 1px solid rgba(84, 246, 199, 0.2);
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 1rem;
-    background: rgba(7, 16, 24, 0.8);
-    color: #9ccddf;
+    background: var(--accent-dim);
+    color: var(--text-secondary);
     font-size: 0.95rem;
   }
 
   .intel-metrics .label {
     font-size: 0.8rem;
     letter-spacing: 0.2em;
-    color: #54f6c7;
+    color: var(--accent);
     text-transform: uppercase;
     display: block;
     margin-bottom: 0.35rem;
   }
 
   .auth-card {
-    background: rgba(2, 6, 11, 0.85);
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     border-radius: 24px;
-    border: 1px solid rgba(227, 255, 137, 0.25);
+    border: 1px solid var(--border);
     padding: 2.5rem;
-    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-elevated);
   }
 
   .auth-card h3 {
     margin: 0;
     font-size: 1.6rem;
     letter-spacing: 0.2em;
-    color: #e3ff89;
+    color: var(--accent);
     text-transform: uppercase;
   }
 
   .callout {
     font-size: 0.95rem;
-    color: #8db1c4;
+    color: var(--text-secondary);
     margin: 0.75rem 0 2rem;
   }
 
@@ -135,7 +130,7 @@
     font-size: 0.8rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #54f6c7;
+    color: var(--accent);
     display: block;
     margin-bottom: 0.3rem;
   }
@@ -144,17 +139,18 @@
     width: 100%;
     padding: 0.9rem 1rem;
     border-radius: 12px;
-    border: 1px solid rgba(227, 255, 137, 0.4);
-    background: rgba(9, 17, 25, 0.9);
-    color: #e2edf8;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
     font-size: 1rem;
-    box-sizing: border-box; /* Added to fix overflow on narrow screens */
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
   }
 
   .auth-card input:focus {
-    outline: none;
-    border-color: #54f6c7;
-    box-shadow: 0 0 0 2px rgba(84, 246, 199, 0.2);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
 
   .primary-btn {
@@ -165,18 +161,19 @@
     display: inline-block;
     text-align: center;
     text-decoration: none;
-    background: linear-gradient(135deg, #e3ff89, #54f6c7);
-    color: #040b12;
+    background: var(--btn-bg);
+    color: var(--btn-text);
     font-weight: 700;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     cursor: pointer;
+    box-shadow: 0 2px 10px var(--accent-glow);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   .primary-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 15px 30px rgba(84, 246, 199, 0.4);
+    box-shadow: 0 8px 24px var(--accent-glow);
   }
 
   .google-button {
@@ -188,39 +185,39 @@
     margin-top: 1rem;
     padding: 0.95rem;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #f8fafc;
+    border: 1px solid var(--border-active);
+    color: var(--text);
     text-decoration: none;
     text-transform: uppercase;
     letter-spacing: 0.2em;
     font-weight: 600;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--accent-dim);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   }
 
   .google-button:hover {
-    border-color: #fbbc05;
-    background: rgba(251, 188, 5, 0.1);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: 0 4px 16px var(--accent-glow);
   }
 
   .supporting-links {
     text-align: center;
     margin-top: 2rem;
-    color: #9ccddf;
+    color: var(--text-secondary);
     font-size: 0.95rem;
   }
 
   .supporting-links a {
-    color: #e3ff89;
+    color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dashed rgba(227, 255, 137, 0.6);
+    border-bottom: 1px dashed var(--accent);
   }
 
   @media (max-width: 720px) {
     .auth-card, .intel-panel {
       padding: 1.5rem;
     }
-
     .auth-wrapper {
       padding: 3rem 1.5rem;
     }

@@ -6,21 +6,24 @@
   {{ block.super }}
   <style>
     .intel-hero {
-      background: radial-gradient(circle at 0% 0%, rgba(41, 171, 226, 0.15), rgba(8, 18, 28, 0.9));
-      border: 1px solid rgba(84, 246, 199, 0.2);
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
       border-radius: 24px;
       padding: clamp(1.75rem, 4vw, 3rem);
       margin-bottom: 2rem;
-      box-shadow: 0 25px 65px rgba(2, 6, 23, 0.45);
+      box-shadow: var(--shadow-card);
+      transition: background 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
     }
     .intel-hero h2 {
       margin: 0 0 0.5rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: #e3ff89;
+      color: var(--accent);
     }
     .intel-hero p {
-      color: #94a3b8;
+      color: var(--text-secondary);
       max-width: 580px;
       line-height: 1.6;
     }
@@ -32,18 +35,19 @@
     }
     .intel-stats li {
       list-style: none;
-      border: 1px solid rgba(84, 246, 199, 0.2);
+      border: 1px solid var(--border);
       border-radius: 16px;
       padding: 1rem;
-      background: rgba(2, 8, 20, 0.8);
+      background: var(--accent-dim);
       font-size: 0.95rem;
-      color: #e2edf8;
+      color: var(--text);
+      transition: border-color 0.2s ease, background 0.35s var(--ease);
     }
     .intel-stats .label {
       display: block;
       font-size: 0.75rem;
       letter-spacing: 0.25em;
-      color: #54f6c7;
+      color: var(--accent);
       margin-bottom: 0.35rem;
       text-transform: uppercase;
     }
@@ -54,16 +58,21 @@
       padding-bottom: 0.5rem;
     }
     .topic-chip {
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--border-active);
       border-radius: 999px;
       padding: 0.35rem 0.9rem;
       text-decoration: none;
-      color: #e2edf8;
+      color: var(--text-secondary);
       font-size: 0.85rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       white-space: nowrap;
-      background: rgba(15, 23, 42, 0.7);
+      background: var(--accent-dim);
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    }
+    .topic-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .intel-grid {
       display: grid;
@@ -71,27 +80,35 @@
       gap: 1.5rem;
     }
     .intel-card {
-      background: rgba(17, 24, 39, 0.85);
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
       border-radius: 20px;
       padding: 1.6rem;
-      border: 1px solid rgba(84, 246, 199, 0.18);
-      box-shadow: 0 20px 40px rgba(2, 6, 23, 0.5);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      transition: box-shadow 0.25s ease, border-color 0.25s ease, background 0.35s var(--ease);
+    }
+    .intel-card:hover {
+      box-shadow: var(--shadow-elevated);
+      border-color: var(--border-active);
     }
     .intel-card h3 {
       margin: 0;
     }
     .intel-card h3 a {
-      color: #f8fafc;
+      color: var(--text);
       text-decoration: none;
+      transition: color 0.15s ease;
     }
     .intel-card h3 a:hover {
-      color: #54f6c7;
+      color: var(--accent);
     }
     .intel-card .summary {
-      color: #94a3b8;
+      color: var(--text-secondary);
       font-size: 0.95rem;
       line-height: 1.6;
       flex: 1;
@@ -105,10 +122,11 @@
       font-size: 0.75rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--border-active);
       border-radius: 999px;
       padding: 0.2rem 0.8rem;
-      color: #94a3b8;
+      color: var(--text-muted);
+      transition: color 0.2s ease;
     }
     .pager {
       margin-top: 2rem;
@@ -117,6 +135,80 @@
       justify-content: space-between;
       gap: 1rem;
       flex-wrap: wrap;
+    }
+
+    /* user admin panel */
+    .users-panel {
+      background: var(--surface);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(1.25rem, 3vw, 2rem);
+      margin-top: 2rem;
+      box-shadow: var(--shadow-card);
+      transition: background 0.35s var(--ease), border-color 0.35s var(--ease);
+    }
+    .users-panel h2 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .users-table th {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .users-table td {
+      padding: 0.65rem 0.75rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: var(--accent-dim); }
+
+    .status-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--accent-dim);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .status-toggle.approved {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .status-toggle:hover {
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.2s ease;
+    }
+    .status-toggle.approved .status-dot {
+      background: var(--accent);
     }
   </style>
 {% endblock %}
@@ -189,6 +281,42 @@
 </section>
 {% endif %}
 
+{% if managed_users %}
+<section class="users-panel">
+    <h2>Користувачі</h2>
+    <table class="users-table">
+        <thead>
+            <tr>
+                <th>Користувач</th>
+                <th>Email</th>
+                <th>Дата реєстрації</th>
+                <th>Допуск</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in managed_users %}
+            <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ u.email|default:"—" }}</td>
+                <td>{{ u.date_joined|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <button
+                        class="status-toggle {% if u.is_active %}approved{% endif %}"
+                        data-user-id="{{ u.pk }}"
+                        data-url="{% url 'wiki:toggle_user_approved' u.pk %}"
+                        type="button"
+                    >
+                        <span class="status-dot"></span>
+                        <span class="status-text">{% if u.is_active %}Підтверджений{% else %}Очікує{% endif %}</span>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
 {% if is_paginated %}
 <div class="pager">
     {% if page_obj.has_previous %}
@@ -203,5 +331,25 @@
         <span class="muted">Кінець журналу</span>
     {% endif %}
 </div>
+{% endif %}
+
+{% if managed_users %}
+<script>
+document.querySelectorAll('.status-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var url = btn.dataset.url;
+        var csrf = '{{ csrf_token }}';
+        fetch(url, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrf}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.classList.toggle('approved', data.is_approved);
+            btn.querySelector('.status-text').textContent = data.is_approved ? 'Підтверджений' : 'Очікує';
+        });
+    });
+});
+</script>
 {% endif %}
 {% endblock %}

@@ -21,6 +21,7 @@ from django.views.static import serve
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
@@ -32,8 +33,7 @@ urlpatterns += [
     path('', include('wiki.urls')),
     path('documentation/', include('documentation.urls')), # New line
     path('equipment-accounting/', include('equipment_accounting.urls')), # New line
-    path('technical-docs-accounting/', include('technical_docs_accounting.urls')), # New line
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
