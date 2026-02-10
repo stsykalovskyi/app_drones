@@ -1,0 +1,28 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  Deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build & Deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+        run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key root@85.121.4.216 '
+
+              # Now we have got the access of EC2 and we will start the deploy .
+              cd /var/www/app_drones &&
+              git checkout master &&
+              git fetch --all &&
+              git pull &&
+              system restart drones
+              '
