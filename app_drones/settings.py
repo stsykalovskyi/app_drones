@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'wiki',
     'documentation',
     'equipment_accounting',
+    'user_management',
 ]
 
 MIDDLEWARE = [
