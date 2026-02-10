@@ -44,5 +44,5 @@ jobs:
             git fetch --all --prune
             git checkout master
             git reset --hard origin/master
-            system restart drones
+            docker container exec app_webserver nginx -s reload
           EOF
