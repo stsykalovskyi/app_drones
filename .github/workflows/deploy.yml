@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes root@85.121.4.216 << 'EOF'
             set -euo pipefail
-            cd /var/www/app_drones
+            cd /root/MyProjects/python/app_drones
             git fetch --all --prune
             git checkout master
             git reset --hard origin/master
