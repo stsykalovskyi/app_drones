@@ -5,24 +5,23 @@ on:
     branches: [ master ]
 
 jobs:
-  Deploy:
-    name: Deploy to EC2
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
-      - name: Build & Deploy
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
 
+      - name: Start SSH agent and add key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy
         run: |
-          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key root@85.121.4.216 '
-
-              # Now we have got the access of EC2 and we will start the deploy .
-              cd /var/www/app_drones &&
-              git checkout master &&
-              git fetch --all &&
-              git pull &&
-              system restart drones
-              '
+          ssh -o StrictHostKeyChecking=no root@85.121.4.216 << 'EOF'
+            set -e
+            cd /var/www/app_drones
+            git checkout master
+            git fetch --all
+            git pull
+            systemctl restart drones
+          EOF
