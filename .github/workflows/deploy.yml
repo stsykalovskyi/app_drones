@@ -4,40 +4,54 @@ on:
   push:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
-    name: Deploy to server (SSH)
+    name: Deploy to server (SSH key file)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # Додаємо приватний ключ в ssh-agent (нічого не пишемо у файл руками)
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      # Додаємо хост в known_hosts, щоб прибрати StrictHostKeyChecking=no
-      - name: Add server to known_hosts
+      - name: Sanity check secret is available (no leak)
+        shell: bash
         run: |
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "ERROR: secrets.SSH_PRIVATE_KEY is empty in this workflow context."
+            echo "Most common causes: environment-scoped secret, fork/PR context, wrong repo, or approvals required."
+            exit 1
+          fi
+          echo "OK: secret is non-empty."
+
+      - name: Prepare SSH key + known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+
+          # write key safely, normalize CRLF
+          umask 077
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
+
+          # validate key format (will fail if invalid)
+          ssh-keygen -lf ~/.ssh/id_deploy >/dev/null
+
+          # trust host key
           ssh-keyscan -H 85.121.4.216 >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy
+        shell: bash
         run: |
-          ssh -o BatchMode=yes root@85.121.4.216 << 'EOF'
+          set -euo pipefail
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes root@85.121.4.216 << 'EOF'
             set -euo pipefail
-
             cd /var/www/app_drones
-
-            # гарантовано тягнемо актуальну master
             git fetch --all --prune
             git checkout master
             git reset --hard origin/master
-
-            # рестарт сервісу
             system restart drones
           EOF
