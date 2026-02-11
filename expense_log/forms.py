@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 
 from .models import Expense
 
@@ -6,8 +7,12 @@ from .models import Expense
 class ExpenseForm(forms.ModelForm):
     class Meta:
         model = Expense
-        fields = ("amount", "description", "receipt", "notes")
+        fields = ("date", "amount", "description", "receipt", "notes")
         widgets = {
+            "date": forms.DateInput(attrs={
+                "class": "form-input",
+                "type": "date"
+            }),
             "amount": forms.NumberInput(attrs={
                 "class": "form-input",
                 "placeholder": "0.00",
@@ -27,3 +32,8 @@ class ExpenseForm(forms.ModelForm):
                 "placeholder": "Додаткова інформація",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:
+            self.fields['date'].initial = timezone.localdate()
