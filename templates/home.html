@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Майстерня{% endblock %}
+
+{% block head %}
+{{ block.super }}
+<style>
+    .home-hero {
+        background: var(--surface);
+        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: clamp(2rem, 5vw, 3.5rem);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-card);
+        transition: background 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+    }
+    .home-hero h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .home-hero p {
+        color: var(--text-secondary);
+        max-width: 540px;
+        line-height: 1.6;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .home-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-top: 1.75rem;
+        list-style: none;
+        padding: 0;
+    }
+    .home-stats li {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1rem;
+        background: var(--accent-dim);
+        transition: border-color 0.2s ease, background 0.35s var(--ease);
+    }
+    .home-stats .stat-label {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+    }
+    .home-stats .stat-value {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--accent);
+    }
+
+    .nav-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+    .nav-card {
+        background: var(--surface);
+        -webkit-backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: var(--text);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease, background 0.35s var(--ease);
+    }
+    .nav-card:hover {
+        box-shadow: var(--shadow-elevated);
+        border-color: var(--border-active);
+        transform: translateY(-2px);
+    }
+    .nav-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: var(--accent-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+    .nav-card-icon svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .nav-card h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+    .nav-card p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+    .nav-card .nav-card-meta {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-top: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="home-hero">
+    <h1>Майстерня</h1>
+    <p>Єдина система обліку техніки, комплектуючих, фінансів та документації підрозділу.</p>
+    <ul class="home-stats">
+        <li>
+            <span class="stat-label">Дрони</span>
+            <span class="stat-value">{{ drone_count }}</span>
+        </li>
+        <li>
+            <span class="stat-label">Комплектуючі</span>
+            <span class="stat-value">{{ component_count }}</span>
+        </li>
+        {% if user.is_superuser or "майстер" in user_groups %}
+        <li>
+            <span class="stat-label">Витрати</span>
+            <span class="stat-value">{{ expense_count }}</span>
+        </li>
+        {% endif %}
+        <li>
+            <span class="stat-label">Статті</span>
+            <span class="stat-value">{{ article_count }}</span>
+        </li>
+    </ul>
+</section>
+
+<div class="nav-grid">
+    <a href="{% url 'wiki:article_list' %}" class="nav-card">
+        <div class="nav-card-icon">
+            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <h3>Документація</h3>
+        <p>Статті, доктрини, процедурні картки та польові нотатки.</p>
+        <span class="nav-card-meta">{{ article_count }} записів</span>
+    </a>
+
+    <a href="{% url 'equipment_accounting:equipment_accounting_page' %}" class="nav-card">
+        <div class="nav-card-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <h3>Облік майна</h3>
+        <p>Дрони, комплектуючі, журнали польотів та обслуговування.</p>
+        <span class="nav-card-meta">{{ drone_count }} дронів / {{ component_count }} компонентів</span>
+    </a>
+
+    {% if user.is_superuser or "майстер" in user_groups %}
+    <a href="{% url 'expense_log:expense_list' %}" class="nav-card">
+        <div class="nav-card-icon">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h3>Фінанси</h3>
+        <p>Облік витрат підрозділу з квитанціями та помісячним підсумком.</p>
+        <span class="nav-card-meta">{{ expense_count }} записів</span>
+    </a>
+    {% endif %}
+
+    {% if user.is_superuser %}
+    <a href="{% url 'admin:index' %}" class="nav-card">
+        <div class="nav-card-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Адмінка</h3>
+        <p>Управління користувачами, довідниками та налаштуваннями системи.</p>
+        <span class="nav-card-meta">Панель керування</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

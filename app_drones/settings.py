@@ -59,6 +59,9 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
+    'unfold',
+    'unfold.contrib.filters',
+    'unfold.contrib.forms',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -73,6 +76,7 @@ INSTALLED_APPS = [
     'wiki',
     'documentation',
     'equipment_accounting',
+    'expense_log',
     'user_management',
 ]
 
@@ -102,6 +106,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'app_drones.context_processors.user_groups',
             ],
         },
     },
@@ -163,6 +168,9 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -175,7 +183,7 @@ ACCOUNT_LOGOUT_ON_GET = True
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    'app_drones.adapters.CustomAuthenticationBackend',
 ]
 
 SITE_ID = 1
@@ -196,5 +204,161 @@ SOCIALACCOUNT_PROVIDERS = {
             'secret': os.getenv('GOOGLE_CLIENT_SECRET', ''),
             'key': '',
         },
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Django Unfold
+# ---------------------------------------------------------------------------
+
+from django.templatetags.static import static
+from django.urls import reverse_lazy
+
+UNFOLD = {
+    "SITE_TITLE": "Майстерня",
+    "SITE_HEADER": "Майстерня",
+    "SITE_SYMBOL": "flight",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Користувачі",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Користувачі",
+                        "icon": "people",
+                        "link": reverse_lazy("admin:auth_user_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Wiki",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Теми",
+                        "icon": "category",
+                        "link": reverse_lazy("admin:wiki_topic_changelist"),
+                    },
+                    {
+                        "title": "Статті",
+                        "icon": "article",
+                        "link": reverse_lazy("admin:wiki_article_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Довідники",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Виробники",
+                        "icon": "factory",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_manufacturer_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Моделі дронів",
+                        "icon": "drone",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_dronemodel_changelist"
+                        ),
+                    },
+                ],
+            },
+            {
+                "title": "Дрони",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Категорії дронів",
+                        "icon": "label",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_dronecategory_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Типи дронів",
+                        "icon": "precision_manufacturing",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_dronetype_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Дрони",
+                        "icon": "flight",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_drone_changelist"
+                        ),
+                    },
+                ],
+            },
+            {
+                "title": "Комплектуючі",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Категорії комплектуючих",
+                        "icon": "label",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_componentcategory_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Типи комплектуючих",
+                        "icon": "settings",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_componenttype_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Комплектуючі",
+                        "icon": "memory",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_component_changelist"
+                        ),
+                    },
+                ],
+            },
+            {
+                "title": "Фінанси",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Витрати",
+                        "icon": "payments",
+                        "link": reverse_lazy(
+                            "admin:expense_log_expense_changelist"
+                        ),
+                    },
+                ],
+            },
+            {
+                "title": "Операції",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Журнал польотів",
+                        "icon": "flight_takeoff",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_flightlog_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Журнал обслуговування",
+                        "icon": "build",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_maintenancerecord_changelist"
+                        ),
+                    },
+                ],
+            },
+        ],
     },
 }

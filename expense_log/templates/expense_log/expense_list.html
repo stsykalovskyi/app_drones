@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Витрати — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .expense-hero {
+        margin-bottom: 1.5rem;
+    }
+    .expense-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+    .expense-hero p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .summary-card {
+        background: var(--surface);
+        backdrop-filter: blur(20px);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .summary-card:hover {
+        box-shadow: var(--shadow-elevated);
+        border-color: var(--border-active);
+    }
+    .summary-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.35rem;
+    }
+    .summary-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: var(--accent);
+    }
+
+    .monthly-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .monthly-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.88rem;
+    }
+    .monthly-list li:last-child { border-bottom: none; }
+    .monthly-month { color: var(--text-secondary); }
+    .monthly-amount { font-weight: 600; }
+
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .toolbar h2 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .expense-table { width: 100%; border-collapse: collapse; }
+    .expense-table th {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .expense-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.88rem;
+    }
+    .expense-table tr { transition: background 0.12s ease; }
+    .expense-table tr:hover td { background: var(--accent-dim); }
+
+    .amount-cell { font-weight: 600; white-space: nowrap; }
+    .date-cell { white-space: nowrap; color: var(--text-secondary); }
+    .receipt-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.82rem;
+    }
+    .edit-link {
+        font-size: 0.82rem;
+        font-weight: 500;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 640px) {
+        .expense-table thead { display: none; }
+        .expense-table tr {
+            display: block;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .expense-table td {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border: none;
+        }
+        .expense-table td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="expense-hero">
+    <h1>Облік витрат</h1>
+    <p>Фінансові витрати підрозділу</p>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="summary-label">Загальна сума</div>
+        <div class="summary-value">{{ total|floatformat:2 }} грн</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Кількість записів</div>
+        <div class="summary-value">{{ expenses|length }}</div>
+    </div>
+    {% if monthly %}
+    <div class="summary-card">
+        <div class="summary-label">Витрати по місяцях</div>
+        <ul class="monthly-list">
+            {% for row in monthly %}
+            <li>
+                <span class="monthly-month">{{ row.month|date:"F Y" }}</span>
+                <span class="monthly-amount">{{ row.total|floatformat:2 }} грн</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <h2>Витрати</h2>
+        <a href="{% url 'expense_log:expense_create' %}" class="button">+ Додати</a>
+    </div>
+
+    {% if expenses %}
+    <table class="expense-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Сума</th>
+                <th>Опис</th>
+                <th>Квитанція</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in expenses %}
+            <tr>
+                <td data-label="Дата" class="date-cell">{{ e.date|date:"d.m.Y" }}</td>
+                <td data-label="Сума" class="amount-cell">{{ e.amount|floatformat:2 }} грн</td>
+                <td data-label="Опис">{{ e.description }}</td>
+                <td data-label="Квитанція">
+                    {% if e.receipt %}
+                    <a href="{{ e.receipt.url }}" target="_blank" class="receipt-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Файл
+                    </a>
+                    {% else %}
+                    <span class="muted">—</span>
+                    {% endif %}
+                </td>
+                <td data-label="">
+                    <a href="{% url 'expense_log:expense_edit' e.pk %}" class="edit-link">Редагувати</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>Витрат ще немає.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

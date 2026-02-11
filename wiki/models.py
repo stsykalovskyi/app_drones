@@ -5,8 +5,8 @@ from django.utils.text import slugify
 class TimeStampedModel(models.Model):
     """Reusable timestamp mixin."""
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField("Створено", auto_now_add=True)
+    updated_at = models.DateTimeField("Оновлено", auto_now=True)
 
     class Meta:
         abstract = True
@@ -15,16 +15,19 @@ class TimeStampedModel(models.Model):
 class Topic(TimeStampedModel):
     """High-level grouping for wiki content."""
 
-    name = models.CharField(max_length=120, unique=True)
-    slug = models.SlugField(max_length=140, unique=True, blank=True)
-    description = models.TextField(blank=True)
+    name = models.CharField("Назва", max_length=120, unique=True)
+    slug = models.SlugField("Slug", max_length=140, unique=True, blank=True)
+    description = models.TextField("Опис", blank=True)
     icon = models.CharField(
+        "Іконка",
         max_length=60,
         blank=True,
-        help_text="Optional short label (emoji/text) for quick scanning.",
+        help_text="Короткий маркер (емодзі/текст) для швидкого перегляду.",
     )
 
     class Meta:
+        verbose_name = "Тема"
+        verbose_name_plural = "Теми"
         ordering = ("name",)
 
     def __str__(self):
@@ -40,26 +43,37 @@ class Article(TimeStampedModel):
     """Primary knowledge entry."""
 
     topic = models.ForeignKey(
-        Topic, related_name="articles", on_delete=models.SET_NULL, null=True, blank=True
+        Topic,
+        related_name="articles",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Тема",
     )
-    title = models.CharField(max_length=180, unique=True)
-    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    title = models.CharField("Заголовок", max_length=180, unique=True)
+    slug = models.SlugField("Slug", max_length=200, unique=True, blank=True)
     summary = models.TextField(
-        help_text="Single paragraph overview used in listings.",
+        "Короткий опис",
+        help_text="Один абзац для відображення у списку.",
         blank=True,
     )
     tags = models.CharField(
+        "Теги",
         max_length=200,
         blank=True,
-        help_text="Comma separated keywords for search and quick filtering.",
+        help_text="Ключові слова через кому для пошуку та фільтрації.",
     )
-    body = models.TextField()
-    hero_image_url = models.URLField(blank=True)
+    body = models.TextField("Текст статті")
+    hero_image_url = models.URLField("URL зображення", blank=True)
     references = models.TextField(
-        blank=True, help_text="One reference per line (e.g. URLs, manuals)."
+        "Посилання",
+        blank=True,
+        help_text="Одне посилання на рядок (URL, інструкції тощо).",
     )
 
     class Meta:
+        verbose_name = "Стаття"
+        verbose_name_plural = "Статті"
         ordering = ("title",)
 
     def __str__(self):
@@ -74,5 +88,3 @@ class Article(TimeStampedModel):
         if not self.tags:
             return []
         return [tag.strip() for tag in self.tags.split(",") if tag.strip()]
-
-# Create your models here.

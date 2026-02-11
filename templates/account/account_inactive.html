@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Очікування допуску</h2>
+        <p>Ваш обліковий запис зареєстровано у системі та очікує перевірки адміністратором.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Статус</span>
+            <div>Неактивний</div>
+          </li>
+          <li>
+            <span class="label">Дія</span>
+            <div>Очікування</div>
+          </li>
+        </ul>
+        <p class="callout">Після активації облікового запису ви зможете увійти до системи. Це може зайняти деякий час.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>Запит відправлено</h3>
+        <p class="callout">Адміністратор має підтвердити ваш обліковий запис перш ніж ви зможете отримати доступ до системи.</p>
+        <a href="{% url 'account_logout' %}" class="primary-btn">Вийти</a>
+        <div class="supporting-links">
+          Вже маєте активний акаунт? <a href="{% url 'login' %}">Увійти</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
