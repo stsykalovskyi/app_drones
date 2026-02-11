@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Профіль — Майстерня{% endblock %}
+
+{% block head %}
+{{ block.super }}
+<style>
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    @media (max-width: 768px) {
+        .profile-grid { grid-template-columns: 1fr; }
+    }
+
+    .profile-header {
+        margin-bottom: 1.5rem;
+    }
+    .profile-header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .profile-header p {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .card h2 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 1.25rem;
+        letter-spacing: 0.02em;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.35rem;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 0.6rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        color: var(--text);
+        font-size: 0.875rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .form-group input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .form-group input[readonly] {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .form-group .helptext {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+    .form-group .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.25rem 0 0;
+    }
+    .form-group .errorlist li {
+        font-size: 0.78rem;
+        color: #ef4444;
+    }
+
+    .readonly-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    @media (max-width: 480px) {
+        .readonly-info { grid-template-columns: 1fr; }
+    }
+    .readonly-item {
+        background: var(--accent-dim);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+    }
+    .readonly-item .label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+    }
+    .readonly-item .value {
+        font-size: 0.875rem;
+        color: var(--text);
+        word-break: break-word;
+    }
+
+    .form-actions {
+        margin-top: 1.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-header">
+    <h1>Профіль</h1>
+    <p>{{ user.username }}</p>
+</div>
+
+<div class="profile-grid">
+    <div class="card">
+        <h2>Особиста інформація</h2>
+
+        <div class="readonly-info">
+            <div class="readonly-item">
+                <div class="label">Логін</div>
+                <div class="value">{{ user.username }}</div>
+            </div>
+            <div class="readonly-item">
+                <div class="label">Дата реєстрації</div>
+                <div class="value">{{ user.date_joined|date:"d.m.Y" }}</div>
+            </div>
+            {% if user_groups %}
+            <div class="readonly-item" style="grid-column: 1 / -1;">
+                <div class="label">Групи</div>
+                <div class="value">{{ user_groups|join:", " }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {% for field in profile_form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <input type="{{ field.field.widget.input_type|default:'text' }}"
+                       name="{{ field.html_name }}"
+                       id="{{ field.id_for_label }}"
+                       value="{{ field.value|default_if_none:'' }}"
+                       {% if field.field.required %}required{% endif %}>
+                {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="form-actions">
+                <button type="submit" class="button">Зберегти</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Зміна пароля</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="change_password" value="1">
+            {% for field in password_form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <input type="password"
+                       name="{{ field.html_name }}"
+                       id="{{ field.id_for_label }}"
+                       {% if field.field.required %}required{% endif %}
+                       autocomplete="{{ field.html_name }}">
+                {% if field.help_text %}
+                <span class="helptext">{{ field.help_text|striptags }}</span>
+                {% endif %}
+                {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="form-actions">
+                <button type="submit" class="button">Змінити пароль</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -131,8 +131,9 @@
 {% block content %}
 <section class="home-hero">
     <h1>Майстерня</h1>
-    <p>Єдина система обліку техніки, комплектуючих, фінансів та документації підрозділу.</p>
+    <p>Єдина система обліку майна, фінансів та документації підрозділу.</p>
     <ul class="home-stats">
+        {% if user.is_superuser or "майстер" in user_groups or "командир майстерні" in user_groups %}
         <li>
             <span class="stat-label">Дрони</span>
             <span class="stat-value">{{ drone_count }}</span>
@@ -141,7 +142,6 @@
             <span class="stat-label">Комплектуючі</span>
             <span class="stat-value">{{ component_count }}</span>
         </li>
-        {% if user.is_superuser or "майстер" in user_groups %}
         <li>
             <span class="stat-label">Витрати</span>
             <span class="stat-value">{{ expense_count }}</span>
@@ -164,6 +164,7 @@
         <span class="nav-card-meta">{{ article_count }} записів</span>
     </a>
 
+    {% if user.is_superuser or "майстер" in user_groups or "командир майстерні" in user_groups %}
     <a href="{% url 'equipment_accounting:equipment_accounting_page' %}" class="nav-card">
         <div class="nav-card-icon">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -173,7 +174,6 @@
         <span class="nav-card-meta">{{ drone_count }} дронів / {{ component_count }} компонентів</span>
     </a>
 
-    {% if user.is_superuser or "майстер" in user_groups %}
     <a href="{% url 'expense_log:expense_list' %}" class="nav-card">
         <div class="nav-card-icon">
             <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>

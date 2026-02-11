@@ -3,6 +3,7 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
@@ -12,6 +13,7 @@ from .models import Expense
 from .forms import ExpenseForm
 
 GROUP_NAME = "майстер"
+COMMANDER_GROUP = "командир майстерні"
 
 
 def master_required(view_func):
@@ -19,7 +21,9 @@ def master_required(view_func):
     @wraps(view_func)
     @login_required
     def _wrapped(request, *args, **kwargs):
-        if request.user.is_superuser or request.user.groups.filter(name=GROUP_NAME).exists():
+        if request.user.is_superuser or request.user.groups.filter(
+            name__in=[GROUP_NAME, COMMANDER_GROUP]
+        ).exists():
             return view_func(request, *args, **kwargs)
         raise PermissionDenied
     return _wrapped
@@ -38,11 +42,49 @@ def expense_list(request):
         .order_by("-month")
     )
 
-    return render(request, "expense_log/expense_list.html", {
+    is_commander = request.user.is_superuser or request.user.groups.filter(
+        name=COMMANDER_GROUP
+    ).exists()
+
+    ctx = {
         "expenses": expenses,
         "total": total,
         "monthly": monthly,
-    })
+        "is_commander": is_commander,
+    }
+
+    if is_commander:
+        all_expenses = Expense.objects.select_related("created_by")
+        ctx["global_total"] = (
+            all_expenses.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
+        )
+        ctx["global_count"] = all_expenses.count()
+        ctx["global_monthly"] = (
+            all_expenses.annotate(month=TruncMonth("date"))
+            .values("month")
+            .annotate(total=Sum("amount"))
+            .order_by("-month")
+        )
+
+        # Per-user breakdown for the unit tab.
+        users_with_expenses = (
+            User.objects.filter(expenses__isnull=False)
+            .distinct()
+            .order_by("username")
+        )
+        per_user = []
+        for u in users_with_expenses:
+            user_qs = Expense.objects.filter(created_by=u)
+            user_total = user_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
+            per_user.append({
+                "user": u,
+                "total": user_total,
+                "expenses": user_qs.order_by("-date", "-created_at"),
+            })
+        ctx["per_user"] = per_user
+        ctx["all_expenses"] = all_expenses.order_by("-date", "-created_at")
+
+    return render(request, "expense_log/expense_list.html", ctx)
 
 
 @master_required

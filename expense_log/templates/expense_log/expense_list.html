@@ -18,6 +18,37 @@
         font-size: 0.9rem;
     }
 
+    /* tabs */
+    .tab-bar {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+        padding: 0.65rem 1.2rem;
+        border: none;
+        background: none;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s ease;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; bottom: -1px;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 2px 2px 0 0;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
     .summary-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -118,6 +149,29 @@
         color: var(--text-muted);
     }
 
+    /* per-user sections on unit tab */
+    .user-section {
+        margin-bottom: 2rem;
+    }
+    .user-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .user-section-header h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+    .user-section-total {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--accent);
+    }
+
     @media (max-width: 640px) {
         .expense-table thead { display: none; }
         .expense-table tr {
@@ -146,8 +200,18 @@
 {% block content %}
 <div class="expense-hero">
     <h1>Облік витрат</h1>
-    <p>Фінансові витрати підрозділу</p>
+    <p>Фінансові витрати на потреби підрозділу</p>
 </div>
+
+{% if is_commander %}
+<div class="tab-bar">
+    <button class="tab-btn active" type="button" data-tab="own">Власні витрати</button>
+    <button class="tab-btn" type="button" data-tab="unit">Витрати по підрозділу</button>
+</div>
+{% endif %}
+
+{# ── Tab 1: own expenses (always visible) ── #}
+<div class="tab-panel active" id="tab-own">
 
 <div class="summary-grid">
     <div class="summary-card">
@@ -175,7 +239,7 @@
 
 <div class="card">
     <div class="toolbar">
-        <h2>Витрати</h2>
+        <h2>Мої витрати</h2>
         <a href="{% url 'expense_log:expense_create' %}" class="button">+ Додати</a>
     </div>
 
@@ -219,4 +283,99 @@
     </div>
     {% endif %}
 </div>
+
+</div>{# /tab-own #}
+
+{% if is_commander %}
+{# ── Tab 2: unit expenses ── #}
+<div class="tab-panel" id="tab-unit">
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="summary-label">Підрозділ — загалом</div>
+        <div class="summary-value">{{ global_total|floatformat:2 }} грн</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Підрозділ — записів</div>
+        <div class="summary-value">{{ global_count }}</div>
+    </div>
+    {% if global_monthly %}
+    <div class="summary-card">
+        <div class="summary-label">Підрозділ — по місяцях</div>
+        <ul class="monthly-list">
+            {% for row in global_monthly %}
+            <li>
+                <span class="monthly-month">{{ row.month|date:"F Y" }}</span>
+                <span class="monthly-amount">{{ row.total|floatformat:2 }} грн</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+{% for entry in per_user %}
+<div class="card user-section">
+    <div class="user-section-header">
+        <h3>{{ entry.user.get_full_name|default:entry.user.username }}</h3>
+        <span class="user-section-total">{{ entry.total|floatformat:2 }} грн</span>
+    </div>
+
+    {% if entry.expenses %}
+    <table class="expense-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Сума</th>
+                <th>Опис</th>
+                <th>Квитанція</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entry.expenses %}
+            <tr>
+                <td data-label="Дата" class="date-cell">{{ e.date|date:"d.m.Y" }}</td>
+                <td data-label="Сума" class="amount-cell">{{ e.amount|floatformat:2 }} грн</td>
+                <td data-label="Опис">{{ e.description }}</td>
+                <td data-label="Квитанція">
+                    {% if e.receipt %}
+                    <a href="{{ e.receipt.url }}" target="_blank" class="receipt-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Файл
+                    </a>
+                    {% else %}
+                    <span class="muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% empty %}
+<div class="card">
+    <div class="empty-state">
+        <p>Витрат по підрозділу ще немає.</p>
+    </div>
+</div>
+{% endfor %}
+
+</div>{# /tab-unit #}
+
+<script>
+(function() {
+    var btns = document.querySelectorAll('.tab-btn');
+    var panels = document.querySelectorAll('.tab-panel');
+    btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            btns.forEach(function(b) { b.classList.remove('active'); });
+            panels.forEach(function(p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

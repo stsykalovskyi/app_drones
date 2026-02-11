@@ -4,5 +4,6 @@ from . import views
 app_name = 'user_management'
 
 urlpatterns = [
+    path('profile/', views.profile_view, name='profile'),
     path('approval-pending/', views.approval_pending_view, name='approval_pending'),
 ]
