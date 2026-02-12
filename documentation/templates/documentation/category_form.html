@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Документація{% endblock %}
+
+{% block head %}
+<style>
+    .form-hero {
+        margin-bottom: 1.5rem;
+    }
+    .form-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    .cat-form .field {
+        margin-bottom: 1.25rem;
+    }
+    .cat-form label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .cat-form .form-input {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        backdrop-filter: blur(8px);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .cat-form .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .cat-form .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.3rem 0 0;
+        font-size: 0.82rem;
+        color: #ef4444;
+    }
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="card">
+    <form method="post" class="cat-form">
+        {% csrf_token %}
+
+        <div class="field">
+            <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+            <ul class="errorlist">
+                {% for error in form.name.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Зберегти</button>
+            <a href="{% url 'documentation:documentation_page' %}" class="button ghost">Скасувати</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

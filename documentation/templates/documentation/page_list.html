@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    /* category chips */
+    .cat-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 1.25rem;
+    }
+    .cat-chip {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        background: var(--surface);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .cat-chip:hover {
+        border-color: var(--border-active);
+        color: var(--accent);
+    }
+    .cat-chip.active {
+        background: var(--accent-dim);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    /* page cards grid */
+    .page-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1rem;
+    }
+    .page-card {
+        text-decoration: none;
+        color: inherit;
+    }
+    .page-card .card {
+        margin-bottom: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .page-card h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    .page-card .card-meta {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: auto;
+        padding-top: 0.75rem;
+    }
+    .page-card .card-cat {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        margin-bottom: 0.35rem;
+    }
+    .page-card .card-preview {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+    }
+    .empty-state h2 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ title }}</h1>
+    {% if can_edit %}
+    <div class="header-actions">
+        <a href="{% url 'documentation:category_create' %}" class="button ghost">Нова категорія</a>
+        <a href="{% url 'documentation:page_create' %}" class="button">Нова сторінка</a>
+    </div>
+    {% endif %}
+</div>
+
+<form class="search" method="get" action="{% url 'documentation:documentation_page' %}">
+    <input type="text" name="q" value="{{ query }}" placeholder="Пошук сторінок...">
+    <button type="submit">Знайти</button>
+</form>
+
+{% if categories %}
+<div class="cat-chips">
+    <a href="{% url 'documentation:documentation_page' %}" class="cat-chip {% if not current_cat %}active{% endif %}">Усі</a>
+    {% for cat in categories %}
+    <a href="?cat={{ cat.slug }}" class="cat-chip {% if current_cat == cat.slug %}active{% endif %}">{{ cat.name }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if pages %}
+<div class="page-grid">
+    {% for p in pages %}
+    <a href="{% url 'documentation:page_detail' slug=p.slug %}" class="page-card">
+        <div class="card">
+            {% if p.category %}
+            <span class="card-cat">{{ p.category.name }}</span>
+            {% endif %}
+            <h3>{{ p.title }}</h3>
+            <p class="card-preview">{{ p.body|truncatewords:30 }}</p>
+            <div class="card-meta">
+                {% if p.author %}{{ p.author.get_full_name|default:p.author.username }}{% endif %}
+                &middot; {{ p.updated_at|date:"d.m.Y" }}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state">
+    <h2>Сторінок поки немає</h2>
+    <p>{% if can_edit %}Створіть першу сторінку документації.{% else %}Документація з'явиться тут незабаром.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

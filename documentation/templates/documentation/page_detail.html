@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} — Документація{% endblock %}
+
+{% block head %}
+<style>
+    .detail-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .detail-header h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .detail-meta {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.35rem;
+    }
+    .detail-meta a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    /* markdown body */
+    .md-body {
+        line-height: 1.7;
+        font-size: 0.95rem;
+    }
+    .md-body h1, .md-body h2, .md-body h3,
+    .md-body h4, .md-body h5, .md-body h6 {
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .md-body h1 { font-size: 1.5rem; }
+    .md-body h2 { font-size: 1.3rem; }
+    .md-body h3 { font-size: 1.1rem; }
+    .md-body p { margin-bottom: 1em; }
+    .md-body ul, .md-body ol {
+        padding-left: 1.5rem;
+        margin-bottom: 1em;
+    }
+    .md-body li { margin-bottom: 0.3em; }
+    .md-body blockquote {
+        border-left: 3px solid var(--accent);
+        padding: 0.5rem 1rem;
+        margin: 1em 0;
+        background: var(--accent-dim);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        color: var(--text-secondary);
+    }
+    .md-body code {
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 0.85em;
+        background: var(--accent-dim);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+    }
+    .md-body pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        overflow-x: auto;
+        margin-bottom: 1em;
+    }
+    .md-body pre code {
+        background: none;
+        padding: 0;
+    }
+    .md-body table {
+        margin-bottom: 1em;
+    }
+    .md-body img {
+        max-width: 100%;
+        border-radius: var(--radius-sm);
+    }
+    .md-body a {
+        color: var(--accent);
+    }
+    .md-body hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 1.5em 0;
+    }
+
+    /* comments */
+    .comments-section {
+        margin-top: 2.5rem;
+    }
+    .comments-section h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    .comment {
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .comment:last-child {
+        border-bottom: none;
+    }
+    .comment-meta {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .comment-meta strong {
+        color: var(--text-secondary);
+    }
+    .comment-body {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    .comment-form {
+        margin-top: 1.5rem;
+    }
+    .comment-form label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .comment-form .form-input {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        backdrop-filter: blur(8px);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 80px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .comment-form .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .comment-form .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.3rem 0 0;
+        font-size: 0.82rem;
+        color: #ef4444;
+    }
+    .comment-form .form-actions {
+        margin-top: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <div>
+        <h1>{{ page.title }}</h1>
+        <div class="detail-meta">
+            {% if page.category %}
+            <a href="{% url 'documentation:documentation_page' %}?cat={{ page.category.slug }}">{{ page.category.name }}</a> &middot;
+            {% endif %}
+            {% if page.author %}{{ page.author.get_full_name|default:page.author.username }} &middot;{% endif %}
+            {{ page.updated_at|date:"d.m.Y H:i" }}
+        </div>
+    </div>
+    {% if can_edit %}
+    <a href="{% url 'documentation:page_edit' slug=page.slug %}" class="button ghost">Редагувати</a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="md-body">
+        {{ body_html|safe }}
+    </div>
+</div>
+
+<div class="comments-section">
+    <h2>Коментарі ({{ comments|length }})</h2>
+
+    {% if comments %}
+    <div class="card">
+        {% for c in comments %}
+        <div class="comment">
+            <div class="comment-meta">
+                <strong>{{ c.author.get_full_name|default:c.author.username }}</strong>
+                &middot; {{ c.created_at|date:"d.m.Y H:i" }}
+            </div>
+            <div class="comment-body">{{ c.body }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card comment-form">
+        <form method="post" action="{% url 'documentation:comment_create' slug=page.slug %}">
+            {% csrf_token %}
+            <label for="{{ comment_form.body.id_for_label }}">Додати коментар</label>
+            {{ comment_form.body }}
+            {% if comment_form.body.errors %}
+            <ul class="errorlist">
+                {% for error in comment_form.body.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <div class="form-actions">
+                <button type="submit" class="button">Надіслати</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div style="margin-top: 1.5rem;">
+    <a href="{% url 'documentation:documentation_page' %}" class="button ghost">&larr; До списку</a>
+</div>
+{% endblock %}

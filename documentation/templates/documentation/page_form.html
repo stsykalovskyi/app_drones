@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Документація{% endblock %}
+
+{% block head %}
+<style>
+    .form-hero {
+        margin-bottom: 1.5rem;
+    }
+    .form-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    .doc-form .field {
+        margin-bottom: 1.25rem;
+    }
+    .doc-form label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .doc-form .form-input {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        backdrop-filter: blur(8px);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .doc-form .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .doc-form select.form-input {
+        cursor: pointer;
+    }
+    .doc-form textarea.form-input {
+        resize: vertical;
+        min-height: 300px;
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+    }
+    .doc-form .helptext {
+        display: block;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 0.3rem;
+    }
+    .doc-form .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.3rem 0 0;
+        font-size: 0.82rem;
+        color: #ef4444;
+    }
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-top: 1.5rem;
+    }
+
+    /* markdown toolbar */
+    .md-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.4rem;
+        margin-bottom: -1px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        background: var(--surface);
+    }
+    .md-toolbar button {
+        padding: 0.3rem 0.55rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .md-toolbar button:hover {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border-color: var(--border-active);
+    }
+    .md-toolbar + textarea.form-input {
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="card">
+    <form method="post" class="doc-form">
+        {% csrf_token %}
+
+        <div class="field">
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+            <ul class="errorlist">
+                {% for error in form.title.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+            {{ form.category }}
+            {% if form.category.errors %}
+            <ul class="errorlist">
+                {% for error in form.category.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>
+            <div class="md-toolbar" id="md-toolbar">
+                <button type="button" data-md="h2">H2</button>
+                <button type="button" data-md="h3">H3</button>
+                <button type="button" data-md="bold">B</button>
+                <button type="button" data-md="italic">I</button>
+                <button type="button" data-md="list">List</button>
+                <button type="button" data-md="quote">Quote</button>
+                <button type="button" data-md="code">Code</button>
+                <button type="button" data-md="link">Link</button>
+            </div>
+            {{ form.body }}
+            {% if form.body.errors %}
+            <ul class="errorlist">
+                {% for error in form.body.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Зберегти</button>
+            <a href="{% url 'documentation:documentation_page' %}" class="button ghost">Скасувати</a>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    var toolbar = document.getElementById('md-toolbar');
+    var editor = document.getElementById('md-editor');
+    if (!toolbar || !editor) return;
+
+    var actions = {
+        h2:     { before: '## ', after: '' },
+        h3:     { before: '### ', after: '' },
+        bold:   { before: '**', after: '**' },
+        italic: { before: '_', after: '_' },
+        list:   { before: '- ', after: '' },
+        quote:  { before: '> ', after: '' },
+        code:   { before: '```\n', after: '\n```' },
+        link:   { before: '[', after: '](url)' }
+    };
+
+    toolbar.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-md]');
+        if (!btn) return;
+        var act = actions[btn.dataset.md];
+        if (!act) return;
+
+        var start = editor.selectionStart;
+        var end = editor.selectionEnd;
+        var sel = editor.value.substring(start, end);
+        var text = act.before + (sel || 'текст') + act.after;
+
+        editor.focus();
+        editor.setRangeText(text, start, end, 'end');
+    });
+})();
+</script>
+{% endblock %}

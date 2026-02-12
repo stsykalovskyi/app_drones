@@ -253,6 +253,33 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "Документація",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Категорії",
+                        "icon": "folder",
+                        "link": reverse_lazy(
+                            "admin:documentation_category_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Сторінки",
+                        "icon": "description",
+                        "link": reverse_lazy(
+                            "admin:documentation_page_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Коментарі",
+                        "icon": "comment",
+                        "link": reverse_lazy(
+                            "admin:documentation_comment_changelist"
+                        ),
+                    },
+                ],
+            },
+            {
                 "title": "Довідники",
                 "separator": True,
                 "items": [
