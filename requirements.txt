@@ -11,3 +11,4 @@ setuptools
 requests
 markdown
 bleach
+Pillow

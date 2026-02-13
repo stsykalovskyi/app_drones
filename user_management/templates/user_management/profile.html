@@ -16,16 +16,103 @@
     }
 
     .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
         margin-bottom: 1.5rem;
     }
-    .profile-header h1 {
+    .profile-header-text h1 {
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
     }
-    .profile-header p {
+    .profile-header-text p {
         color: var(--text-secondary);
         font-size: 0.875rem;
+    }
+
+    /* avatar */
+    .avatar-wrapper {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+    }
+    .avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--border-active);
+        background: var(--surface);
+    }
+    .avatar-placeholder {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: 2px solid var(--border);
+        background: var(--accent-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .avatar-section {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .avatar-section .avatar-preview {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--border-active);
+        background: var(--surface);
+    }
+    .avatar-section .avatar-placeholder-lg {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        border: 2px dashed var(--border);
+        background: var(--accent-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent);
+    }
+    .avatar-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .avatar-actions label.button {
+        cursor: pointer;
+    }
+    .avatar-actions input[type="file"] {
+        display: none;
+    }
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.78rem;
+    }
+    .btn-danger {
+        background: transparent;
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        box-shadow: none;
+    }
+    .btn-danger:hover {
+        background: rgba(239, 68, 68, 0.1);
+        box-shadow: none;
+        transform: none;
     }
 
     .card h2 {
@@ -121,8 +208,17 @@
 
 {% block content %}
 <div class="profile-header">
-    <h1>Профіль</h1>
-    <p>{{ user.username }}</p>
+    <div class="avatar-wrapper">
+        {% if profile.avatar %}
+        <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar">
+        {% else %}
+        <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+        {% endif %}
+    </div>
+    <div class="profile-header-text">
+        <h1>Профіль</h1>
+        <p>{{ user.username }}</p>
+    </div>
 </div>
 
 <div class="profile-grid">
@@ -169,33 +265,72 @@
         </form>
     </div>
 
-    <div class="card">
-        <h2>Зміна пароля</h2>
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="change_password" value="1">
-            {% for field in password_form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                <input type="password"
-                       name="{{ field.html_name }}"
-                       id="{{ field.id_for_label }}"
-                       {% if field.field.required %}required{% endif %}
-                       autocomplete="{{ field.html_name }}">
-                {% if field.help_text %}
-                <span class="helptext">{{ field.help_text|striptags }}</span>
+    <div>
+        <div class="card" style="margin-bottom: 1.5rem;">
+            <h2>Фото профілю</h2>
+            <div class="avatar-section">
+                {% if profile.avatar %}
+                <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar-preview">
+                {% else %}
+                <div class="avatar-placeholder-lg">{{ user.username|make_list|first|upper }}</div>
                 {% endif %}
-                {% if field.errors %}
-                <ul class="errorlist">
-                    {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
-                </ul>
-                {% endif %}
+                <div class="avatar-actions">
+                    <form method="post" enctype="multipart/form-data" id="avatar-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="change_avatar" value="1">
+                        <label class="button btn-sm" for="avatar-input">Завантажити</label>
+                        <input type="file" name="avatar" id="avatar-input" accept="image/*">
+                    </form>
+                    {% if profile.avatar %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="delete_avatar" value="1">
+                        <button type="submit" class="button btn-sm btn-danger">Видалити</button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
-            {% endfor %}
-            <div class="form-actions">
-                <button type="submit" class="button">Змінити пароль</button>
-            </div>
-        </form>
+            {% if avatar_form.avatar.errors %}
+            <ul class="errorlist">
+                {% for error in avatar_form.avatar.errors %}<li style="font-size:0.78rem;color:#ef4444;">{{ error }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Зміна пароля</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="change_password" value="1">
+                {% for field in password_form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <input type="password"
+                           name="{{ field.html_name }}"
+                           id="{{ field.id_for_label }}"
+                           {% if field.field.required %}required{% endif %}
+                           autocomplete="{{ field.html_name }}">
+                    {% if field.help_text %}
+                    <span class="helptext">{{ field.help_text|striptags }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                    <ul class="errorlist">
+                        {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <div class="form-actions">
+                    <button type="submit" class="button">Змінити пароль</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
+
+<script>
+document.getElementById('avatar-input').addEventListener('change', function() {
+    if (this.files.length) document.getElementById('avatar-form').submit();
+});
+</script>
 {% endblock %}

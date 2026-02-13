@@ -30,7 +30,7 @@
             --accent-glow: rgba(84, 246, 199, 0.15);
             --text: #e2edf8;
             --text-secondary: #94a3b8;
-            --text-muted: #475569;
+            --text-muted: #64748b;
             --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border);
             --shadow-elevated: 0 8px 40px rgba(0, 0, 0, 0.45);
             --shadow-sidebar: none;
@@ -221,7 +221,8 @@
             position: relative;
         }
 
-        .sidebar-nav a:hover {
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
             background: var(--accent-dim);
             color: var(--accent);
             box-shadow: inset 0 0 0 1px var(--accent-dim);
@@ -989,6 +990,15 @@
                 localStorage.setItem(SIDEBAR_KEY, body.classList.contains('sidebar-pinned') ? '1' : '0');
             });
         }
+
+        /* active nav highlight */
+        var path = location.pathname;
+        document.querySelectorAll('.sidebar-nav a[href]').forEach(function(a) {
+            var href = a.getAttribute('href');
+            if (!href || href === '#') return;
+            var isActive = href === '/' ? path === '/' : path.startsWith(href);
+            if (isActive) a.classList.add('active');
+        });
 
         /* mobile menu */
         var mobileBtn = document.querySelector('[data-mobile-toggle]');

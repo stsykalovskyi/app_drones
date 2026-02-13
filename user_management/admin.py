@@ -1,9 +1,17 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from unfold.admin import ModelAdmin
+from unfold.admin import ModelAdmin, StackedInline
+
+from .models import Profile
 
 admin.site.unregister(User)
+
+
+class ProfileInline(StackedInline):
+    model = Profile
+    can_delete = False
+    fields = ("avatar",)
 
 
 @admin.register(User)
@@ -12,6 +20,7 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
     list_filter = ('is_active', 'is_staff', 'is_superuser')
     list_editable = ('is_active',)
     ordering = ('-date_joined',)
+    inlines = [ProfileInline]
     actions = ['approve_users', 'revoke_users']
 
     @admin.action(description='Підтвердити обраних користувачів')

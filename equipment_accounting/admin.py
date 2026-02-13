@@ -1,178 +1,116 @@
 from django.contrib import admin
+from django.contrib.contenttypes.admin import GenericTabularInline
 from unfold.admin import ModelAdmin
 
 from .models import (
-    ComponentCategory,
-    ComponentType,
+    BatteryType,
     Component,
-    Drone,
-    DroneCategory,
     DroneModel,
-    DroneType,
-    FlightLog,
+    DronePurpose,
+    FPVDroneType,
     Frequency,
-    MaintenanceRecord,
     Manufacturer,
+    OpticalDroneType,
+    OtherComponentType,
+    PowerTemplate,
+    SpoolType,
+    UAVInstance,
+    VideoTemplate,
 )
 
 
-# ---------------------------------------------------------------------------
-# Lookups
-# ---------------------------------------------------------------------------
+# ============== ДОВІДНИКИ ==============
 
 @admin.register(Manufacturer)
 class ManufacturerAdmin(ModelAdmin):
-    list_display = ("name", "website", "slug", "created_at")
-    prepopulated_fields = {"slug": ("name",)}
+    list_display = ("name", "created_at")
     search_fields = ("name",)
 
 
 @admin.register(DroneModel)
 class DroneModelAdmin(ModelAdmin):
-    list_display = ("name", "slug", "created_at")
-    prepopulated_fields = {"slug": ("name",)}
+    list_display = ("name", "manufacturer", "created_at")
+    list_filter = ("manufacturer",)
+    search_fields = ("name", "manufacturer__name")
+
+
+@admin.register(DronePurpose)
+class DronePurposeAdmin(ModelAdmin):
+    list_display = ("name", "created_at")
     search_fields = ("name",)
 
 
 @admin.register(Frequency)
 class FrequencyAdmin(ModelAdmin):
-    """Registered for the autocomplete / popup add button.
-
-    Not shown in the sidebar navigation.
-    """
-    list_display = ("value",)
+    list_display = ("value", "unit")
+    list_filter = ("unit",)
     search_fields = ("value",)
 
 
-# ---------------------------------------------------------------------------
-# Drone hierarchy
-# ---------------------------------------------------------------------------
+# ============== ШАБЛОНИ СУМІСНОСТІ ==============
 
-@admin.register(DroneCategory)
-class DroneCategoryAdmin(ModelAdmin):
-    list_display = ("name", "slug", "created_at")
-    prepopulated_fields = {"slug": ("name",)}
+@admin.register(PowerTemplate)
+class PowerTemplateAdmin(ModelAdmin):
+    list_display = ("name", "connector", "configuration", "capacity")
+    list_filter = ("connector", "configuration")
     search_fields = ("name",)
 
 
-@admin.register(DroneType)
-class DroneTypeAdmin(ModelAdmin):
-    list_display = (
-        "name",
-        "manufacturer",
-        "model",
-        "category",
-        "has_thermal_camera",
-        "is_night_capable",
-        "has_optical_fiber",
-        "has_guidance_system",
-    )
-    list_filter = (
-        "category",
-        "manufacturer",
-        "has_thermal_camera",
-        "is_night_capable",
-        "has_optical_fiber",
-        "has_guidance_system",
-    )
-    search_fields = (
-        "manufacturer__name",
-        "model__name",
-    )
-    autocomplete_fields = ("control_frequency", "video_frequency")
-
-
-@admin.register(Drone)
-class DroneAdmin(ModelAdmin):
-    list_display = (
-        "inventory_number",
-        "drone_type",
-        "serial_number",
-        "status",
-        "assigned_to",
-        "current_location",
-        "total_flights",
-        "total_flight_hours",
-    )
-    list_filter = ("status", "drone_type__category")
-    search_fields = ("inventory_number", "serial_number")
-    raw_id_fields = ("assigned_to",)
-    readonly_fields = ("total_flight_hours", "total_flights")
-
-
-# ---------------------------------------------------------------------------
-# Component hierarchy
-# ---------------------------------------------------------------------------
-
-@admin.register(ComponentCategory)
-class ComponentCategoryAdmin(ModelAdmin):
-    list_display = ("name", "slug", "created_at")
-    prepopulated_fields = {"slug": ("name",)}
+@admin.register(VideoTemplate)
+class VideoTemplateAdmin(ModelAdmin):
+    list_display = ("name", "is_analog", "max_distance")
+    list_filter = ("is_analog",)
     search_fields = ("name",)
 
 
-@admin.register(ComponentType)
-class ComponentTypeAdmin(ModelAdmin):
-    list_display = ("name", "category", "manufacturer", "model")
+# ============== ТИПИ БПЛА ==============
+
+@admin.register(FPVDroneType)
+class FPVDroneTypeAdmin(ModelAdmin):
+    list_display = ("model", "prop_size", "control_frequency", "video_frequency", "has_thermal", "is_unusable")
+    list_filter = ("prop_size", "has_thermal", "is_unusable")
+    search_fields = ("model__name", "model__manufacturer__name")
+
+
+@admin.register(OpticalDroneType)
+class OpticalDroneTypeAdmin(ModelAdmin):
+    list_display = ("model", "prop_size", "control_frequency", "video_template", "has_thermal", "is_unusable")
+    list_filter = ("prop_size", "has_thermal", "is_unusable")
+    search_fields = ("model__name", "model__manufacturer__name")
+
+
+# ============== КОМПЛЕКТУЮЧІ ==============
+
+@admin.register(BatteryType)
+class BatteryTypeAdmin(ModelAdmin):
+    list_display = ("model", "power_template")
+    search_fields = ("model",)
+
+
+@admin.register(SpoolType)
+class SpoolTypeAdmin(ModelAdmin):
+    list_display = ("model", "video_template")
+    search_fields = ("model",)
+
+
+@admin.register(OtherComponentType)
+class OtherComponentTypeAdmin(ModelAdmin):
+    list_display = ("model", "category")
     list_filter = ("category",)
-    search_fields = ("name", "manufacturer", "model")
-    filter_horizontal = ("compatible_drone_types",)
+    search_fields = ("model",)
 
 
 @admin.register(Component)
 class ComponentAdmin(ModelAdmin):
-    list_display = (
-        "inventory_number",
-        "component_type",
-        "serial_number",
-        "status",
-        "assigned_to_drone",
-        "current_location",
-    )
-    list_filter = ("status", "component_type__category")
-    search_fields = ("inventory_number", "serial_number")
-    raw_id_fields = ("assigned_to_drone",)
+    list_display = ("component_type", "status", "assigned_to_uav", "created_at")
+    list_filter = ("status",)
 
 
-# ---------------------------------------------------------------------------
-# Operational logs
-# ---------------------------------------------------------------------------
+# ============== ІНВЕНТАРНІ ЕКЗЕМПЛЯРИ ==============
 
-@admin.register(FlightLog)
-class FlightLogAdmin(ModelAdmin):
-    list_display = (
-        "drone",
-        "pilot",
-        "flight_date",
-        "duration_minutes",
-        "mission_type",
-        "location",
-    )
-    list_filter = ("mission_type", "flight_date")
-    search_fields = (
-        "drone__inventory_number",
-        "pilot__username",
-        "location",
-    )
-    raw_id_fields = ("drone", "pilot")
-    filter_horizontal = ("batteries_used",)
-
-
-@admin.register(MaintenanceRecord)
-class MaintenanceRecordAdmin(ModelAdmin):
-    list_display = (
-        "maintenance_type",
-        "drone",
-        "component",
-        "date",
-        "performed_by",
-        "cost",
-        "next_maintenance_date",
-    )
-    list_filter = ("maintenance_type", "date")
-    search_fields = (
-        "drone__inventory_number",
-        "component__inventory_number",
-        "description",
-    )
-    raw_id_fields = ("drone", "component", "performed_by")
+@admin.register(UAVInstance)
+class UAVInstanceAdmin(ModelAdmin):
+    list_display = ("serial_number", "uav_type", "status", "created_by", "created_at")
+    list_filter = ("status",)
+    search_fields = ("serial_number",)
+    raw_id_fields = ("created_by",)

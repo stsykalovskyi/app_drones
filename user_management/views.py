@@ -5,7 +5,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LoginView
 from django.shortcuts import redirect, render
 
-from .forms import ProfileForm
+from .forms import AvatarForm, ProfileForm
+from .models import Profile
 
 
 class CustomLoginView(LoginView):
@@ -39,6 +40,8 @@ class CustomLoginView(LoginView):
 @login_required
 def profile_view(request):
     user = request.user
+    profile, _ = Profile.objects.get_or_create(user=user)
+
     if request.method == "POST":
         if "change_password" in request.POST:
             password_form = PasswordChangeForm(user, request.POST)
@@ -48,6 +51,23 @@ def profile_view(request):
                 messages.success(request, "Пароль змінено")
                 return redirect("user_management:profile")
             profile_form = ProfileForm(instance=user)
+            avatar_form = AvatarForm(instance=profile)
+        elif "change_avatar" in request.POST:
+            avatar_form = AvatarForm(
+                request.POST, request.FILES, instance=profile
+            )
+            if avatar_form.is_valid():
+                avatar_form.save()
+                messages.success(request, "Фото оновлено")
+                return redirect("user_management:profile")
+            profile_form = ProfileForm(instance=user)
+            password_form = PasswordChangeForm(user)
+        elif "delete_avatar" in request.POST:
+            if profile.avatar:
+                profile.avatar.delete()
+                profile.save()
+                messages.success(request, "Фото видалено")
+            return redirect("user_management:profile")
         else:
             profile_form = ProfileForm(request.POST, instance=user)
             if profile_form.is_valid():
@@ -55,13 +75,17 @@ def profile_view(request):
                 messages.success(request, "Профіль оновлено")
                 return redirect("user_management:profile")
             password_form = PasswordChangeForm(user)
+            avatar_form = AvatarForm(instance=profile)
     else:
         profile_form = ProfileForm(instance=user)
         password_form = PasswordChangeForm(user)
+        avatar_form = AvatarForm(instance=profile)
 
     return render(request, "user_management/profile.html", {
         "profile_form": profile_form,
         "password_form": password_form,
+        "avatar_form": avatar_form,
+        "profile": profile,
     })
 
 

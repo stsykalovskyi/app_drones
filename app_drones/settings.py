@@ -297,31 +297,65 @@ UNFOLD = {
                             "admin:equipment_accounting_dronemodel_changelist"
                         ),
                     },
+                    {
+                        "title": "Призначення",
+                        "icon": "target",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_dronepurpose_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Частоти",
+                        "icon": "wifi",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_frequency_changelist"
+                        ),
+                    },
                 ],
             },
             {
-                "title": "Дрони",
+                "title": "Шаблони сумісності",
                 "separator": True,
                 "items": [
                     {
-                        "title": "Категорії дронів",
-                        "icon": "label",
+                        "title": "Шаблони живлення",
+                        "icon": "battery_charging_full",
                         "link": reverse_lazy(
-                            "admin:equipment_accounting_dronecategory_changelist"
+                            "admin:equipment_accounting_powertemplate_changelist"
                         ),
                     },
                     {
-                        "title": "Типи дронів",
-                        "icon": "precision_manufacturing",
+                        "title": "Шаблони відео",
+                        "icon": "videocam",
                         "link": reverse_lazy(
-                            "admin:equipment_accounting_dronetype_changelist"
+                            "admin:equipment_accounting_videotemplate_changelist"
                         ),
                     },
+                ],
+            },
+            {
+                "title": "Типи БПЛА",
+                "separator": True,
+                "items": [
                     {
-                        "title": "Дрони",
+                        "title": "FPV дрони",
                         "icon": "flight",
                         "link": reverse_lazy(
-                            "admin:equipment_accounting_drone_changelist"
+                            "admin:equipment_accounting_fpvdronetype_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Оптичні дрони",
+                        "icon": "cable",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_opticaldronetype_changelist"
+                        ),
+                    },
+                    {
+                        "title": "БПЛА (екземпляри)",
+                        "icon": "inventory",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_uavinstance_changelist"
                         ),
                     },
                 ],
@@ -331,17 +365,24 @@ UNFOLD = {
                 "separator": True,
                 "items": [
                     {
-                        "title": "Категорії комплектуючих",
-                        "icon": "label",
+                        "title": "Типи батарей",
+                        "icon": "battery_full",
                         "link": reverse_lazy(
-                            "admin:equipment_accounting_componentcategory_changelist"
+                            "admin:equipment_accounting_batterytype_changelist"
                         ),
                     },
                     {
-                        "title": "Типи комплектуючих",
+                        "title": "Типи котушок",
+                        "icon": "settings_input_svideo",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_spooltype_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Інші комплектуючі",
                         "icon": "settings",
                         "link": reverse_lazy(
-                            "admin:equipment_accounting_componenttype_changelist"
+                            "admin:equipment_accounting_othercomponenttype_changelist"
                         ),
                     },
                     {
@@ -362,26 +403,6 @@ UNFOLD = {
                         "icon": "payments",
                         "link": reverse_lazy(
                             "admin:expense_log_expense_changelist"
-                        ),
-                    },
-                ],
-            },
-            {
-                "title": "Операції",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Журнал польотів",
-                        "icon": "flight_takeoff",
-                        "link": reverse_lazy(
-                            "admin:equipment_accounting_flightlog_changelist"
-                        ),
-                    },
-                    {
-                        "title": "Журнал обслуговування",
-                        "icon": "build",
-                        "link": reverse_lazy(
-                            "admin:equipment_accounting_maintenancerecord_changelist"
                         ),
                     },
                 ],

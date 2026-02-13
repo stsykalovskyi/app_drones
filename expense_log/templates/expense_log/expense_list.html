@@ -172,6 +172,56 @@
         color: var(--accent);
     }
 
+    /* lightbox */
+    .lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.85);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        cursor: zoom-out;
+    }
+    .lightbox.open {
+        display: flex;
+    }
+    .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: var(--radius-sm);
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+        cursor: default;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .lightbox-close {
+        position: fixed;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 10001;
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease;
+    }
+    .lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
     @media (max-width: 640px) {
         .expense-table thead { display: none; }
         .expense-table tr {
@@ -192,6 +242,15 @@
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--text-muted);
+        }
+
+        .lightbox { padding: 0.5rem; }
+        .lightbox-close {
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 44px;
+            height: 44px;
+            font-size: 1.6rem;
         }
     }
 </style>
@@ -378,4 +437,54 @@
 })();
 </script>
 {% endif %}
+
+<div class="lightbox" id="receipt-lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">&times;</button>
+    <img src="" alt="Receipt">
+</div>
+
+<script>
+(function() {
+    var IMAGE_RE = /\.(jpe?g|png|gif|webp|bmp|svg)$/i;
+    var lightbox = document.getElementById('receipt-lightbox');
+    var lbImg = lightbox.querySelector('img');
+    var lbClose = lightbox.querySelector('.lightbox-close');
+
+    function openLightbox(url) {
+        lbImg.src = url;
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+        lbImg.src = '';
+    }
+
+    // Intercept clicks on receipt links
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('.receipt-link');
+        if (!link) return;
+        var url = link.getAttribute('href');
+        if (IMAGE_RE.test(url)) {
+            e.preventDefault();
+            openLightbox(url);
+        }
+        // Non-images fall through to default target="_blank" behavior
+    });
+
+    lbClose.addEventListener('click', closeLightbox);
+
+    // Close on backdrop click (but not on image click)
+    lightbox.addEventListener('click', function(e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLightbox();
+    });
+})();
+</script>
 {% endblock %}
