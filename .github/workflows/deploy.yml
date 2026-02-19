@@ -47,7 +47,11 @@ jobs:
             git checkout master
             git reset --hard origin/master
 
-            # Apply database migrations
+            # The production DB has a duplicate column from a previous failed migration.
+            # We fake-apply the problematic migration to sync the migration history.
+            docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py migrate equipment_accounting 0003_add_is_unusable_column --fake"
+
+            # Apply all other database migrations
             docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py migrate --no-input"
 
             # Find all fixtures and apply them
