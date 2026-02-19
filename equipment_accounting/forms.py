@@ -49,6 +49,12 @@ class UAVInstanceForm(forms.ModelForm):
         initial=1,
         widget=forms.NumberInput(attrs={**INPUT_CSS, "min": "1", "max": "100"}),
     )
+    with_kit = forms.BooleanField(
+        label="Комплект",
+        initial=True,
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-checkbox"}),
+    )
 
     class Meta:
         model = UAVInstance
@@ -62,14 +68,15 @@ class UAVInstanceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["drone_type"].choices = _build_drone_type_choices()
         if self.instance.pk:
-            # Editing — hide quantity, show status
+            # Editing — hide quantity and kit, show status
             del self.fields["quantity"]
+            del self.fields["with_kit"]
             if self.instance.content_type_id:
                 self.fields["drone_type"].initial = (
                     f"{self.instance.content_type_id}-{self.instance.object_id}"
                 )
         else:
-            # Creating — hide status (always "inspection") and notes
+            # Creating — hide status and notes
             del self.fields["status"]
             del self.fields["notes"]
 

@@ -13,6 +13,7 @@ from .forms import UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTempl
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
+    BatteryType, SpoolType,
 )
 
 GROUP_NAME = "майстер"
@@ -39,11 +40,14 @@ def equipment_list(request):
     tab = request.GET.get("tab", "drones")
 
     # Drones with filtering
-    uavs = UAVInstance.objects.select_related("content_type", "created_by")
+    uavs = UAVInstance.objects.select_related("content_type", "created_by").prefetch_related(
+        "components", "components__content_type"
+    )
 
     status_filter = request.GET.get("status", "")
     category_filter = request.GET.get("category", "")
     type_filter = request.GET.get("type", "")
+    kit_filter = request.GET.get("kit", "")
     date_from = request.GET.get("date_from", "")
     date_to = request.GET.get("date_to", "")
     search_q = request.GET.get("q", "")
@@ -83,6 +87,11 @@ def equipment_list(request):
     if search_q:
         uavs = uavs.filter(Q(notes__icontains=search_q))
 
+    # Kit filter requires Python-level evaluation per object
+    if kit_filter in (UAVInstance.KIT_FULL, UAVInstance.KIT_PARTIAL, UAVInstance.KIT_NONE):
+        filtered_ids = [u.pk for u in uavs if u.get_kit_status() == kit_filter]
+        uavs = uavs.filter(pk__in=filtered_ids)
+
     paginator = Paginator(uavs.order_by("-created_at"), 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
@@ -116,6 +125,8 @@ def equipment_list(request):
         "status_filter": status_filter,
         "category_filter": category_filter,
         "type_filter": type_filter,
+        "kit_filter": kit_filter,
+        "kit_choices": list(UAVInstance.KIT_LABELS.items()),
         "date_from": date_from,
         "date_to": date_to,
         "search_q": search_q,
@@ -164,22 +175,55 @@ def uav_bulk_action(request):
 
 # ── UAV CRUD ────────────────────────────────────────────────────────
 
+def _create_kit_components(uav, drone_type_obj):
+    """Create matching components (battery, spool) for a UAV based on its drone type."""
+    # Battery for all drone types (matched by power_template)
+    battery_type = BatteryType.objects.filter(
+        power_template=drone_type_obj.power_template
+    ).first()
+    if battery_type:
+        Component.objects.create(
+            content_type=ContentType.objects.get_for_model(BatteryType),
+            object_id=battery_type.pk,
+            status="in_use",
+            assigned_to_uav=uav,
+        )
+
+    # Spool for optical drones (matched by video_template)
+    if isinstance(drone_type_obj, OpticalDroneType):
+        spool_type = SpoolType.objects.filter(
+            video_template=drone_type_obj.video_template
+        ).first()
+        if spool_type:
+            Component.objects.create(
+                content_type=ContentType.objects.get_for_model(SpoolType),
+                object_id=spool_type.pk,
+                status="in_use",
+                assigned_to_uav=uav,
+            )
+
+
 @master_required
 def uav_create(request):
     if request.method == "POST":
         form = UAVInstanceForm(request.POST)
         if form.is_valid():
             quantity = form.cleaned_data.get("quantity", 1)
+            with_kit = form.cleaned_data.get("with_kit", True)
             ct_id, obj_id = form.cleaned_data["drone_type"].split("-")
             notes = form.cleaned_data.get("notes", "")
+            ct = ContentType.objects.get(pk=int(ct_id))
+            drone_type_obj = ct.get_object_for_this_type(pk=int(obj_id))
             for _ in range(quantity):
-                UAVInstance.objects.create(
+                uav = UAVInstance.objects.create(
                     content_type_id=int(ct_id),
                     object_id=int(obj_id),
                     status="inspection",
                     created_by=request.user,
                     notes=notes,
                 )
+                if with_kit:
+                    _create_kit_components(uav, drone_type_obj)
             msg = f"Додано {quantity} БПЛА." if quantity > 1 else "БПЛА додано."
             messages.success(request, msg)
             return redirect("equipment_accounting:equipment_list")

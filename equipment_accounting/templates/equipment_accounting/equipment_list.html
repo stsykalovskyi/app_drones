@@ -67,6 +67,13 @@
     }
     .filter-bar input[type="text"] { flex: 1; min-width: 150px; }
     .filter-bar input[type="date"] { width: auto; }
+    .date-field {
+        display: flex; flex-direction: column; gap: 0.15rem;
+    }
+    .date-label {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted); line-height: 1;
+    }
 
     .toolbar {
         display: flex; justify-content: space-between;
@@ -92,6 +99,10 @@
         background: var(--accent-dim); color: var(--accent);
     }
     .date-cell { white-space: nowrap; color: var(--text-secondary); }
+    .kit-full { color: #22c55e; font-weight: 600; }
+    .kit-partial { color: #f59e0b; font-weight: 600; }
+    .kit-none { color: var(--text-muted); }
+
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 
     /* Action buttons */
@@ -229,10 +240,20 @@
                 <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
-            <input type="date" name="date_from" value="{{ date_from }}" title="Дата від">
-            <input type="date" name="date_to" value="{{ date_to }}" title="Дата до">
-            <input type="text" name="q" value="{{ search_q }}" placeholder="Пошук...">
-            <button type="submit" class="button">Фільтр</button>
+            <select name="kit">
+                <option value="">Комплект</option>
+                {% for code, label in kit_choices %}
+                <option value="{{ code }}"{% if kit_filter == code %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <div class="date-field">
+                <label class="date-label">Дата від</label>
+                <input type="date" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="date-field">
+                <label class="date-label">Дата до</label>
+                <input type="date" name="date_to" value="{{ date_to }}">
+            </div>
         </form>
 
         {% if page_obj %}
@@ -258,6 +279,7 @@
                         <th>Категорія</th>
                         <th>Тип</th>
                         <th>Статус</th>
+                        <th>Комплект</th>
                         <th>Додав</th>
                         <th>Дата</th>
                         <th></th>
@@ -270,6 +292,7 @@
                         <td data-label="Категорія">{{ uav.get_category }}</td>
                         <td data-label="Тип">{{ uav.uav_type }}</td>
                         <td data-label="Статус"><span class="status-badge">{{ uav.get_status_display }}</span></td>
+                        <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
                         <td data-label="Додав">{{ uav.created_by|default:"—" }}</td>
                         <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
                         <td data-label="" class="actions-cell">
@@ -289,7 +312,7 @@
         {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination">
             {% if page_obj.has_previous %}
-            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}">Попередня</a>
+            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}">Попередня</a>
             {% else %}
             <span class="disabled">Попередня</span>
             {% endif %}
@@ -298,12 +321,12 @@
                 {% if page_obj.number == num %}
                 <span class="current">{{ num }}</span>
                 {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}">{{ num }}</a>
+                <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}">{{ num }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
-            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}">Наступна</a>
+            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}">Наступна</a>
             {% else %}
             <span class="disabled">Наступна</span>
             {% endif %}
@@ -447,6 +470,14 @@
             document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
         });
     });
+
+    /* Auto-submit filter form on change */
+    var filterForm = document.querySelector('.filter-bar');
+    if (filterForm) {
+        filterForm.querySelectorAll('select, input[type="date"]').forEach(function(el) {
+            el.addEventListener('change', function() { filterForm.submit(); });
+        });
+    }
 
     /* Bulk selection */
     var checkAll = document.getElementById('check-all');

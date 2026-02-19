@@ -303,10 +303,9 @@ class Component(models.Model):
     """Конкретні екземпляри комплектуючих"""
 
     STATUS_CHOICES = [
-        ('available', 'Доступна'),
         ('in_use', 'Використовується'),
-        ('damaged', 'Пошкоджена'),
-        ('retired', 'Списана'),
+        ('damaged', 'Пошкоджено'),
+        ('disassembled', 'Розкомплектовано'),
     ]
 
     # Полиморфне посилання на тип комплектуючої
@@ -321,7 +320,7 @@ class Component(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='available',
+        default='in_use',
         verbose_name="Статус"
     )
     assigned_to_uav = models.ForeignKey(
@@ -394,9 +393,44 @@ class UAVInstance(models.Model):
         return f"БПЛА #{self.pk} - {self.uav_type}"
 
     def get_category(self):
-        """Отримати категорію БПЛА"""
         type_map = {
             'fpvdronetype': 'FPV',
             'opticaldronetype': 'Оптика',
         }
         return type_map.get(self.content_type.model, 'Невідомо')
+
+    KIT_FULL = 'full'
+    KIT_PARTIAL = 'partial'
+    KIT_NONE = 'none'
+    KIT_LABELS = {
+        'full': 'Повний',
+        'partial': 'Неповний',
+        'none': 'Некомплект',
+    }
+
+    def get_kit_status(self):
+        """Compute kit completeness based on assigned components.
+
+        Expected per drone type:
+        - FPV: 1 battery
+        - Optical: 1 battery + 1 spool
+        """
+        assigned = self.components.all()
+        if not assigned.exists():
+            return self.KIT_NONE
+
+        from django.contrib.contenttypes.models import ContentType as CT
+        battery_ct = CT.objects.get_for_model(BatteryType)
+        has_battery = assigned.filter(content_type=battery_ct).exists()
+
+        if self.content_type.model == 'opticaldronetype':
+            spool_ct = CT.objects.get_for_model(SpoolType)
+            has_spool = assigned.filter(content_type=spool_ct).exists()
+            if has_battery and has_spool:
+                return self.KIT_FULL
+            return self.KIT_PARTIAL
+        else:
+            return self.KIT_FULL if has_battery else self.KIT_PARTIAL
+
+    def get_kit_status_display(self):
+        return self.KIT_LABELS[self.get_kit_status()]
