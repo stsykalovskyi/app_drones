@@ -110,7 +110,6 @@ class ComponentAdmin(ModelAdmin):
 
 @admin.register(UAVInstance)
 class UAVInstanceAdmin(ModelAdmin):
-    list_display = ("serial_number", "uav_type", "status", "created_by", "created_at")
+    list_display = ("__str__", "status", "created_by", "created_at")
     list_filter = ("status",)
-    search_fields = ("serial_number",)
     raw_id_fields = ("created_by",)

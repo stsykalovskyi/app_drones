@@ -352,11 +352,10 @@ class UAVInstance(models.Model):
     """Конкретні екземпляри БПЛА в інвентарі"""
 
     STATUS_CHOICES = [
-        ('operational', 'Працює'),
-        ('maintenance', 'На обслуговуванні'),
-        ('damaged', 'Пошкоджений'),
-        ('retired', 'Списаний'),
-        ('destroyed', 'Знищений'),
+        ('inspection', 'На перевірці'),
+        ('ready', 'Готовий'),
+        ('repair', 'Ремонт'),
+        ('deferred', 'Відкладено'),
     ]
 
     # Полиморфне посилання на тип БПЛА
@@ -368,15 +367,10 @@ class UAVInstance(models.Model):
     object_id = models.PositiveIntegerField()
     uav_type = GenericForeignKey('content_type', 'object_id')
 
-    serial_number = models.CharField(
-        max_length=100,
-        unique=True,
-        verbose_name="Серійний номер"
-    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='operational',
+        default='inspection',
         verbose_name="Статус"
     )
     created_by = models.ForeignKey(
@@ -397,7 +391,7 @@ class UAVInstance(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.serial_number} - {self.uav_type}"
+        return f"БПЛА #{self.pk} - {self.uav_type}"
 
     def get_category(self):
         """Отримати категорію БПЛА"""

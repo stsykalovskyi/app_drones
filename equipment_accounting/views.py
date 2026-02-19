@@ -1,7 +1,321 @@
+from functools import wraps
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm
+from .models import (
+    UAVInstance, Component, PowerTemplate, VideoTemplate,
+    FPVDroneType, OpticalDroneType,
+)
+
+GROUP_NAME = "майстер"
+COMMANDER_GROUP = "командир майстерні"
 
 
-@login_required
-def equipment_accounting_view(request):
-    return render(request, 'equipment_accounting/equipment_accounting_page.html', {'title': 'Облік технічних засобів'})
+def master_required(view_func):
+    """Allow access only to superusers or members of the master/commander groups."""
+    @wraps(view_func)
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        if request.user.is_superuser or request.user.groups.filter(
+            name__in=[GROUP_NAME, COMMANDER_GROUP]
+        ).exists():
+            return view_func(request, *args, **kwargs)
+        raise PermissionDenied
+    return _wrapped
+
+
+# ── Main list view ──────────────────────────────────────────────────
+
+@master_required
+def equipment_list(request):
+    tab = request.GET.get("tab", "drones")
+
+    # Drones with filtering
+    uavs = UAVInstance.objects.select_related("content_type", "created_by")
+
+    status_filter = request.GET.get("status", "")
+    category_filter = request.GET.get("category", "")
+    search_q = request.GET.get("q", "")
+
+    if status_filter:
+        uavs = uavs.filter(status=status_filter)
+
+    if category_filter:
+        if category_filter == "fpv":
+            ct = ContentType.objects.get_for_model(FPVDroneType)
+        elif category_filter == "optical":
+            ct = ContentType.objects.get_for_model(OpticalDroneType)
+        else:
+            ct = None
+        if ct:
+            uavs = uavs.filter(content_type=ct)
+
+    if search_q:
+        uavs = uavs.filter(Q(notes__icontains=search_q))
+
+    paginator = Paginator(uavs.order_by("-created_at"), 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    # Summary counts
+    all_uavs = UAVInstance.objects.all()
+    total_drones = all_uavs.count()
+    status_counts = {}
+    for code, label in UAVInstance.STATUS_CHOICES:
+        status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
+
+    # Components
+    components = Component.objects.select_related("content_type", "assigned_to_uav").order_by("-created_at")
+
+    # Templates
+    power_templates = PowerTemplate.objects.all()
+    video_templates = VideoTemplate.objects.all()
+
+    ctx = {
+        "tab": tab,
+        "page_obj": page_obj,
+        "status_filter": status_filter,
+        "category_filter": category_filter,
+        "search_q": search_q,
+        "total_drones": total_drones,
+        "status_counts": status_counts,
+        "status_choices": UAVInstance.STATUS_CHOICES,
+        "components": components,
+        "power_templates": power_templates,
+        "video_templates": video_templates,
+    }
+
+    return render(request, "equipment_accounting/equipment_list.html", ctx)
+
+
+# ── Bulk actions ────────────────────────────────────────────────────
+
+@master_required
+def uav_bulk_action(request):
+    """Handle bulk status change or bulk delete for selected UAVs."""
+    if request.method != "POST":
+        return redirect("equipment_accounting:equipment_list")
+
+    ids = request.POST.getlist("selected")
+    action = request.POST.get("bulk_action", "")
+
+    if not ids:
+        messages.warning(request, "Нічого не обрано.")
+        return redirect("equipment_accounting:equipment_list")
+
+    qs = UAVInstance.objects.filter(pk__in=ids)
+    count = qs.count()
+
+    if action == "delete":
+        qs.delete()
+        messages.success(request, f"Видалено {count} БПЛА.")
+    elif action in dict(UAVInstance.STATUS_CHOICES):
+        qs.update(status=action)
+        label = dict(UAVInstance.STATUS_CHOICES)[action]
+        messages.success(request, f"Статус {count} БПЛА змінено на \"{label}\".")
+    else:
+        messages.error(request, "Невідома дія.")
+
+    return redirect("equipment_accounting:equipment_list")
+
+
+# ── UAV CRUD ────────────────────────────────────────────────────────
+
+@master_required
+def uav_create(request):
+    if request.method == "POST":
+        form = UAVInstanceForm(request.POST)
+        if form.is_valid():
+            quantity = form.cleaned_data.get("quantity", 1)
+            ct_id, obj_id = form.cleaned_data["drone_type"].split("-")
+            notes = form.cleaned_data.get("notes", "")
+            for _ in range(quantity):
+                UAVInstance.objects.create(
+                    content_type_id=int(ct_id),
+                    object_id=int(obj_id),
+                    status="inspection",
+                    created_by=request.user,
+                    notes=notes,
+                )
+            msg = f"Додано {quantity} БПЛА." if quantity > 1 else "БПЛА додано."
+            messages.success(request, msg)
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = UAVInstanceForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати БПЛА",
+    })
+
+
+@master_required
+def uav_edit(request, pk):
+    uav = get_object_or_404(UAVInstance, pk=pk)
+    if request.method == "POST":
+        form = UAVInstanceForm(request.POST, instance=uav)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "БПЛА оновлено.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = UAVInstanceForm(instance=uav)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати БПЛА",
+    })
+
+
+@master_required
+def uav_delete(request, pk):
+    uav = get_object_or_404(UAVInstance, pk=pk)
+    if request.method == "POST":
+        uav.delete()
+        messages.success(request, "БПЛА видалено.")
+        return redirect("equipment_accounting:equipment_list")
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": uav, "title": "Видалити БПЛА",
+        "cancel_url": "equipment_accounting:equipment_list",
+    })
+
+
+# ── Component CRUD ──────────────────────────────────────────────────
+
+@master_required
+def component_create(request):
+    if request.method == "POST":
+        form = ComponentForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Комплектуючу додано.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = ComponentForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати комплектуючу", "tab_redirect": "components",
+    })
+
+
+@master_required
+def component_edit(request, pk):
+    component = get_object_or_404(Component, pk=pk)
+    if request.method == "POST":
+        form = ComponentForm(request.POST, instance=component)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Комплектуючу оновлено.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = ComponentForm(instance=component)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати комплектуючу", "tab_redirect": "components",
+    })
+
+
+@master_required
+def component_delete(request, pk):
+    component = get_object_or_404(Component, pk=pk)
+    if request.method == "POST":
+        component.delete()
+        messages.success(request, "Комплектуючу видалено.")
+        return redirect("equipment_accounting:equipment_list")
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": component, "title": "Видалити комплектуючу",
+        "cancel_url": "equipment_accounting:equipment_list",
+    })
+
+
+# ── PowerTemplate CRUD ──────────────────────────────────────────────
+
+@master_required
+def power_template_create(request):
+    if request.method == "POST":
+        form = PowerTemplateForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Шаблон живлення додано.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = PowerTemplateForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати шаблон живлення", "tab_redirect": "templates",
+    })
+
+
+@master_required
+def power_template_edit(request, pk):
+    template = get_object_or_404(PowerTemplate, pk=pk)
+    if request.method == "POST":
+        form = PowerTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Шаблон живлення оновлено.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = PowerTemplateForm(instance=template)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати шаблон живлення", "tab_redirect": "templates",
+    })
+
+
+@master_required
+def power_template_delete(request, pk):
+    template = get_object_or_404(PowerTemplate, pk=pk)
+    if request.method == "POST":
+        template.delete()
+        messages.success(request, "Шаблон живлення видалено.")
+        return redirect("equipment_accounting:equipment_list")
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": template, "title": "Видалити шаблон живлення",
+        "cancel_url": "equipment_accounting:equipment_list",
+    })
+
+
+# ── VideoTemplate CRUD ──────────────────────────────────────────────
+
+@master_required
+def video_template_create(request):
+    if request.method == "POST":
+        form = VideoTemplateForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Шаблон відео додано.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = VideoTemplateForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати шаблон відео", "tab_redirect": "templates",
+    })
+
+
+@master_required
+def video_template_edit(request, pk):
+    template = get_object_or_404(VideoTemplate, pk=pk)
+    if request.method == "POST":
+        form = VideoTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Шаблон відео оновлено.")
+            return redirect("equipment_accounting:equipment_list")
+    else:
+        form = VideoTemplateForm(instance=template)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати шаблон відео", "tab_redirect": "templates",
+    })
+
+
+@master_required
+def video_template_delete(request, pk):
+    template = get_object_or_404(VideoTemplate, pk=pk)
+    if request.method == "POST":
+        template.delete()
+        messages.success(request, "Шаблон відео видалено.")
+        return redirect("equipment_accounting:equipment_list")
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": template, "title": "Видалити шаблон відео",
+        "cancel_url": "equipment_accounting:equipment_list",
+    })

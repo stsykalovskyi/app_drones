@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .form-hero { margin-bottom: 1.5rem; }
+    .form-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem;
+    }
+
+    .eq-form .field { margin-bottom: 1.25rem; }
+    .eq-form label {
+        display: block; font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); margin-bottom: 0.4rem;
+    }
+    .eq-form .form-input {
+        width: 100%; padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--input-bg); backdrop-filter: blur(8px);
+        color: var(--text); font-size: 0.9rem; font-family: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease; outline: none;
+    }
+    .eq-form .form-input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .eq-form textarea.form-input { resize: vertical; min-height: 80px; }
+    .eq-form select.form-input { cursor: pointer; }
+
+    .eq-form .form-checkbox {
+        width: 1.1rem; height: 1.1rem; accent-color: var(--accent); cursor: pointer;
+    }
+    .eq-form .checkbox-row {
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .eq-form .checkbox-row label {
+        margin-bottom: 0; text-transform: none; font-size: 0.9rem;
+        color: var(--text); cursor: pointer;
+    }
+
+    .eq-form .errorlist {
+        list-style: none; padding: 0; margin: 0.3rem 0 0;
+        font-size: 0.82rem; color: #ef4444;
+    }
+
+    .form-actions {
+        display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="card">
+    <form method="post" class="eq-form">
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div class="field">
+            {% if field.field.widget.input_type == 'checkbox' %}
+            <div class="checkbox-row">
+                {{ field }}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            </div>
+            {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% endif %}
+            {% if field.errors %}
+            <ul class="errorlist">
+                {% for error in field.errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="button">Зберегти</button>
+            <a href="{% url 'equipment_accounting:equipment_list' %}" class="button ghost">Скасувати</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

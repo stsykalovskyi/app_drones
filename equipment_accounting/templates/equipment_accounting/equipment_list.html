@@ -1,0 +1,478 @@
+{% extends "base.html" %}
+
+{% block title %}Облік майна — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.5rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+
+    /* tabs */
+    .tab-bar {
+        display: flex; gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+        padding: 0.65rem 1.2rem; border: none; background: none;
+        color: var(--text-muted); font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; position: relative; transition: color 0.15s ease;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active::after {
+        content: ''; position: absolute;
+        left: 0; right: 0; bottom: -1px; height: 2px;
+        background: var(--accent); border-radius: 2px 2px 0 0;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .summary-card {
+        background: var(--surface); backdrop-filter: blur(20px);
+        border-radius: var(--radius); padding: 1.25rem;
+        border: 1px solid var(--border); box-shadow: var(--shadow-card);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .summary-card:hover { box-shadow: var(--shadow-elevated); border-color: var(--border-active); }
+    .summary-label {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.35rem;
+    }
+    .summary-value { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+
+    .filter-bar {
+        display: flex; gap: 0.75rem; margin-bottom: 1rem;
+        flex-wrap: wrap; align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+        padding: 0.55rem 0.75rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg);
+        color: var(--text); font-size: 0.85rem; font-family: inherit;
+        outline: none; transition: border-color 0.2s ease;
+    }
+    .filter-bar select:focus, .filter-bar input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .filter-bar input { flex: 1; min-width: 150px; }
+
+    .toolbar {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;
+    }
+    .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+
+    .eq-table { width: 100%; border-collapse: collapse; }
+    .eq-table th {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted);
+        padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .eq-table td {
+        padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+    }
+    .eq-table tr { transition: background 0.12s ease; }
+    .eq-table tr:hover td { background: var(--accent-dim); }
+
+    .status-badge {
+        display: inline-block; padding: 0.2rem 0.6rem;
+        border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+        background: var(--accent-dim); color: var(--accent);
+    }
+    .date-cell { white-space: nowrap; color: var(--text-secondary); }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+
+    /* Action buttons */
+    .actions-cell { white-space: nowrap; }
+    .btn-sm {
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0.35rem 0.7rem; border-radius: var(--radius-sm);
+        font-size: 0.78rem; font-weight: 600; text-decoration: none;
+        border: 1px solid var(--border); cursor: pointer;
+        transition: all 0.15s ease; background: none; color: var(--text-secondary);
+    }
+    .btn-sm:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .btn-sm.btn-danger { color: #ef4444; border-color: rgba(239,68,68,0.3); }
+    .btn-sm.btn-danger:hover { background: rgba(239,68,68,0.1); color: #ef4444; border-color: #ef4444; }
+
+    /* Checkboxes */
+    .row-check, .check-all {
+        width: 1rem; height: 1rem; accent-color: var(--accent); cursor: pointer;
+    }
+    .th-check { width: 40px; }
+
+    /* Bulk bar */
+    .bulk-bar {
+        display: none; align-items: center; gap: 0.75rem;
+        padding: 0.75rem 1rem; margin-bottom: 1rem;
+        background: var(--accent-dim); border: 1px solid var(--border-active);
+        border-radius: var(--radius-sm); flex-wrap: wrap;
+    }
+    .bulk-bar.visible { display: flex; }
+    .bulk-bar .bulk-count {
+        font-size: 0.85rem; font-weight: 600; color: var(--accent);
+        margin-right: auto;
+    }
+    .bulk-bar select {
+        padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg);
+        color: var(--text); font-size: 0.82rem; font-family: inherit; outline: none;
+    }
+    .bulk-bar .btn-sm { padding: 0.4rem 0.8rem; }
+
+    /* Pagination */
+    .pagination {
+        display: flex; justify-content: center; align-items: center;
+        gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap;
+    }
+    .pagination a, .pagination span {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 36px; height: 36px; padding: 0 0.5rem;
+        border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+        text-decoration: none; border: 1px solid var(--border);
+        color: var(--text-secondary); transition: all 0.15s ease;
+    }
+    .pagination a:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .pagination .current {
+        background: var(--accent); color: var(--btn-text);
+        border-color: var(--accent); font-weight: 700;
+    }
+    .pagination .disabled { opacity: 0.4; pointer-events: none; }
+
+    @media (max-width: 640px) {
+        .eq-table thead { display: none; }
+        .eq-table tr { display: block; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+        .eq-table td {
+            display: flex; justify-content: space-between;
+            padding: 0.25rem 0; border: none;
+        }
+        .eq-table td::before {
+            content: attr(data-label); font-weight: 600;
+            font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--text-muted);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>Облік майна</h1>
+    <p>Дрони, комплектуючі та шаблони обладнання</p>
+</div>
+
+<div class="tab-bar">
+    <button class="tab-btn{% if tab == 'drones' %} active{% endif %}" type="button" data-tab="drones">БПЛА</button>
+    <button class="tab-btn{% if tab == 'components' %} active{% endif %}" type="button" data-tab="components">Комплектуючі</button>
+    <button class="tab-btn{% if tab == 'templates' %} active{% endif %}" type="button" data-tab="templates">Шаблони</button>
+</div>
+
+{# ── Tab: Drones ── #}
+<div class="tab-panel{% if tab == 'drones' %} active{% endif %}" id="tab-drones">
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-label">Всього БПЛА</div>
+            <div class="summary-value">{{ total_drones }}</div>
+        </div>
+        {% for code, info in status_counts.items %}
+        <div class="summary-card">
+            <div class="summary-label">{{ info.label }}</div>
+            <div class="summary-value">{{ info.count }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <h2>БПЛА</h2>
+            <a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>
+        </div>
+
+        <form method="get" class="filter-bar">
+            <input type="hidden" name="tab" value="drones">
+            <select name="status">
+                <option value="">Всі статуси</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}"{% if status_filter == code %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="category">
+                <option value="">Всі категорії</option>
+                <option value="fpv"{% if category_filter == 'fpv' %} selected{% endif %}>FPV</option>
+                <option value="optical"{% if category_filter == 'optical' %} selected{% endif %}>Оптика</option>
+            </select>
+            <input type="text" name="q" value="{{ search_q }}" placeholder="Пошук...">
+            <button type="submit" class="button">Фільтр</button>
+        </form>
+
+        {% if page_obj %}
+        <form method="post" action="{% url 'equipment_accounting:uav_bulk_action' %}" id="bulk-form">
+            {% csrf_token %}
+
+            <div class="bulk-bar" id="bulk-bar">
+                <span class="bulk-count">Обрано: <span id="bulk-count-num">0</span></span>
+                <select name="bulk_action" id="bulk-action-select">
+                    <option value="">-- Дія --</option>
+                    {% for code, label in status_choices %}
+                    <option value="{{ code }}">Статус: {{ label }}</option>
+                    {% endfor %}
+                    <option value="delete">Видалити</option>
+                </select>
+                <button type="submit" class="btn-sm" id="bulk-submit">Застосувати</button>
+            </div>
+
+            <table class="eq-table">
+                <thead>
+                    <tr>
+                        <th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>
+                        <th>Категорія</th>
+                        <th>Тип</th>
+                        <th>Статус</th>
+                        <th>Додав</th>
+                        <th>Дата</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for uav in page_obj %}
+                    <tr>
+                        <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check"></td>
+                        <td data-label="Категорія">{{ uav.get_category }}</td>
+                        <td data-label="Тип">{{ uav.uav_type }}</td>
+                        <td data-label="Статус"><span class="status-badge">{{ uav.get_status_display }}</span></td>
+                        <td data-label="Додав">{{ uav.created_by|default:"—" }}</td>
+                        <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
+                        <td data-label="" class="actions-cell">
+                            <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-sm">Редагувати</a>
+                            <a href="{% url 'equipment_accounting:uav_delete' uav.pk %}" class="btn-sm btn-danger">Видалити</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}">Попередня</a>
+            {% else %}
+            <span class="disabled">Попередня</span>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&q={{ search_q }}&page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&q={{ search_q }}&page={{ page_obj.next_page_number }}">Наступна</a>
+            {% else %}
+            <span class="disabled">Наступна</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state"><p>БПЛА ще не додано.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Tab: Components ── #}
+<div class="tab-panel{% if tab == 'components' %} active{% endif %}" id="tab-components">
+    <div class="card">
+        <div class="toolbar">
+            <h2>Комплектуючі</h2>
+            <a href="{% url 'equipment_accounting:component_create' %}" class="button">+ Додати</a>
+        </div>
+
+        {% if components %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Тип</th>
+                    <th>Статус</th>
+                    <th>Закріплена за</th>
+                    <th>Дата</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in components %}
+                <tr>
+                    <td data-label="Тип">{{ c.component_type }}</td>
+                    <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
+                    <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
+                    <td data-label="Дата" class="date-cell">{{ c.created_at|date:"d.m.Y" }}</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:component_edit' c.pk %}" class="btn-sm">Редагувати</a>
+                        <a href="{% url 'equipment_accounting:component_delete' c.pk %}" class="btn-sm btn-danger">Видалити</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Комплектуючих ще немає.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Tab: Templates ── #}
+<div class="tab-panel{% if tab == 'templates' %} active{% endif %}" id="tab-templates">
+
+    {# Power templates #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Шаблони живлення</h2>
+            <a href="{% url 'equipment_accounting:power_template_create' %}" class="button">+ Додати</a>
+        </div>
+
+        {% if power_templates %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Конектор</th>
+                    <th>Конфігурація</th>
+                    <th>Ємність</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pt in power_templates %}
+                <tr>
+                    <td data-label="Назва">{{ pt.name }}</td>
+                    <td data-label="Конектор">{{ pt.get_connector_display }}</td>
+                    <td data-label="Конфігурація">{{ pt.get_configuration_display }}</td>
+                    <td data-label="Ємність">{{ pt.capacity }} mAh</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-sm">Редагувати</a>
+                        <a href="{% url 'equipment_accounting:power_template_delete' pt.pk %}" class="btn-sm btn-danger">Видалити</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Шаблонів живлення немає.</p></div>
+        {% endif %}
+    </div>
+
+    {# Video templates #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Шаблони відео</h2>
+            <a href="{% url 'equipment_accounting:video_template_create' %}" class="button">+ Додати</a>
+        </div>
+
+        {% if video_templates %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Сигнал</th>
+                    <th>Дальність</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vt in video_templates %}
+                <tr>
+                    <td data-label="Назва">{{ vt.name }}</td>
+                    <td data-label="Сигнал">{% if vt.is_analog %}Аналоговий{% else %}Цифровий{% endif %}</td>
+                    <td data-label="Дальність">{{ vt.max_distance }} км</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-sm">Редагувати</a>
+                        <a href="{% url 'equipment_accounting:video_template_delete' vt.pk %}" class="btn-sm btn-danger">Видалити</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Шаблонів відео немає.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function() {
+    /* Tabs */
+    var btns = document.querySelectorAll('.tab-btn');
+    var panels = document.querySelectorAll('.tab-panel');
+    btns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            btns.forEach(function(b) { b.classList.remove('active'); });
+            panels.forEach(function(p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+    });
+
+    /* Bulk selection */
+    var checkAll = document.getElementById('check-all');
+    var bulkBar = document.getElementById('bulk-bar');
+    var bulkCount = document.getElementById('bulk-count-num');
+    var bulkForm = document.getElementById('bulk-form');
+    var bulkSubmit = document.getElementById('bulk-submit');
+    var actionSelect = document.getElementById('bulk-action-select');
+
+    if (!checkAll) return;
+
+    var rowChecks = document.querySelectorAll('.row-check');
+
+    function updateBulkBar() {
+        var checked = document.querySelectorAll('.row-check:checked');
+        var count = checked.length;
+        bulkCount.textContent = count;
+        if (count > 0) {
+            bulkBar.classList.add('visible');
+        } else {
+            bulkBar.classList.remove('visible');
+        }
+        checkAll.checked = count > 0 && count === rowChecks.length;
+        checkAll.indeterminate = count > 0 && count < rowChecks.length;
+    }
+
+    checkAll.addEventListener('change', function() {
+        rowChecks.forEach(function(cb) { cb.checked = checkAll.checked; });
+        updateBulkBar();
+    });
+
+    rowChecks.forEach(function(cb) {
+        cb.addEventListener('change', updateBulkBar);
+    });
+
+    bulkSubmit.addEventListener('click', function(e) {
+        var action = actionSelect.value;
+        if (!action) {
+            e.preventDefault();
+            alert('Оберіть дію.');
+            return;
+        }
+        if (action === 'delete') {
+            var count = document.querySelectorAll('.row-check:checked').length;
+            if (!confirm('Видалити ' + count + ' БПЛА? Цю дію не можна скасувати.')) {
+                e.preventDefault();
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}
