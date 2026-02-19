@@ -194,6 +194,7 @@ ACCOUNT_SIGNUP_FIELDS = ['username', 'email*', 'password1*', 'password2*']
 
 ACCOUNT_ADAPTER = 'app_drones.adapters.CustomAccountAdapter'
 SOCIALACCOUNT_ADAPTER = 'app_drones.adapters.CustomSocialAccountAdapter'
+SOCIALACCOUNT_LOGIN_BY_CODE_ENABLED = True
 
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
