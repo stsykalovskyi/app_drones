@@ -43,14 +43,14 @@
         height: 72px;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid var(--border-active);
+        /* border: 2px solid var(--border-active); */
         background: var(--surface);
     }
     .avatar-placeholder {
         width: 72px;
         height: 72px;
         border-radius: 50%;
-        border: 2px solid var(--border);
+        /* border: 2px solid var(--border); */
         background: var(--accent-dim);
         display: flex;
         align-items: center;
@@ -114,6 +114,53 @@
         box-shadow: none;
         transform: none;
     }
+
+    /* clickable avatar for upload */
+    .clickable-avatar {
+        position: relative;
+        cursor: pointer;
+        border: 2px dashed var(--accent);
+        border-radius: 50%;
+        opacity: 0.7;
+        transition: opacity 0.2s ease, box-shadow 0.2s ease;
+    }
+    .clickable-avatar:hover {
+        opacity: 1;
+        box-shadow: 0 0 0 4px var(--accent-dim);
+    }
+    .clickable-avatar .avatar,
+    .clickable-avatar .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    .avatar-delete-btn {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #ef4444;
+        color: #fff;
+        border: 2px solid var(--surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        transform: scale(0.6);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 2;
+    }
+    .avatar-delete-btn:hover {
+        background: #dc2626;
+    }
+    .avatar-wrapper:hover .avatar-delete-btn {
+        opacity: 1;
+        transform: scale(1);
+    }
+
 
     .card h2 {
         font-size: 1rem;
@@ -203,16 +250,99 @@
     .form-actions {
         margin-top: 1.25rem;
     }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .modal-overlay.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+    .modal-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-elevated);
+        padding: 1.5rem;
+        max-width: 360px;
+        width: 90%;
+        transform: scale(0.9);
+        transition: transform 0.2s ease;
+    }
+    .modal-overlay.visible .modal-box {
+        transform: scale(1);
+    }
+    .modal-box h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    .modal-box p {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.25rem;
+    }
+    .modal-actions {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+    }
+    .modal-actions .btn-cancel {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: none;
+        color: var(--text);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .modal-actions .btn-cancel:hover {
+        background: var(--accent-dim);
+    }
+    .modal-actions .btn-confirm-delete {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .modal-actions .btn-confirm-delete:hover {
+        background: #dc2626;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="profile-header">
     <div class="avatar-wrapper">
+        <label for="avatar-input" class="clickable-avatar" style="display:block;width:100%;height:100%;border-radius:50%;">
+            {% if profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar">
+            {% else %}
+            <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+            {% endif %}
+        </label>
         {% if profile.avatar %}
-        <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar">
-        {% else %}
-        <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+        <button type="button" class="avatar-delete-btn" id="avatar-delete-btn" title="Видалити фото">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
         {% endif %}
     </div>
     <div class="profile-header-text">
@@ -266,36 +396,6 @@
     </div>
 
     <div>
-        <div class="card" style="margin-bottom: 1.5rem;">
-            <h2>Фото профілю</h2>
-            <div class="avatar-section">
-                {% if profile.avatar %}
-                <img src="{{ profile.avatar.url }}" alt="Avatar" class="avatar-preview">
-                {% else %}
-                <div class="avatar-placeholder-lg">{{ user.username|make_list|first|upper }}</div>
-                {% endif %}
-                <div class="avatar-actions">
-                    <form method="post" enctype="multipart/form-data" id="avatar-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="change_avatar" value="1">
-                        <label class="button btn-sm" for="avatar-input">Завантажити</label>
-                        <input type="file" name="avatar" id="avatar-input" accept="image/*">
-                    </form>
-                    {% if profile.avatar %}
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="delete_avatar" value="1">
-                        <button type="submit" class="button btn-sm btn-danger">Видалити</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-            {% if avatar_form.avatar.errors %}
-            <ul class="errorlist">
-                {% for error in avatar_form.avatar.errors %}<li style="font-size:0.78rem;color:#ef4444;">{{ error }}</li>{% endfor %}
-            </ul>
-            {% endif %}
-        </div>
 
         <div class="card">
             <h2>Зміна пароля</h2>
@@ -328,9 +428,66 @@
     </div>
 </div>
 
+<form method="post" enctype="multipart/form-data" id="avatar-form" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="change_avatar" value="1">
+    <input type="file" name="avatar" id="avatar-input" accept="image/*">
+</form>
+
+<div class="modal-overlay" id="delete-avatar-modal">
+    <div class="modal-box">
+        <h3>Видалити фото</h3>
+        <p>Ви впевнені, що хочете видалити фото профілю?</p>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" id="modal-cancel">Скасувати</button>
+            <button type="button" class="btn-confirm-delete" id="modal-confirm">Видалити</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.getElementById('avatar-input').addEventListener('change', function() {
-    if (this.files.length) document.getElementById('avatar-form').submit();
+    if (this.files.length > 0) {
+        document.getElementById('avatar-form').submit();
+    }
 });
+
+(function() {
+    var delBtn = document.getElementById('avatar-delete-btn');
+    var modal = document.getElementById('delete-avatar-modal');
+    if (!delBtn || !modal) return;
+
+    var cancelBtn = document.getElementById('modal-cancel');
+    var confirmBtn = document.getElementById('modal-confirm');
+
+    function openModal() { modal.classList.add('visible'); }
+    function closeModal() { modal.classList.remove('visible'); }
+
+    delBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openModal();
+    });
+
+    cancelBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+
+    confirmBtn.addEventListener('click', function() {
+        var form = document.getElementById('avatar-form');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'delete_avatar';
+        input.value = '1';
+        form.appendChild(input);
+        form.submit();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('visible')) closeModal();
+    });
+})();
 </script>
 {% endblock %}

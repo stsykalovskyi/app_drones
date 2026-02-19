@@ -187,6 +187,45 @@
             letter-spacing: 0.06em; color: var(--text-muted);
         }
     }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000;
+        opacity: 0; visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .modal-overlay.visible { opacity: 1; visibility: visible; }
+    .modal-box {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-elevated);
+        padding: 1.5rem; max-width: 400px; width: 90%;
+        transform: scale(0.9); transition: transform 0.2s ease;
+    }
+    .modal-overlay.visible .modal-box { transform: scale(1); }
+    .modal-box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .modal-box p { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
+    .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+    .modal-actions button {
+        padding: 0.5rem 1rem; border-radius: var(--radius-sm);
+        font-size: 0.85rem; font-weight: 600; cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .modal-actions .btn-cancel {
+        border: 1px solid var(--border); background: none; color: var(--text);
+    }
+    .modal-actions .btn-cancel:hover { background: var(--accent-dim); }
+    .modal-actions .btn-confirm-danger {
+        border: none; background: #ef4444; color: #fff;
+    }
+    .modal-actions .btn-confirm-danger:hover { background: #dc2626; }
+    .modal-actions .btn-confirm-warn {
+        border: none; background: var(--accent); color: var(--btn-text);
+    }
+    .modal-actions .btn-confirm-warn:hover { opacity: 0.9; }
 </style>
 {% endblock %}
 
@@ -620,16 +659,72 @@
         var action = actionSelect.value;
         if (!action) {
             e.preventDefault();
-            alert('Оберіть дію.');
+            showModal('warn-modal', 'Увага', 'Оберіть дію перед застосуванням.');
             return;
         }
         if (action === 'delete') {
+            e.preventDefault();
             var count = document.querySelectorAll('.row-check:checked').length;
-            if (!confirm('Видалити ' + count + ' БПЛА? Цю дію не можна скасувати.')) {
-                e.preventDefault();
-            }
+            showModal(
+                'confirm-modal',
+                'Видалити БПЛА',
+                'Видалити ' + count + ' БПЛА? Цю дію не можна скасувати.',
+                function() { bulkForm.submit(); }
+            );
         }
     });
 })();
+
+/* Modal helper */
+function showModal(id, title, message, onConfirm) {
+    var overlay = document.getElementById(id);
+    overlay.querySelector('h3').textContent = title;
+    overlay.querySelector('p').textContent = message;
+    overlay.classList.add('visible');
+
+    var confirmBtn = overlay.querySelector('.btn-confirm-danger, .btn-confirm-warn');
+    var cancelBtn = overlay.querySelector('.btn-cancel');
+
+    function close() { overlay.classList.remove('visible'); cleanup(); }
+    function confirm() { close(); if (onConfirm) onConfirm(); }
+
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onOverlay(e) { if (e.target === overlay) close(); }
+
+    function cleanup() {
+        cancelBtn.removeEventListener('click', close);
+        if (confirmBtn) confirmBtn.removeEventListener('click', confirm);
+        document.removeEventListener('keydown', onKey);
+        overlay.removeEventListener('click', onOverlay);
+    }
+
+    cancelBtn.addEventListener('click', close);
+    if (confirmBtn) confirmBtn.addEventListener('click', confirm);
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', onOverlay);
+}
 </script>
+
+{# Warning modal (single button) #}
+<div class="modal-overlay" id="warn-modal">
+    <div class="modal-box">
+        <h3></h3>
+        <p></p>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel">Зрозуміло</button>
+        </div>
+    </div>
+</div>
+
+{# Confirm delete modal (two buttons) #}
+<div class="modal-overlay" id="confirm-modal">
+    <div class="modal-box">
+        <h3></h3>
+        <p></p>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel">Скасувати</button>
+            <button type="button" class="btn-confirm-danger">Видалити</button>
+        </div>
+    </div>
+</div>
 {% endblock %}

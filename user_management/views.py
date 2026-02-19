@@ -43,6 +43,11 @@ def profile_view(request):
     profile, _ = Profile.objects.get_or_create(user=user)
 
     if request.method == "POST":
+        # Initialize forms for POST request (will be updated if a specific form is submitted)
+        profile_form = ProfileForm(instance=user)
+        password_form = PasswordChangeForm(user)
+        avatar_form = AvatarForm(instance=profile)
+
         if "change_password" in request.POST:
             password_form = PasswordChangeForm(user, request.POST)
             if password_form.is_valid():
@@ -50,8 +55,15 @@ def profile_view(request):
                 update_session_auth_hash(request, user)
                 messages.success(request, "Пароль змінено")
                 return redirect("user_management:profile")
-            profile_form = ProfileForm(instance=user)
-            avatar_form = AvatarForm(instance=profile)
+            # If form is invalid, profile_form and avatar_form retain their initial values
+            # and password_form is updated with errors.
+        elif "delete_avatar" in request.POST:
+            if profile.avatar:
+                profile.avatar.delete()
+                profile.save()
+                messages.success(request, "Фото видалено")
+            return redirect("user_management:profile")
+            # If redirect doesn't happen, forms need to be passed to render
         elif "change_avatar" in request.POST:
             avatar_form = AvatarForm(
                 request.POST, request.FILES, instance=profile
@@ -60,22 +72,16 @@ def profile_view(request):
                 avatar_form.save()
                 messages.success(request, "Фото оновлено")
                 return redirect("user_management:profile")
-            profile_form = ProfileForm(instance=user)
-            password_form = PasswordChangeForm(user)
-        elif "delete_avatar" in request.POST:
-            if profile.avatar:
-                profile.avatar.delete()
-                profile.save()
-                messages.success(request, "Фото видалено")
-            return redirect("user_management:profile")
-        else:
+            # If form is invalid, profile_form and password_form retain their initial values
+            # and avatar_form is updated with errors.
+        else: # Default profile update form submission
             profile_form = ProfileForm(request.POST, instance=user)
             if profile_form.is_valid():
                 profile_form.save()
                 messages.success(request, "Профіль оновлено")
                 return redirect("user_management:profile")
-            password_form = PasswordChangeForm(user)
-            avatar_form = AvatarForm(instance=profile)
+            # If form is invalid, password_form and avatar_form retain their initial values
+            # and profile_form is updated with errors.
     else:
         profile_form = ProfileForm(instance=user)
         password_form = PasswordChangeForm(user)
