@@ -1,3 +1,4 @@
+from datetime import date
 from functools import wraps
 
 from django.contrib import messages
@@ -42,6 +43,9 @@ def equipment_list(request):
 
     status_filter = request.GET.get("status", "")
     category_filter = request.GET.get("category", "")
+    type_filter = request.GET.get("type", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
     search_q = request.GET.get("q", "")
 
     if status_filter:
@@ -57,12 +61,40 @@ def equipment_list(request):
         if ct:
             uavs = uavs.filter(content_type=ct)
 
+    if type_filter:
+        try:
+            ct_id, obj_id = type_filter.split("-")
+            uavs = uavs.filter(content_type_id=int(ct_id), object_id=int(obj_id))
+        except (ValueError, TypeError):
+            pass
+
+    if date_from:
+        try:
+            uavs = uavs.filter(created_at__date__gte=date.fromisoformat(date_from))
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            uavs = uavs.filter(created_at__date__lte=date.fromisoformat(date_to))
+        except ValueError:
+            pass
+
     if search_q:
         uavs = uavs.filter(Q(notes__icontains=search_q))
 
     paginator = Paginator(uavs.order_by("-created_at"), 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+
+    # Build drone type choices for filter
+    type_choices = []
+    fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
+    for dt in FPVDroneType.objects.select_related("model", "model__manufacturer"):
+        type_choices.append((f"{fpv_ct.pk}-{dt.pk}", f"[FPV] {dt}"))
+    opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
+    for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
+        type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
 
     # Summary counts
     all_uavs = UAVInstance.objects.all()
@@ -83,7 +115,11 @@ def equipment_list(request):
         "page_obj": page_obj,
         "status_filter": status_filter,
         "category_filter": category_filter,
+        "type_filter": type_filter,
+        "date_from": date_from,
+        "date_to": date_to,
         "search_q": search_q,
+        "type_choices": type_choices,
         "total_drones": total_drones,
         "status_counts": status_counts,
         "status_choices": UAVInstance.STATUS_CHOICES,
