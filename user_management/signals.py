@@ -1,8 +1,6 @@
 from django.dispatch import receiver
-from django.urls import reverse
 from allauth.account.signals import user_signed_up
 from allauth.socialaccount.signals import social_account_added
-from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -26,10 +24,6 @@ def set_new_user_inactive_and_redirect(sender, request, user, **kwargs):
     if not user.is_superuser: # Never deactivate superusers
         user.is_active = False
         user.save()
-
-        # Set a session flag to indicate that this user needs approval and should be redirected
-        request.session['needs_approval'] = True
-        request.session['approval_redirect_to_user_id'] = user.id # Store user ID for later use if needed
 
 
 @receiver(social_account_added)

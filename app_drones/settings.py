@@ -183,7 +183,6 @@ ACCOUNT_LOGOUT_ON_GET = True
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'app_drones.adapters.CustomAuthenticationBackend',
 ]
 
 SITE_ID = 1
