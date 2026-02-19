@@ -147,7 +147,7 @@
             <h3>{{ p.title }}</h3>
             <p class="card-preview">{{ p.body|truncatewords:30 }}</p>
             <div class="card-meta">
-                {% if p.author %}{{ p.author.get_full_name|default:p.author.username }}{% endif %}
+                {% if p.author %}{{ p.author.profile.display_name }}{% endif %}
                 &middot; {{ p.updated_at|date:"d.m.Y" }}
             </div>
         </div>

@@ -38,7 +38,7 @@
         {% csrf_token %}
         <div class="delete-actions">
             <button type="submit" class="btn-danger">Видалити</button>
-            <a href="{% url cancel_url %}" class="button ghost">Скасувати</a>
+            <a href="{{ cancel_url }}" class="button ghost">Скасувати</a>
         </div>
     </form>
 </div>

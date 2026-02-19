@@ -69,6 +69,7 @@ def expense_list(request):
         # Per-user breakdown for the unit tab.
         users_with_expenses = (
             User.objects.filter(expenses__isnull=False)
+            .select_related("profile")
             .distinct()
             .order_by("username")
         )

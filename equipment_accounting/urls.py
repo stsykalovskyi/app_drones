@@ -14,6 +14,16 @@ urlpatterns = [
     path('uav/<int:pk>/edit/', views.uav_edit, name='uav_edit'),
     path('uav/<int:pk>/delete/', views.uav_delete, name='uav_delete'),
 
+    # FPV drone types
+    path('fpv-type/add/', views.fpv_type_create, name='fpv_type_create'),
+    path('fpv-type/<int:pk>/edit/', views.fpv_type_edit, name='fpv_type_edit'),
+    path('fpv-type/<int:pk>/delete/', views.fpv_type_delete, name='fpv_type_delete'),
+
+    # Optical drone types
+    path('optical-type/add/', views.optical_type_create, name='optical_type_create'),
+    path('optical-type/<int:pk>/edit/', views.optical_type_edit, name='optical_type_edit'),
+    path('optical-type/<int:pk>/delete/', views.optical_type_delete, name='optical_type_delete'),
+
     # Components
     path('component/add/', views.component_create, name='component_create'),
     path('component/<int:pk>/edit/', views.component_edit, name='component_edit'),

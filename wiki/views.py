@@ -51,6 +51,7 @@ class ArticleListView(LoginRequiredMixin, TopicContextMixin, ListView):
         if self.request.user.is_superuser:
             context["managed_users"] = (
                 User.objects.exclude(is_superuser=True)
+                .select_related("profile")
                 .order_by("-date_joined")
             )
         return context

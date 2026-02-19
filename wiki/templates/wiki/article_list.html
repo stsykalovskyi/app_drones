@@ -296,7 +296,7 @@
         <tbody>
             {% for u in managed_users %}
             <tr>
-                <td>{{ u.username }}</td>
+                <td>{{ u.profile.display_name }}</td>
                 <td>{{ u.email|default:"—" }}</td>
                 <td>{{ u.date_joined|date:"d.m.Y H:i" }}</td>
                 <td>

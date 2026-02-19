@@ -376,7 +376,7 @@
 {% for entry in per_user %}
 <div class="card user-section">
     <div class="user-section-header">
-        <h3>{{ entry.user.get_full_name|default:entry.user.username }}</h3>
+        <h3>{{ entry.user.profile.display_name }}</h3>
         <span class="user-section-total">{{ entry.total|floatformat:2 }} грн</span>
     </div>
 

@@ -59,7 +59,7 @@ def editor_required(view_func):
 
 @login_required
 def page_list(request):
-    pages = Page.objects.select_related("category", "author")
+    pages = Page.objects.select_related("category", "author", "author__profile")
 
     cat_slug = request.GET.get("cat")
     if cat_slug:
@@ -84,10 +84,10 @@ def page_list(request):
 @login_required
 def page_detail(request, slug):
     page = get_object_or_404(
-        Page.objects.select_related("category", "author"),
+        Page.objects.select_related("category", "author", "author__profile"),
         slug=slug,
     )
-    comments = page.comments.select_related("author")
+    comments = page.comments.select_related("author", "author__profile")
     comment_form = CommentForm()
 
     return render(request, "documentation/page_detail.html", {

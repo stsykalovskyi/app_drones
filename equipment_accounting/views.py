@@ -8,13 +8,21 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
-from .forms import UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm
+from .forms import (
+    UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm,
+    FPVDroneTypeForm, OpticalDroneTypeForm,
+)
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     BatteryType, SpoolType,
 )
+
+def _list_url(tab="drones"):
+    return reverse("equipment_accounting:equipment_list") + f"?tab={tab}"
+
 
 GROUP_NAME = "майстер"
 COMMANDER_GROUP = "командир майстерні"
@@ -40,7 +48,7 @@ def equipment_list(request):
     tab = request.GET.get("tab", "drones")
 
     # Drones with filtering (exclude soft-deleted)
-    uavs = UAVInstance.objects.select_related("content_type", "created_by").prefetch_related(
+    uavs = UAVInstance.objects.select_related("content_type", "created_by", "created_by__profile").prefetch_related(
         "components", "components__content_type"
     ).filter(status__in=UAVInstance.ACTIVE_STATUSES)
 
@@ -100,7 +108,7 @@ def equipment_list(request):
     type_choices = []
     fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
     for dt in FPVDroneType.objects.select_related("model", "model__manufacturer"):
-        type_choices.append((f"{fpv_ct.pk}-{dt.pk}", f"[FPV] {dt}"))
+        type_choices.append((f"{fpv_ct.pk}-{dt.pk}", f"[Радіо] {dt}"))
     opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
@@ -116,6 +124,16 @@ def equipment_list(request):
 
     # Components
     components = Component.objects.select_related("content_type", "assigned_to_uav").order_by("-created_at")
+
+    # Drone types
+    fpv_drone_types = FPVDroneType.objects.select_related(
+        "model", "model__manufacturer", "purpose", "control_frequency",
+        "video_frequency", "power_template",
+    )
+    optical_drone_types = OpticalDroneType.objects.select_related(
+        "model", "model__manufacturer", "purpose", "control_frequency",
+        "video_template", "power_template",
+    )
 
     # Templates
     power_templates = PowerTemplate.objects.all()
@@ -137,6 +155,8 @@ def equipment_list(request):
         "status_counts": status_counts,
         "status_choices": [c for c in UAVInstance.STATUS_CHOICES if c[0] != 'deleted'],
         "components": components,
+        "fpv_drone_types": fpv_drone_types,
+        "optical_drone_types": optical_drone_types,
         "power_templates": power_templates,
         "video_templates": video_templates,
     }
@@ -263,7 +283,99 @@ def uav_delete(request, pk):
         return redirect("equipment_accounting:equipment_list")
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": uav, "title": "Видалити БПЛА",
-        "cancel_url": "equipment_accounting:equipment_list",
+        "cancel_url": _list_url("drones"),
+    })
+
+
+# ── FPV Drone Type CRUD ─────────────────────────────────────────────
+
+@master_required
+def fpv_type_create(request):
+    if request.method == "POST":
+        form = FPVDroneTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Тип радіо дрона додано.")
+            return redirect(_list_url("types"))
+    else:
+        form = FPVDroneTypeForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати тип радіо дрона", "tab_redirect": "types",
+    })
+
+
+@master_required
+def fpv_type_edit(request, pk):
+    drone_type = get_object_or_404(FPVDroneType, pk=pk)
+    if request.method == "POST":
+        form = FPVDroneTypeForm(request.POST, instance=drone_type)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Тип радіо дрона оновлено.")
+            return redirect(_list_url("types"))
+    else:
+        form = FPVDroneTypeForm(instance=drone_type)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати тип радіо дрона", "tab_redirect": "types",
+    })
+
+
+@master_required
+def fpv_type_delete(request, pk):
+    drone_type = get_object_or_404(FPVDroneType, pk=pk)
+    if request.method == "POST":
+        drone_type.delete()
+        messages.success(request, "Тип радіо дрона видалено.")
+        return redirect(_list_url("types"))
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": drone_type, "title": "Видалити тип радіо дрона",
+        "cancel_url": _list_url("types"),
+    })
+
+
+# ── Optical Drone Type CRUD ────────────────────────────────────────
+
+@master_required
+def optical_type_create(request):
+    if request.method == "POST":
+        form = OpticalDroneTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Тип оптичного дрона додано.")
+            return redirect(_list_url("types"))
+    else:
+        form = OpticalDroneTypeForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати тип оптичного дрона", "tab_redirect": "types",
+    })
+
+
+@master_required
+def optical_type_edit(request, pk):
+    drone_type = get_object_or_404(OpticalDroneType, pk=pk)
+    if request.method == "POST":
+        form = OpticalDroneTypeForm(request.POST, instance=drone_type)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Тип оптичного дрона оновлено.")
+            return redirect(_list_url("types"))
+    else:
+        form = OpticalDroneTypeForm(instance=drone_type)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати тип оптичного дрона", "tab_redirect": "types",
+    })
+
+
+@master_required
+def optical_type_delete(request, pk):
+    drone_type = get_object_or_404(OpticalDroneType, pk=pk)
+    if request.method == "POST":
+        drone_type.delete()
+        messages.success(request, "Тип оптичного дрона видалено.")
+        return redirect(_list_url("types"))
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": drone_type, "title": "Видалити тип оптичного дрона",
+        "cancel_url": _list_url("types"),
     })
 
 
@@ -276,7 +388,7 @@ def component_create(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Комплектуючу додано.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("components"))
     else:
         form = ComponentForm()
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -292,7 +404,7 @@ def component_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, "Комплектуючу оновлено.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("components"))
     else:
         form = ComponentForm(instance=component)
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -306,10 +418,10 @@ def component_delete(request, pk):
     if request.method == "POST":
         component.delete()
         messages.success(request, "Комплектуючу видалено.")
-        return redirect("equipment_accounting:equipment_list")
+        return redirect(_list_url("components"))
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": component, "title": "Видалити комплектуючу",
-        "cancel_url": "equipment_accounting:equipment_list",
+        "cancel_url": _list_url("components"),
     })
 
 
@@ -322,7 +434,7 @@ def power_template_create(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Шаблон живлення додано.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("templates"))
     else:
         form = PowerTemplateForm()
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -338,7 +450,7 @@ def power_template_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, "Шаблон живлення оновлено.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("templates"))
     else:
         form = PowerTemplateForm(instance=template)
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -352,10 +464,10 @@ def power_template_delete(request, pk):
     if request.method == "POST":
         template.delete()
         messages.success(request, "Шаблон живлення видалено.")
-        return redirect("equipment_accounting:equipment_list")
+        return redirect(_list_url("templates"))
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": template, "title": "Видалити шаблон живлення",
-        "cancel_url": "equipment_accounting:equipment_list",
+        "cancel_url": _list_url("templates"),
     })
 
 
@@ -368,7 +480,7 @@ def video_template_create(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Шаблон відео додано.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("templates"))
     else:
         form = VideoTemplateForm()
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -384,7 +496,7 @@ def video_template_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, "Шаблон відео оновлено.")
-            return redirect("equipment_accounting:equipment_list")
+            return redirect(_list_url("templates"))
     else:
         form = VideoTemplateForm(instance=template)
     return render(request, "equipment_accounting/equipment_form.html", {
@@ -398,8 +510,8 @@ def video_template_delete(request, pk):
     if request.method == "POST":
         template.delete()
         messages.success(request, "Шаблон відео видалено.")
-        return redirect("equipment_accounting:equipment_list")
+        return redirect(_list_url("templates"))
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": template, "title": "Видалити шаблон відео",
-        "cancel_url": "equipment_accounting:equipment_list",
+        "cancel_url": _list_url("templates"),
     })

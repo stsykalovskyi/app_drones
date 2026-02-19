@@ -173,7 +173,7 @@
             {% if page.category %}
             <a href="{% url 'documentation:documentation_page' %}?cat={{ page.category.slug }}">{{ page.category.name }}</a> &middot;
             {% endif %}
-            {% if page.author %}{{ page.author.get_full_name|default:page.author.username }} &middot;{% endif %}
+            {% if page.author %}{{ page.author.profile.display_name }} &middot;{% endif %}
             {{ page.updated_at|date:"d.m.Y H:i" }}
         </div>
     </div>
@@ -196,7 +196,7 @@
         {% for c in comments %}
         <div class="comment">
             <div class="comment-meta">
-                <strong>{{ c.author.get_full_name|default:c.author.username }}</strong>
+                <strong>{{ c.author.profile.display_name }}</strong>
                 &middot; {{ c.created_at|date:"d.m.Y H:i" }}
             </div>
             <div class="comment-body">{{ c.body }}</div>

@@ -187,10 +187,6 @@ class BaseDroneType(models.Model):
         default=False,
         verbose_name="Термальна камера"
     )
-    is_unusable = models.BooleanField(
-        default=False,
-        verbose_name="Не може використовуватися"
-    )
     notes = models.TextField(blank=True, verbose_name="Примітки")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
@@ -398,7 +394,7 @@ class UAVInstance(models.Model):
 
     def get_category(self):
         type_map = {
-            'fpvdronetype': 'FPV',
+            'fpvdronetype': 'Радіо',
             'opticaldronetype': 'Оптика',
         }
         return type_map.get(self.content_type.model, 'Невідомо')

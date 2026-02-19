@@ -102,6 +102,8 @@
     .kit-full { color: #22c55e; font-weight: 600; }
     .kit-partial { color: #f59e0b; font-weight: 600; }
     .kit-none { color: var(--text-muted); }
+    .bool-yes { color: #22c55e; font-weight: 700; }
+    .bool-no { color: #ef4444; font-weight: 700; }
 
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 
@@ -197,6 +199,7 @@
 <div class="tab-bar">
     <button class="tab-btn{% if tab == 'drones' %} active{% endif %}" type="button" data-tab="drones">БПЛА</button>
     <button class="tab-btn{% if tab == 'components' %} active{% endif %}" type="button" data-tab="components">Комплектуючі</button>
+    <button class="tab-btn{% if tab == 'types' %} active{% endif %}" type="button" data-tab="types">Типи БПЛА</button>
     <button class="tab-btn{% if tab == 'templates' %} active{% endif %}" type="button" data-tab="templates">Шаблони</button>
 </div>
 
@@ -231,7 +234,7 @@
             </select>
             <select name="category">
                 <option value="">Всі категорії</option>
-                <option value="fpv"{% if category_filter == 'fpv' %} selected{% endif %}>FPV</option>
+                <option value="fpv"{% if category_filter == 'fpv' %} selected{% endif %}>Радіо</option>
                 <option value="optical"{% if category_filter == 'optical' %} selected{% endif %}>Оптика</option>
             </select>
             <select name="type">
@@ -293,7 +296,7 @@
                         <td data-label="Тип">{{ uav.uav_type }}</td>
                         <td data-label="Статус"><span class="status-badge">{{ uav.get_status_display }}</span></td>
                         <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
-                        <td data-label="Додав">{{ uav.created_by|default:"—" }}</td>
+                        <td data-label="Додав">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</td>
                         <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
                         <td data-label="" class="actions-cell">
                             <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" title="Редагувати">
@@ -375,6 +378,106 @@
         </table>
         {% else %}
         <div class="empty-state"><p>Комплектуючих ще немає.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Tab: Drone Types ── #}
+<div class="tab-panel{% if tab == 'types' %} active{% endif %}" id="tab-types">
+
+    {# FPV drone types #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Типи радіо дронів</h2>
+            <a href="{% url 'equipment_accounting:fpv_type_create' %}" class="button">+ Додати</a>
+        </div>
+
+        {% if fpv_drone_types %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Модель</th>
+                    <th>Призначення</th>
+                    <th>Пропелери</th>
+                    <th>Частота керування</th>
+                    <th>Частота відео</th>
+                    <th>Живлення</th>
+                    <th>Термал</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dt in fpv_drone_types %}
+                <tr>
+                    <td data-label="Модель">{{ dt.model }}</td>
+                    <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
+                    <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
+                    <td data-label="Частота керування">{{ dt.control_frequency }}</td>
+                    <td data-label="Частота відео">{{ dt.video_frequency }}</td>
+                    <td data-label="Живлення">{{ dt.power_template }}</td>
+                    <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:fpv_type_edit' dt.pk %}" class="btn-icon" title="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'equipment_accounting:fpv_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" title="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Типів радіо дронів ще немає.</p></div>
+        {% endif %}
+    </div>
+
+    {# Optical drone types #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Типи оптичних дронів</h2>
+            <a href="{% url 'equipment_accounting:optical_type_create' %}" class="button">+ Додати</a>
+        </div>
+
+        {% if optical_drone_types %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Модель</th>
+                    <th>Призначення</th>
+                    <th>Пропелери</th>
+                    <th>Частота керування</th>
+                    <th>Шаблон відео</th>
+                    <th>Живлення</th>
+                    <th>Термал</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dt in optical_drone_types %}
+                <tr>
+                    <td data-label="Модель">{{ dt.model }}</td>
+                    <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
+                    <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
+                    <td data-label="Частота керування">{{ dt.control_frequency }}</td>
+                    <td data-label="Шаблон відео">{{ dt.video_template }}</td>
+                    <td data-label="Живлення">{{ dt.power_template }}</td>
+                    <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:optical_type_edit' dt.pk %}" class="btn-icon" title="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'equipment_accounting:optical_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" title="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Типів оптичних дронів ще немає.</p></div>
         {% endif %}
     </div>
 </div>

@@ -5,6 +5,7 @@ from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     BatteryType, SpoolType, OtherComponentType,
+    DroneModel, DronePurpose, Frequency,
 )
 
 INPUT_CSS = {"class": "form-input"}
@@ -15,7 +16,7 @@ def _build_drone_type_choices():
     choices = [("", "---------")]
     fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
     for dt in FPVDroneType.objects.select_related("model", "model__manufacturer"):
-        choices.append((f"{fpv_ct.pk}-{dt.pk}", f"[FPV] {dt}"))
+        choices.append((f"{fpv_ct.pk}-{dt.pk}", f"[Радіо] {dt}"))
     opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
@@ -148,6 +149,44 @@ class ComponentForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class FPVDroneTypeForm(forms.ModelForm):
+    class Meta:
+        model = FPVDroneType
+        fields = (
+            "model", "purpose", "prop_size", "control_frequency",
+            "video_frequency", "power_template", "has_thermal", "notes",
+        )
+        widgets = {
+            "model": forms.Select(attrs=INPUT_CSS),
+            "purpose": forms.Select(attrs=INPUT_CSS),
+            "prop_size": forms.Select(attrs=INPUT_CSS),
+            "control_frequency": forms.Select(attrs=INPUT_CSS),
+            "video_frequency": forms.Select(attrs=INPUT_CSS),
+            "power_template": forms.Select(attrs=INPUT_CSS),
+            "has_thermal": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
+            "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
+        }
+
+
+class OpticalDroneTypeForm(forms.ModelForm):
+    class Meta:
+        model = OpticalDroneType
+        fields = (
+            "model", "purpose", "prop_size", "control_frequency",
+            "video_template", "power_template", "has_thermal", "notes",
+        )
+        widgets = {
+            "model": forms.Select(attrs=INPUT_CSS),
+            "purpose": forms.Select(attrs=INPUT_CSS),
+            "prop_size": forms.Select(attrs=INPUT_CSS),
+            "control_frequency": forms.Select(attrs=INPUT_CSS),
+            "video_template": forms.Select(attrs=INPUT_CSS),
+            "power_template": forms.Select(attrs=INPUT_CSS),
+            "has_thermal": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
+            "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
+        }
 
 
 class PowerTemplateForm(forms.ModelForm):
