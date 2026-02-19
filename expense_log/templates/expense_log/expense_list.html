@@ -376,7 +376,7 @@
 {% for entry in per_user %}
 <div class="card user-section">
     <div class="user-section-header">
-        <h3>{{ entry.user.profile.display_name }}</h3>
+        <h3>{% if entry.user.profile %}{{ entry.user.profile.display_name }}{% else %}{{ entry.user.username }}{% endif %}</h3>
         <span class="user-section-total">{{ entry.total|floatformat:2 }} грн</span>
     </div>
 
