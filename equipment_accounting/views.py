@@ -39,10 +39,10 @@ def master_required(view_func):
 def equipment_list(request):
     tab = request.GET.get("tab", "drones")
 
-    # Drones with filtering
+    # Drones with filtering (exclude soft-deleted)
     uavs = UAVInstance.objects.select_related("content_type", "created_by").prefetch_related(
         "components", "components__content_type"
-    )
+    ).filter(status__in=UAVInstance.ACTIVE_STATUSES)
 
     status_filter = request.GET.get("status", "")
     category_filter = request.GET.get("category", "")
@@ -105,11 +105,13 @@ def equipment_list(request):
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
 
-    # Summary counts
-    all_uavs = UAVInstance.objects.all()
+    # Summary counts (exclude soft-deleted)
+    all_uavs = UAVInstance.objects.filter(status__in=UAVInstance.ACTIVE_STATUSES)
     total_drones = all_uavs.count()
     status_counts = {}
     for code, label in UAVInstance.STATUS_CHOICES:
+        if code == 'deleted':
+            continue
         status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
 
     # Components
@@ -133,7 +135,7 @@ def equipment_list(request):
         "type_choices": type_choices,
         "total_drones": total_drones,
         "status_counts": status_counts,
-        "status_choices": UAVInstance.STATUS_CHOICES,
+        "status_choices": [c for c in UAVInstance.STATUS_CHOICES if c[0] != 'deleted'],
         "components": components,
         "power_templates": power_templates,
         "video_templates": video_templates,
@@ -161,7 +163,7 @@ def uav_bulk_action(request):
     count = qs.count()
 
     if action == "delete":
-        qs.delete()
+        qs.update(status='deleted')
         messages.success(request, f"Видалено {count} БПЛА.")
     elif action in dict(UAVInstance.STATUS_CHOICES):
         qs.update(status=action)
@@ -254,7 +256,9 @@ def uav_edit(request, pk):
 def uav_delete(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
     if request.method == "POST":
-        uav.delete()
+        # Soft-delete: mark as deleted instead of removing from DB
+        uav.status = 'deleted'
+        uav.save(update_fields=['status', 'updated_at'])
         messages.success(request, "БПЛА видалено.")
         return redirect("equipment_accounting:equipment_list")
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {

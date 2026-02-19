@@ -351,11 +351,15 @@ class UAVInstance(models.Model):
     """Конкретні екземпляри БПЛА в інвентарі"""
 
     STATUS_CHOICES = [
-        ('inspection', 'На перевірці'),
         ('ready', 'Готовий'),
+        ('inspection', 'На перевірці'),
         ('repair', 'Ремонт'),
         ('deferred', 'Відкладено'),
+        ('deleted', 'Видалено'),
     ]
+
+    # Statuses visible in the list (excludes soft-deleted)
+    ACTIVE_STATUSES = ['ready', 'inspection', 'repair', 'deferred']
 
     # Полиморфне посилання на тип БПЛА
     content_type = models.ForeignKey(

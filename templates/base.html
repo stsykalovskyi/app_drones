@@ -1026,10 +1026,22 @@
 
         /* active nav highlight */
         var path = location.pathname;
+        var search = location.search;
+        var fullUrl = path + search;
         document.querySelectorAll('.sidebar-nav a[href]').forEach(function(a) {
             var href = a.getAttribute('href');
             if (!href || href === '#') return;
-            var isActive = href === '/' ? path === '/' : path.startsWith(href);
+            var hasQuery = href.indexOf('?') !== -1;
+            var isActive;
+            if (hasQuery) {
+                // Submenu links: match query param, or default tab when no ?tab= present
+                var hrefTab = href.split('tab=')[1];
+                var urlTab = search.split('tab=')[1];
+                var currentTab = urlTab ? urlTab.split('&')[0] : 'drones';
+                isActive = path.startsWith(href.split('?')[0]) && hrefTab === currentTab;
+            } else {
+                isActive = href === '/' ? path === '/' : path.startsWith(href);
+            }
             if (isActive) a.classList.add('active');
         });
 
