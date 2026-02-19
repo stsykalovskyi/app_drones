@@ -308,6 +308,7 @@
             <tr>
                 <th>Дата</th>
                 <th>Сума</th>
+                <th>Категорія</th>
                 <th>Опис</th>
                 <th>Квитанція</th>
                 <th></th>
@@ -318,6 +319,7 @@
             <tr>
                 <td data-label="Дата" class="date-cell">{{ e.date|date:"d.m.Y" }}</td>
                 <td data-label="Сума" class="amount-cell">{{ e.amount|floatformat:2 }} грн</td>
+                <td data-label="Категорія">{{ e.category.name|default:"—" }}</td>
                 <td data-label="Опис">{{ e.description }}</td>
                 <td data-label="Квитанція">
                     {% if e.receipt %}
@@ -386,6 +388,7 @@
             <tr>
                 <th>Дата</th>
                 <th>Сума</th>
+                <th>Категорія</th>
                 <th>Опис</th>
                 <th>Квитанція</th>
             </tr>
@@ -395,6 +398,7 @@
             <tr>
                 <td data-label="Дата" class="date-cell">{{ e.date|date:"d.m.Y" }}</td>
                 <td data-label="Сума" class="amount-cell">{{ e.amount|floatformat:2 }} грн</td>
+                <td data-label="Категорія">{{ e.category.name|default:"—" }}</td>
                 <td data-label="Опис">{{ e.description }}</td>
                 <td data-label="Квитанція">
                     {% if e.receipt %}

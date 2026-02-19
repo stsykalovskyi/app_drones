@@ -3,6 +3,20 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 
+class Category(models.Model):
+    """Category for an expense."""
+
+    name = models.CharField("Назва", max_length=100, unique=True)
+
+    class Meta:
+        verbose_name = "Категорія"
+        verbose_name_plural = "Категорії"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 def expense_receipt_path(instance, filename):
     """Upload receipts to expense_receipts/<year>/<month>/<filename>."""
     date = instance.date or timezone.now().date()
@@ -12,6 +26,13 @@ def expense_receipt_path(instance, filename):
 class Expense(models.Model):
     """Single financial expense record."""
 
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Категорія",
+    )
     date = models.DateField("Дата", default=timezone.now)
     amount = models.DecimalField("Сума", max_digits=12, decimal_places=2)
     description = models.TextField("На що витрачено")

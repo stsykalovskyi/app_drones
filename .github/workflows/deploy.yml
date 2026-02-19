@@ -41,8 +41,21 @@ jobs:
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes root@85.121.4.216 << 'EOF'
             set -euo pipefail
             cd /root/MyProjects/python/app_drones
+
+            # Update codebase
             git fetch --all --prune
             git checkout master
             git reset --hard origin/master
-            docker container exec app_webserver nginx -s reload
+
+            # Apply database migrations
+            docker exec app_drones /app/.venv/bin/python /app/manage.py migrate --no-input
+
+            # Find all fixtures and apply them
+            FIXTURE_NAMES=$(find . -path '*/fixtures/*.json' -exec basename {} .json \; | tr '\n' ' ')
+            if [ -n "$FIXTURE_NAMES" ]; then
+              docker exec app_drones /app/.venv/bin/python /app/manage.py loaddata $FIXTURE_NAMES
+            fi
+
+            # Reload services
+            docker exec app_drones nginx -s reload
           EOF

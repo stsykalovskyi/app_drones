@@ -7,7 +7,7 @@ from .models import Expense
 class ExpenseForm(forms.ModelForm):
     class Meta:
         model = Expense
-        fields = ("date", "amount", "description", "receipt", "notes")
+        fields = ("category", "date", "amount", "description", "receipt", "notes")
         error_messages = {
             "date": {
                 "required": "Вкажіть дату.",
@@ -23,6 +23,7 @@ class ExpenseForm(forms.ModelForm):
             },
         }
         widgets = {
+            "category": forms.Select(attrs={"class": "form-input"}),
             "date": forms.DateInput(format="%Y-%m-%d", attrs={
                 "class": "form-input",
                 "type": "date",

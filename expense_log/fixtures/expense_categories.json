@@ -1,0 +1,30 @@
+[
+  {
+    "model": "expense_log.category",
+    "pk": 1,
+    "fields": {
+      "name": "Доставка"
+    }
+  },
+  {
+    "model": "expense_log.category",
+    "pk": 2,
+    "fields": {
+      "name": "Розхідники"
+    }
+  },
+  {
+    "model": "expense_log.category",
+    "pk": 3,
+    "fields": {
+      "name": "Комунальні"
+    }
+  },
+  {
+    "model": "expense_log.category",
+    "pk": 4,
+    "fields": {
+      "name": "Інше"
+    }
+  }
+]

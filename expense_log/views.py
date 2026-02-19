@@ -31,7 +31,7 @@ def master_required(view_func):
 
 @master_required
 def expense_list(request):
-    expenses = Expense.objects.filter(created_by=request.user)
+    expenses = Expense.objects.select_related("category").filter(created_by=request.user)
 
     total = expenses.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
@@ -54,7 +54,7 @@ def expense_list(request):
     }
 
     if is_commander:
-        all_expenses = Expense.objects.select_related("created_by")
+        all_expenses = Expense.objects.select_related("created_by", "category")
         ctx["global_total"] = (
             all_expenses.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
         )
@@ -75,7 +75,7 @@ def expense_list(request):
         )
         per_user = []
         for u in users_with_expenses:
-            user_qs = Expense.objects.filter(created_by=u)
+            user_qs = Expense.objects.select_related("category").filter(created_by=u)
             user_total = user_qs.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
             per_user.append({
                 "user": u,
