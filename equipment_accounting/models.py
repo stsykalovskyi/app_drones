@@ -172,11 +172,11 @@ class BaseDroneType(models.Model):
         choices=PROP_SIZE_CHOICES,
         verbose_name="Розмір пропелерів"
     )
-    control_frequency = models.ForeignKey(
+    control_frequencies = models.ManyToManyField(
         Frequency,
-        on_delete=models.PROTECT,
         related_name='%(class)s_control',
-        verbose_name="Частота керування"
+        blank=True,
+        verbose_name="Частоти керування"
     )
     power_template = models.ForeignKey(
         PowerTemplate,

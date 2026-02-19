@@ -451,7 +451,7 @@
                     <td data-label="Модель">{{ dt.model }}</td>
                     <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
                     <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
-                    <td data-label="Частота керування">{{ dt.control_frequency }}</td>
+                    <td data-label="Частота керування">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
                     <td data-label="Частота відео">{{ dt.video_frequency }}</td>
                     <td data-label="Живлення">{{ dt.power_template }}</td>
                     <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>
@@ -499,7 +499,7 @@
                     <td data-label="Модель">{{ dt.model }}</td>
                     <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
                     <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
-                    <td data-label="Частота керування">{{ dt.control_frequency }}</td>
+                    <td data-label="Частота керування">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
                     <td data-label="Шаблон відео">{{ dt.video_template }}</td>
                     <td data-label="Живлення">{{ dt.power_template }}</td>
                     <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>

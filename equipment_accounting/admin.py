@@ -67,14 +67,16 @@ class VideoTemplateAdmin(ModelAdmin):
 
 @admin.register(FPVDroneType)
 class FPVDroneTypeAdmin(ModelAdmin):
-    list_display = ("model", "prop_size", "control_frequency", "video_frequency", "has_thermal")
+    list_display = ("model", "prop_size", "video_frequency", "has_thermal")
     list_filter = ("prop_size", "has_thermal")
+    filter_horizontal = ("control_frequencies",)
     search_fields = ("model__name", "model__manufacturer__name")
 
 
 @admin.register(OpticalDroneType)
 class OpticalDroneTypeAdmin(ModelAdmin):
-    list_display = ("model", "prop_size", "control_frequency", "video_template", "has_thermal")
+    list_display = ("model", "prop_size", "video_template", "has_thermal")
+    filter_horizontal = ("control_frequencies",)
     list_filter = ("prop_size", "has_thermal")
     search_fields = ("model__name", "model__manufacturer__name")
 

@@ -1,0 +1,10 @@
+[
+  {"model": "equipment_accounting.videotemplate", "pk": 1, "fields": {"name": "Аналог 5км", "is_analog": true, "max_distance": 5, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 2, "fields": {"name": "Аналог 10км", "is_analog": true, "max_distance": 10, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 3, "fields": {"name": "Аналог 15км", "is_analog": true, "max_distance": 15, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 4, "fields": {"name": "Аналог 20км", "is_analog": true, "max_distance": 20, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 5, "fields": {"name": "Цифра 5км", "is_analog": false, "max_distance": 5, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 6, "fields": {"name": "Цифра 10км", "is_analog": false, "max_distance": 10, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 7, "fields": {"name": "Цифра 15км", "is_analog": false, "max_distance": 15, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.videotemplate", "pk": 8, "fields": {"name": "Цифра 20км", "is_analog": false, "max_distance": 20, "created_at": "2025-01-01T00:00:00Z"}}
+]

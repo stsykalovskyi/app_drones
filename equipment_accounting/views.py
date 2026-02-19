@@ -127,13 +127,13 @@ def equipment_list(request):
 
     # Drone types
     fpv_drone_types = FPVDroneType.objects.select_related(
-        "model", "model__manufacturer", "purpose", "control_frequency",
+        "model", "model__manufacturer", "purpose",
         "video_frequency", "power_template",
-    )
+    ).prefetch_related("control_frequencies")
     optical_drone_types = OpticalDroneType.objects.select_related(
-        "model", "model__manufacturer", "purpose", "control_frequency",
+        "model", "model__manufacturer", "purpose",
         "video_template", "power_template",
-    )
+    ).prefetch_related("control_frequencies")
 
     # Templates
     power_templates = PowerTemplate.objects.all()

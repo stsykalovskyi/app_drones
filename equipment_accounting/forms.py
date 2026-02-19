@@ -155,14 +155,14 @@ class FPVDroneTypeForm(forms.ModelForm):
     class Meta:
         model = FPVDroneType
         fields = (
-            "model", "purpose", "prop_size", "control_frequency",
+            "model", "purpose", "prop_size", "control_frequencies",
             "video_frequency", "power_template", "has_thermal", "notes",
         )
         widgets = {
             "model": forms.Select(attrs=INPUT_CSS),
             "purpose": forms.Select(attrs=INPUT_CSS),
             "prop_size": forms.Select(attrs=INPUT_CSS),
-            "control_frequency": forms.Select(attrs=INPUT_CSS),
+            "control_frequencies": forms.CheckboxSelectMultiple(),
             "video_frequency": forms.Select(attrs=INPUT_CSS),
             "power_template": forms.Select(attrs=INPUT_CSS),
             "has_thermal": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
@@ -174,14 +174,14 @@ class OpticalDroneTypeForm(forms.ModelForm):
     class Meta:
         model = OpticalDroneType
         fields = (
-            "model", "purpose", "prop_size", "control_frequency",
+            "model", "purpose", "prop_size", "control_frequencies",
             "video_template", "power_template", "has_thermal", "notes",
         )
         widgets = {
             "model": forms.Select(attrs=INPUT_CSS),
             "purpose": forms.Select(attrs=INPUT_CSS),
             "prop_size": forms.Select(attrs=INPUT_CSS),
-            "control_frequency": forms.Select(attrs=INPUT_CSS),
+            "control_frequencies": forms.CheckboxSelectMultiple(),
             "video_template": forms.Select(attrs=INPUT_CSS),
             "power_template": forms.Select(attrs=INPUT_CSS),
             "has_thermal": forms.CheckboxInput(attrs={"class": "form-checkbox"}),

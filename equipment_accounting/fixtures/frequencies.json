@@ -1,0 +1,13 @@
+[
+  {"model": "equipment_accounting.frequency", "pk": 1, "fields": {"value": 868.0, "unit": "mhz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 2, "fields": {"value": 900.0, "unit": "mhz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 3, "fields": {"value": 915.0, "unit": "mhz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 4, "fields": {"value": 1.2, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 5, "fields": {"value": 2.4, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 6, "fields": {"value": 5.8, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 7, "fields": {"value": 2.2, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 8, "fields": {"value": 385.0, "unit": "mhz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 9, "fields": {"value": 400.0, "unit": "mhz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 10, "fields": {"value": 3.3, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.frequency", "pk": 11, "fields": {"value": 7.0, "unit": "ghz", "created_at": "2025-01-01T00:00:00Z"}}
+]

@@ -1,0 +1,10 @@
+[
+  {"model": "equipment_accounting.powertemplate", "pk": 1, "fields": {"name": "6S1P XT60 6000mAh", "connector": "xt60", "configuration": "6s1p", "capacity": 6000, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 2, "fields": {"name": "6S2P XT60 12000mAh", "connector": "xt60", "configuration": "6s2p", "capacity": 12000, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 3, "fields": {"name": "6S3P XT60 18000mAh", "connector": "xt60", "configuration": "6s3p", "capacity": 18000, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 4, "fields": {"name": "4S1P XT60 5200mAh", "connector": "xt60", "configuration": "4s1p", "capacity": 5200, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 5, "fields": {"name": "4S2P XT60 10400mAh", "connector": "xt60", "configuration": "4s2p", "capacity": 10400, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 6, "fields": {"name": "4S3P XT60 15600mAh", "connector": "xt60", "configuration": "4s3p", "capacity": 15600, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 7, "fields": {"name": "6S1P XT30 6000mAh", "connector": "xt30", "configuration": "6s1p", "capacity": 6000, "created_at": "2025-01-01T00:00:00Z"}},
+  {"model": "equipment_accounting.powertemplate", "pk": 8, "fields": {"name": "6S2P XT30 12000mAh", "connector": "xt30", "configuration": "6s2p", "capacity": 12000, "created_at": "2025-01-01T00:00:00Z"}}
+]
