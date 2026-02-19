@@ -60,6 +60,6 @@ jobs:
               docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py loaddata $FIXTURE_NAMES"
             fi
 
-            # Reload services
-            docker exec app_drones nginx -s reload
+            # Reload webserver
+            docker exec app_webserver nginx -s reload
           EOF
