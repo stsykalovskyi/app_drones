@@ -48,12 +48,12 @@ jobs:
             git reset --hard origin/master
 
             # Apply database migrations
-            docker exec app_drones /app/.venv/bin/python /app/manage.py migrate --no-input
+            docker exec -w /root/MyProjects/python/app_drones app_drones .venv/bin/python manage.py migrate --no-input
 
             # Find all fixtures and apply them
             FIXTURE_NAMES=$(find . -path '*/fixtures/*.json' -exec basename {} .json \; | tr '\n' ' ')
             if [ -n "$FIXTURE_NAMES" ]; then
-              docker exec app_drones /app/.venv/bin/python /app/manage.py loaddata $FIXTURE_NAMES
+              docker exec -w /root/MyProjects/python/app_drones app_drones .venv/bin/python manage.py loaddata $FIXTURE_NAMES
             fi
 
             # Reload services
