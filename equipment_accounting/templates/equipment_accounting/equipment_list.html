@@ -429,7 +429,7 @@
             <tbody>
                 {% for c in comp_page_obj %}
                 <tr>
-                    <td data-label="Тип">{{ c.component_type }}</td>
+                    <td data-label="Тип">{{ c }}</td>
                     <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
                     <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
                     <td data-label="Дата" class="date-cell">{{ c.created_at|date:"d.m.Y" }}</td>
@@ -674,7 +674,6 @@
                     <td data-label="Ємність">{{ pt.capacity }} mAh</td>
                     <td data-label="" class="actions-cell">
                         <a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-sm">Редагувати</a>
-                        <a href="{% url 'equipment_accounting:power_template_delete' pt.pk %}" class="btn-sm btn-danger">Видалити</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -712,7 +711,6 @@
                     <td data-label="Дальність">{{ vt.max_distance }} км</td>
                     <td data-label="" class="actions-cell">
                         <a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-sm">Редагувати</a>
-                        <a href="{% url 'equipment_accounting:video_template_delete' vt.pk %}" class="btn-sm btn-danger">Видалити</a>
                     </td>
                 </tr>
                 {% endfor %}

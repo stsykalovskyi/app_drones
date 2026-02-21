@@ -239,51 +239,7 @@ class OpticalDroneType(BaseDroneType):
 
 # ============== КОМПЛЕКТУЮЧІ ==============
 
-class BaseComponentType(models.Model):
-    """Базова абстрактна модель для всіх типів комплектуючих"""
-
-    model = models.CharField(max_length=100, verbose_name="Модель")
-    notes = models.TextField(blank=True, verbose_name="Примітки")
-
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
-
-    class Meta:
-        abstract = True
-
-    def __str__(self):
-        return self.model
-
-
-class BatteryType(BaseComponentType):
-    """Типи батарей"""
-
-    power_template = models.ForeignKey(
-        PowerTemplate,
-        on_delete=models.PROTECT,
-        verbose_name="Шаблон живлення"
-    )
-
-    class Meta:
-        verbose_name = "Тип батареї"
-        verbose_name_plural = "Типи батарей"
-
-
-class SpoolType(BaseComponentType):
-    """Типи котушок"""
-
-    video_template = models.ForeignKey(
-        VideoTemplate,
-        on_delete=models.PROTECT,
-        verbose_name="Шаблон відео"
-    )
-
-    class Meta:
-        verbose_name = "Тип котушки"
-        verbose_name_plural = "Типи котушок"
-
-
-class OtherComponentType(BaseComponentType):
+class OtherComponentType(models.Model):
     """Інші комплектуючі"""
 
     CATEGORY_CHOICES = [
@@ -293,35 +249,60 @@ class OtherComponentType(BaseComponentType):
         ('other', 'Інше'),
     ]
 
+    model = models.CharField(max_length=100, verbose_name="Модель")
     category = models.CharField(
         max_length=20,
         choices=CATEGORY_CHOICES,
         verbose_name="Категорія"
     )
+    notes = models.TextField(blank=True, verbose_name="Примітки")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
 
     class Meta:
         verbose_name = "Інша комплектуюча"
         verbose_name_plural = "Інші комплектуючі"
 
+    def __str__(self):
+        return self.model
+
 
 class Component(models.Model):
     """Конкретні екземпляри комплектуючих"""
 
+    KIND_CHOICES = [
+        ('battery', 'Батарея'),
+        ('spool', 'Котушка'),
+        ('other', 'Інше'),
+    ]
     STATUS_CHOICES = [
         ('in_use', 'Використовується'),
         ('damaged', 'Пошкоджено'),
         ('disassembled', 'Розкомплектовано'),
     ]
 
-    # Полиморфне посилання на тип комплектуючої
-    content_type = models.ForeignKey(
-        ContentType,
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, verbose_name="Вид")
+    power_template = models.ForeignKey(
+        PowerTemplate,
         on_delete=models.PROTECT,
-        verbose_name="Тип комплектуючої"
+        null=True, blank=True,
+        related_name='battery_components',
+        verbose_name="Шаблон живлення",
     )
-    object_id = models.PositiveIntegerField()
-    component_type = GenericForeignKey('content_type', 'object_id')
-
+    video_template = models.ForeignKey(
+        VideoTemplate,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='spool_components',
+        verbose_name="Шаблон відео",
+    )
+    other_type = models.ForeignKey(
+        OtherComponentType,
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='components',
+        verbose_name="Тип",
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -337,7 +318,6 @@ class Component(models.Model):
         verbose_name="Закріплена за БПЛА"
     )
     notes = models.TextField(blank=True, verbose_name="Примітки")
-
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
 
@@ -347,7 +327,11 @@ class Component(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.component_type} - {self.status}"
+        if self.kind == 'battery':
+            return f"Батарея ({self.power_template})"
+        if self.kind == 'spool':
+            return f"Котушка ({self.video_template})"
+        return f"Інше: {self.other_type}"
 
 
 # ============== ІНВЕНТАРНІ ЕКЗЕМПЛЯРИ ==============
@@ -428,18 +412,14 @@ class UAVInstance(models.Model):
         if not assigned.exists():
             return self.KIT_NONE
 
-        from django.contrib.contenttypes.models import ContentType as CT
-        battery_ct = CT.objects.get_for_model(BatteryType)
-        has_battery = assigned.filter(content_type=battery_ct).exists()
+        has_battery = assigned.filter(kind='battery').exists()
 
         if self.content_type.model == 'opticaldronetype':
-            spool_ct = CT.objects.get_for_model(SpoolType)
-            has_spool = assigned.filter(content_type=spool_ct).exists()
+            has_spool = assigned.filter(kind='spool').exists()
             if has_battery and has_spool:
                 return self.KIT_FULL
             return self.KIT_PARTIAL
-        else:
-            return self.KIT_FULL if has_battery else self.KIT_PARTIAL
+        return self.KIT_FULL if has_battery else self.KIT_PARTIAL
 
     def get_kit_status_display(self):
         return self.KIT_LABELS[self.get_kit_status()]

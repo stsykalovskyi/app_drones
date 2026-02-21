@@ -1,9 +1,7 @@
 from django.contrib import admin
-from django.contrib.contenttypes.admin import GenericTabularInline
 from unfold.admin import ModelAdmin
 
 from .models import (
-    BatteryType,
     Component,
     DroneModel,
     DronePurpose,
@@ -13,7 +11,6 @@ from .models import (
     OpticalDroneType,
     OtherComponentType,
     PowerTemplate,
-    SpoolType,
     UAVInstance,
     VideoTemplate,
 )
@@ -83,18 +80,6 @@ class OpticalDroneTypeAdmin(ModelAdmin):
 
 # ============== КОМПЛЕКТУЮЧІ ==============
 
-@admin.register(BatteryType)
-class BatteryTypeAdmin(ModelAdmin):
-    list_display = ("model", "power_template")
-    search_fields = ("model",)
-
-
-@admin.register(SpoolType)
-class SpoolTypeAdmin(ModelAdmin):
-    list_display = ("model", "video_template")
-    search_fields = ("model",)
-
-
 @admin.register(OtherComponentType)
 class OtherComponentTypeAdmin(ModelAdmin):
     list_display = ("model", "category")
@@ -104,8 +89,8 @@ class OtherComponentTypeAdmin(ModelAdmin):
 
 @admin.register(Component)
 class ComponentAdmin(ModelAdmin):
-    list_display = ("component_type", "status", "assigned_to_uav", "created_at")
-    list_filter = ("status",)
+    list_display = ("__str__", "kind", "status", "assigned_to_uav", "created_at")
+    list_filter = ("kind", "status")
 
 
 # ============== ІНВЕНТАРНІ ЕКЗЕМПЛЯРИ ==============

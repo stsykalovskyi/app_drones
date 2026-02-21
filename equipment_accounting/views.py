@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from .forms import _get_available_uavs
+from .forms import _get_available_uavs_for_kind
 from .forms import (
     UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm,
     FPVDroneTypeForm, OpticalDroneTypeForm,
@@ -20,7 +20,7 @@ from .forms import (
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
-    BatteryType, SpoolType, OtherComponentType,
+    OtherComponentType,
     Manufacturer, DroneModel,
 )
 
@@ -131,18 +131,13 @@ def equipment_list(request):
     comp_category_filter = request.GET.get("comp_category", "")
     comp_assign_filter   = request.GET.get("comp_assign", "")
 
-    battery_ct = ContentType.objects.get_for_model(BatteryType)
-    spool_ct   = ContentType.objects.get_for_model(SpoolType)
-    other_ct   = ContentType.objects.get_for_model(OtherComponentType)
-
-    components_qs = Component.objects.select_related("content_type", "assigned_to_uav").order_by("-created_at")
+    components_qs = Component.objects.select_related(
+        "power_template", "video_template", "other_type", "assigned_to_uav"
+    ).order_by("-created_at")
     if comp_status_filter:
         components_qs = components_qs.filter(status=comp_status_filter)
-    if comp_category_filter:
-        ct_map = {"battery": battery_ct, "spool": spool_ct, "other": other_ct}
-        ct = ct_map.get(comp_category_filter)
-        if ct:
-            components_qs = components_qs.filter(content_type=ct)
+    if comp_category_filter in ('battery', 'spool', 'other'):
+        components_qs = components_qs.filter(kind=comp_category_filter)
     if comp_assign_filter == "assigned":
         components_qs = components_qs.filter(assigned_to_uav__isnull=False)
     elif comp_assign_filter == "free":
@@ -202,64 +197,56 @@ def equipment_list(request):
 # ── UAV Detail / Assembly ────────────────────────────────────────────
 
 def _component_matches_uav_template(component, uav):
-    """Return True if the component's type template matches the UAV's template."""
-    battery_ct = ContentType.objects.get_for_model(BatteryType)
-    spool_ct   = ContentType.objects.get_for_model(SpoolType)
-    comp_type  = component.component_type
+    """Return True if the component is compatible with the UAV's drone type."""
     drone_type = uav.uav_type
-    if component.content_type_id == battery_ct.pk:
-        return comp_type.power_template_id == drone_type.power_template_id
-    if component.content_type_id == spool_ct.pk:
+    if component.kind == 'battery':
+        return component.power_template_id == drone_type.power_template_id
+    if component.kind == 'spool':
         return (uav.content_type.model == 'opticaldronetype'
-                and comp_type.video_template_id == drone_type.video_template_id)
-    return True  # OtherComponentType — no template restriction
-
-
-def _compatible_component_types(uav):
-    """Return a list of ContentType PKs for components compatible with this UAV type."""
-    battery_ct = ContentType.objects.get_for_model(BatteryType)
-    compatible = [battery_ct.pk]
-    if uav.content_type.model == 'opticaldronetype':
-        spool_ct = ContentType.objects.get_for_model(SpoolType)
-        compatible.append(spool_ct.pk)
-    return compatible
+                and component.video_template.drone_model_id == drone_type.video_template.drone_model_id
+                and component.video_template.is_analog == drone_type.video_template.is_analog)
+    return True  # other — no template restriction
 
 
 @login_required
 def uav_detail(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
-    assigned_components = list(uav.components.select_related('content_type').all())
+    assigned_components = list(
+        uav.components.select_related('power_template', 'video_template', 'other_type').all()
+    )
     for comp in assigned_components:
-        comp.type_display = str(comp.component_type)
+        comp.type_display = str(comp)
 
-    filled_ct_ids = {comp.content_type_id for comp in assigned_components}
+    filled_kinds = {comp.kind for comp in assigned_components}
     drone_type = uav.uav_type
-    battery_ct = ContentType.objects.get_for_model(BatteryType)
-    spool_ct   = ContentType.objects.get_for_model(SpoolType)
 
     compatible_q = Q()
-    if battery_ct.pk not in filled_ct_ids:
-        battery_type_ids = BatteryType.objects.filter(
-            power_template=drone_type.power_template
-        ).values_list('pk', flat=True)
-        compatible_q |= Q(content_type=battery_ct, object_id__in=battery_type_ids)
-
-    if uav.content_type.model == 'opticaldronetype' and spool_ct.pk not in filled_ct_ids:
-        spool_type_ids = SpoolType.objects.filter(
-            video_template=drone_type.video_template
-        ).values_list('pk', flat=True)
-        compatible_q |= Q(content_type=spool_ct, object_id__in=spool_type_ids)
+    if 'battery' not in filled_kinds:
+        compatible_q |= Q(kind='battery', power_template=drone_type.power_template)
+    if uav.content_type.model == 'opticaldronetype' and 'spool' not in filled_kinds:
+        compatible_q |= Q(
+            kind='spool',
+            video_template__drone_model=drone_type.video_template.drone_model,
+            video_template__is_analog=drone_type.video_template.is_analog,
+        )
 
     if compatible_q:
         free_components = list(
             Component.objects.filter(compatible_q, assigned_to_uav=None)
             .exclude(status='damaged')
-            .select_related('content_type')
+            .select_related('power_template', 'video_template', 'other_type')
         )
     else:
         free_components = []
+
     for comp in free_components:
-        comp.type_display = str(comp.component_type)
+        if comp.kind == 'battery':
+            comp.type_display = f"Батарея: {comp.power_template}"
+        elif comp.kind == 'spool':
+            drone_model = comp.video_template.drone_model if comp.video_template else None
+            comp.type_display = f"Котушка: {comp.video_template} ({drone_model or '—'})"
+        else:
+            comp.type_display = str(comp.other_type)
 
     kit_status = uav.get_kit_status()
     return render(request, 'equipment_accounting/uav_detail.html', {
@@ -278,9 +265,9 @@ def uav_attach_component(request, uav_pk, component_pk):
     component = get_object_or_404(Component, pk=component_pk)
     if component.assigned_to_uav is not None:
         messages.error(request, 'Комплектуюча вже закріплена за іншим БПЛА.')
-    elif component.content_type_id not in _compatible_component_types(uav):
+    elif not _component_matches_uav_template(component, uav):
         messages.error(request, 'Ця комплектуюча не сумісна з даним типом БПЛА.')
-    elif uav.components.filter(content_type_id=component.content_type_id).exists():
+    elif component.kind in ('battery', 'spool') and uav.components.filter(kind=component.kind).exists():
         messages.error(request, 'БПЛА вже має комплектуючу цього типу.')
     elif not _component_matches_uav_template(component, uav):
         messages.error(request, 'Комплектуюча не підходить за шаблоном до цього БПЛА.')
@@ -342,33 +329,18 @@ def uav_bulk_action(request):
 # ── UAV CRUD ────────────────────────────────────────────────────────
 
 def _create_kit_components(uav, drone_type_obj):
-    """Create matching components (battery, spool) for a UAV based on its drone type.
-
-    If no BatteryType/SpoolType exists for the drone type's template, creates one
-    automatically so the UAV always gets a full kit.
-    """
-    # Battery for all drone types — auto-create BatteryType if missing
-    battery_type, _ = BatteryType.objects.get_or_create(
-        power_template=drone_type_obj.power_template,
-        defaults={"model": drone_type_obj.power_template.name},
-    )
+    """Create battery (and spool for optical) components for a UAV."""
     Component.objects.create(
-        content_type=ContentType.objects.get_for_model(BatteryType),
-        object_id=battery_type.pk,
-        status="in_use",
+        kind='battery',
+        power_template=drone_type_obj.power_template,
+        status='in_use',
         assigned_to_uav=uav,
     )
-
-    # Spool for optical drones — auto-create SpoolType if missing
     if isinstance(drone_type_obj, OpticalDroneType):
-        spool_type, _ = SpoolType.objects.get_or_create(
-            video_template=drone_type_obj.video_template,
-            defaults={"model": f"{drone_type_obj.video_template.name} ({drone_type_obj})"},
-        )
         Component.objects.create(
-            content_type=ContentType.objects.get_for_model(SpoolType),
-            object_id=spool_type.pk,
-            status="in_use",
+            kind='spool',
+            video_template=drone_type_obj.video_template,
+            status='in_use',
             assigned_to_uav=uav,
         )
 
@@ -436,7 +408,7 @@ def uav_delete(request, pk):
         messages.success(request, "БПЛА видалено.")
         return redirect("equipment_accounting:equipment_list")
     for comp in components:
-        comp.type_display = str(comp.component_type)
+        comp.type_display = str(comp)
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": uav, "title": "Видалити БПЛА",
         "cancel_url": _list_url("drones"),
@@ -637,17 +609,14 @@ _COMPONENT_EXTRA = lambda: {
 
 @login_required
 def component_available_uavs(request):
-    """Return JSON list of UAVs available for a given component content_type."""
-    ct_id = exclude_pk = None
-    try:
-        ct_id = int(request.GET.get("ct_id", ""))
-    except (ValueError, TypeError):
-        pass
+    """Return JSON list of UAVs available for a given component kind."""
+    kind = request.GET.get("kind", "")
+    exclude_pk = None
     try:
         exclude_pk = int(request.GET.get("exclude", ""))
     except (ValueError, TypeError):
         pass
-    uavs = _get_available_uavs(ct_id, exclude_component_pk=exclude_pk)
+    uavs = _get_available_uavs_for_kind(kind, exclude_component_pk=exclude_pk)
     return JsonResponse({
         "uavs": [{"id": u.pk, "text": str(u)} for u in uavs]
     })
@@ -734,16 +703,8 @@ def power_template_edit(request, pk):
 
 @master_required
 def power_template_delete(request, pk):
-    template = get_object_or_404(PowerTemplate, pk=pk, is_deleted=False)
-    if request.method == "POST":
-        template.is_deleted = True
-        template.save(update_fields=["is_deleted"])
-        messages.success(request, "Шаблон живлення видалено.")
-        return redirect(_list_url("templates"))
-    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
-        "object": template, "title": "Видалити шаблон живлення",
-        "cancel_url": _list_url("templates"),
-    })
+    messages.error(request, "Видалення шаблонів живлення заборонено.")
+    return redirect(_list_url("templates"))
 
 
 # ── VideoTemplate CRUD ──────────────────────────────────────────────
@@ -781,13 +742,5 @@ def video_template_edit(request, pk):
 
 @master_required
 def video_template_delete(request, pk):
-    template = get_object_or_404(VideoTemplate, pk=pk, is_deleted=False)
-    if request.method == "POST":
-        template.is_deleted = True
-        template.save(update_fields=["is_deleted"])
-        messages.success(request, "Шаблон відео видалено.")
-        return redirect(_list_url("templates"))
-    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
-        "object": template, "title": "Видалити шаблон відео",
-        "cancel_url": _list_url("templates"),
-    })
+    messages.error(request, "Видалення шаблонів відео заборонено.")
+    return redirect(_list_url("templates"))

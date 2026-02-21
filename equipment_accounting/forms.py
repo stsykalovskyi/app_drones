@@ -5,33 +5,28 @@ from django.db.models.expressions import RawSQL
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
-    BatteryType, SpoolType, OtherComponentType,
+    OtherComponentType,
     DroneModel, DronePurpose, Frequency, Manufacturer,
 )
 
 INPUT_CSS = {"class": "form-input"}
 
 
-def _get_available_uavs(content_type_id=None, exclude_component_pk=None):
-    """Return active UAVs filtered by component-type completeness.
+def _get_available_uavs_for_kind(kind, exclude_component_pk=None):
+    """Return active UAVs filtered by component kind.
 
-    Returns empty queryset when content_type_id is unknown (no type selected yet).
-    For Battery/Spool types excludes UAVs that already have one assigned,
-    optionally ignoring a specific component (used on edit to keep current UAV visible).
-    For other types returns all active UAVs.
+    Returns empty queryset when kind is unknown.
+    For battery/spool excludes UAVs that already have one assigned,
+    optionally ignoring a specific component (used on edit).
+    For other returns all active UAVs.
     """
-    if content_type_id is None:
+    if not kind:
         return UAVInstance.objects.none()
 
     base_qs = UAVInstance.objects.filter(status__in=UAVInstance.ACTIVE_STATUSES)
 
-    battery_ct = ContentType.objects.get_for_model(BatteryType)
-    spool_ct   = ContentType.objects.get_for_model(SpoolType)
-
-    if content_type_id in (battery_ct.pk, spool_ct.pk):
-        occ_qs = Component.objects.filter(
-            content_type_id=content_type_id, assigned_to_uav__isnull=False
-        )
+    if kind in ('battery', 'spool'):
+        occ_qs = Component.objects.filter(kind=kind, assigned_to_uav__isnull=False)
         if exclude_component_pk:
             occ_qs = occ_qs.exclude(pk=exclude_component_pk)
         return base_qs.exclude(pk__in=occ_qs.values_list('assigned_to_uav_id', flat=True))
@@ -57,20 +52,6 @@ def _build_drone_type_choices():
     opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
-    return choices
-
-
-def _build_component_type_choices():
-    """Build choices combining all component types as `content_type_id-object_id`."""
-    choices = [("", "---------")]
-    for model_class, label in [
-        (BatteryType, "Батарея"),
-        (SpoolType, "Котушка"),
-        (OtherComponentType, "Інше"),
-    ]:
-        ct = ContentType.objects.get_for_model(model_class)
-        for obj in model_class.objects.all():
-            choices.append((f"{ct.pk}-{obj.pk}", f"[{label}] {obj}"))
     return choices
 
 
@@ -106,7 +87,6 @@ class UAVInstanceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["drone_type"].choices = _build_drone_type_choices()
         if self.instance.pk:
-            # Editing — hide quantity and kit, show status
             del self.fields["quantity"]
             del self.fields["with_kit"]
             if self.instance.content_type_id:
@@ -114,7 +94,6 @@ class UAVInstanceForm(forms.ModelForm):
                     f"{self.instance.content_type_id}-{self.instance.object_id}"
                 )
         else:
-            # Creating — hide status and notes
             del self.fields["status"]
             del self.fields["notes"]
 
@@ -143,16 +122,15 @@ class UAVInstanceForm(forms.ModelForm):
 
 
 class ComponentForm(forms.ModelForm):
-    component_type_select = forms.ChoiceField(
-        label="Тип комплектуючої",
-        choices=[],
-        widget=forms.Select(attrs=INPUT_CSS),
-    )
-
     class Meta:
         model = Component
-        fields = ("status", "assigned_to_uav", "notes")
+        fields = ("kind", "power_template", "video_template", "other_type",
+                  "status", "assigned_to_uav", "notes")
         widgets = {
+            "kind": forms.Select(attrs=INPUT_CSS),
+            "power_template": forms.Select(attrs=INPUT_CSS),
+            "video_template": forms.Select(attrs=INPUT_CSS),
+            "other_type": forms.Select(attrs=INPUT_CSS),
             "status": forms.Select(attrs=INPUT_CSS),
             "assigned_to_uav": forms.Select(attrs=INPUT_CSS),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
@@ -160,47 +138,27 @@ class ComponentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["component_type_select"].choices = _build_component_type_choices()
-        if self.instance.pk and self.instance.content_type_id:
-            self.fields["component_type_select"].initial = (
-                f"{self.instance.content_type_id}-{self.instance.object_id}"
-            )
+        self.fields["power_template"].queryset = PowerTemplate.objects.filter(is_deleted=False)
+        self.fields["power_template"].required = False
+        self.fields["video_template"].queryset = VideoTemplate.objects.filter(is_deleted=False)
+        self.fields["video_template"].required = False
+        self.fields["other_type"].required = False
 
-        # Resolve content_type_id for UAV queryset filtering:
-        # prefer the instance value (edit), fall back to submitted POST data.
-        ct_id = None
-        if self.instance.pk:
-            ct_id = self.instance.content_type_id
-        elif self.data.get("component_type_select"):
-            try:
-                ct_id = int(self.data["component_type_select"].split("-")[0])
-            except (ValueError, AttributeError, IndexError):
-                pass
-
-        self.fields["assigned_to_uav"].queryset = _get_available_uavs(
-            ct_id, exclude_component_pk=self.instance.pk or None
+        kind = self.instance.kind if self.instance.pk else self.data.get("kind", "")
+        self.fields["assigned_to_uav"].queryset = _get_available_uavs_for_kind(
+            kind, exclude_component_pk=self.instance.pk or None
         )
 
-    def clean_component_type_select(self):
-        value = self.cleaned_data["component_type_select"]
-        if not value:
-            raise forms.ValidationError("Оберіть тип комплектуючої.")
-        try:
-            ct_id, obj_id = value.split("-")
-            ct = ContentType.objects.get(pk=int(ct_id))
-            ct.get_object_for_this_type(pk=int(obj_id))
-        except (ValueError, ContentType.DoesNotExist, Exception):
-            raise forms.ValidationError("Невірний тип комплектуючої.")
-        return value
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        ct_id, obj_id = self.cleaned_data["component_type_select"].split("-")
-        instance.content_type_id = int(ct_id)
-        instance.object_id = int(obj_id)
-        if commit:
-            instance.save()
-        return instance
+    def clean(self):
+        cleaned_data = super().clean()
+        kind = cleaned_data.get("kind")
+        if kind == "battery" and not cleaned_data.get("power_template"):
+            self.add_error("power_template", "Оберіть шаблон живлення.")
+        if kind == "spool" and not cleaned_data.get("video_template"):
+            self.add_error("video_template", "Оберіть шаблон відео.")
+        if kind == "other" and not cleaned_data.get("other_type"):
+            self.add_error("other_type", "Оберіть тип.")
+        return cleaned_data
 
 
 class FPVDroneTypeForm(forms.ModelForm):
