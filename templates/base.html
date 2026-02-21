@@ -346,9 +346,64 @@
             height: 36px;
             font-size: 0.78rem;
         }
+        .submenu li a:hover,
+        .submenu li a.active {
+            background: none;
+            box-shadow: none;
+        }
         .submenu li a .nav-icon {
             width: 16px;
             height: 16px;
+        }
+
+        /* Flyout submenu shown on hover when sidebar is collapsed */
+        .nav-flyout {
+            position: fixed;
+            z-index: 200;
+            display: none;
+            list-style: none;
+            padding: 4px;
+            margin: 0;
+            background: var(--sidebar-bg);
+            -webkit-backdrop-filter: blur(32px) saturate(1.6);
+            backdrop-filter: blur(32px) saturate(1.6);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-elevated);
+            min-width: 170px;
+        }
+        .nav-flyout li a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .nav-flyout li a:hover,
+        .nav-flyout li a.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+            box-shadow: none;
+        }
+        .nav-flyout .nav-icon {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .nav-flyout .nav-label {
+            opacity: 1;
+            transition: none;
         }
 
         /* ── main ── */
@@ -1089,6 +1144,65 @@
             }, DISMISS_MS);
         });
     })();
+</script>
+<script>
+(function () {
+    var sidebar = document.querySelector('.sidebar');
+    var body = document.body;
+
+    // Create flyout element once
+    var flyout = document.createElement('ul');
+    flyout.className = 'nav-flyout';
+    document.body.appendChild(flyout);
+
+    var hideTimer = null;
+
+    function isCollapsed() {
+        return !body.classList.contains('sidebar-pinned') && window.innerWidth > 768;
+    }
+
+    function cancelHide() {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    }
+
+    function hideFlyout() {
+        flyout.style.display = 'none';
+    }
+
+    function scheduleHide() {
+        hideTimer = setTimeout(hideFlyout, 120);
+    }
+
+    function showFlyout(li) {
+        var submenu = li.querySelector('.submenu');
+        if (!submenu) return;
+
+        cancelHide();
+
+        flyout.innerHTML = submenu.innerHTML;
+
+        var sidebarRect = sidebar.getBoundingClientRect();
+        var liRect = li.getBoundingClientRect();
+
+        flyout.style.left = sidebarRect.right + 4 + 'px';
+        flyout.style.top = liRect.top + 'px';
+        flyout.style.display = 'block';
+    }
+
+    flyout.addEventListener('mouseenter', cancelHide);
+    flyout.addEventListener('mouseleave', scheduleHide);
+
+    document.querySelectorAll('.sidebar-nav > li').forEach(function (li) {
+        if (!li.querySelector('.submenu')) return;
+
+        li.addEventListener('mouseenter', function () {
+            if (isCollapsed()) showFlyout(li);
+        });
+        li.addEventListener('mouseleave', function () {
+            if (isCollapsed()) scheduleHide();
+        });
+    });
+})();
 </script>
 </body>
 </html>

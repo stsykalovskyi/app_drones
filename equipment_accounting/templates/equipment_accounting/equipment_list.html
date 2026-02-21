@@ -259,7 +259,7 @@
 
     <div class="card">
         <div class="toolbar">
-            <h2>БПЛА</h2>
+            <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
             <a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>
         </div>
 
@@ -318,6 +318,7 @@
                 <thead>
                     <tr>
                         <th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>
+                        <th>ID</th>
                         <th>Категорія</th>
                         <th>Тип</th>
                         <th>Статус</th>
@@ -331,6 +332,7 @@
                     {% for uav in page_obj %}
                     <tr>
                         <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check"></td>
+                        <td data-label="ID">{{ uav.id }}</td>
                         <td data-label="Категорія">{{ uav.get_category }}</td>
                         <td data-label="Тип">{{ uav.uav_type }}</td>
                         <td data-label="Статус"><span class="status-badge">{{ uav.get_status_display }}</span></td>
@@ -338,6 +340,9 @@
                         <td data-label="Додав">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</td>
                         <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
                         <td data-label="" class="actions-cell">
+                            <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" title="Деталі">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </a>
                             <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" title="Редагувати">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </a>
@@ -385,11 +390,32 @@
 <div class="tab-panel{% if tab == 'components' %} active{% endif %}" id="tab-components">
     <div class="card">
         <div class="toolbar">
-            <h2>Комплектуючі</h2>
+            <h2>Комплектуючі <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ comp_page_obj.paginator.count }}</span></h2>
             <a href="{% url 'equipment_accounting:component_create' %}" class="button">+ Додати</a>
         </div>
 
-        {% if components %}
+        <form method="get" class="filter-bar" id="comp-filter-form">
+            <input type="hidden" name="tab" value="components">
+            <select name="comp_status">
+                <option value="">Всі статуси</option>
+                <option value="in_use"{% if comp_status_filter == 'in_use' %} selected{% endif %}>Використовується</option>
+                <option value="damaged"{% if comp_status_filter == 'damaged' %} selected{% endif %}>Пошкоджено</option>
+                <option value="disassembled"{% if comp_status_filter == 'disassembled' %} selected{% endif %}>Розкомплектовано</option>
+            </select>
+            <select name="comp_category">
+                <option value="">Всі типи</option>
+                <option value="battery"{% if comp_category_filter == 'battery' %} selected{% endif %}>Батарея</option>
+                <option value="spool"{% if comp_category_filter == 'spool' %} selected{% endif %}>Котушка</option>
+                <option value="other"{% if comp_category_filter == 'other' %} selected{% endif %}>Інше</option>
+            </select>
+            <select name="comp_assign">
+                <option value="">Всі</option>
+                <option value="assigned"{% if comp_assign_filter == 'assigned' %} selected{% endif %}>Закріплені</option>
+                <option value="free"{% if comp_assign_filter == 'free' %} selected{% endif %}>Вільні</option>
+            </select>
+        </form>
+
+        {% if comp_page_obj %}
         <table class="eq-table">
             <thead>
                 <tr>
@@ -401,7 +427,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for c in components %}
+                {% for c in comp_page_obj %}
                 <tr>
                     <td data-label="Тип">{{ c.component_type }}</td>
                     <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
@@ -415,6 +441,31 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if comp_page_obj.paginator.num_pages > 1 %}
+        <div class="pagination">
+            {% if comp_page_obj.has_previous %}
+            <a href="?tab=components&comp_status={{ comp_status_filter }}&comp_category={{ comp_category_filter }}&comp_assign={{ comp_assign_filter }}&cpage={{ comp_page_obj.previous_page_number }}">Попередня</a>
+            {% else %}
+            <span class="disabled">Попередня</span>
+            {% endif %}
+
+            {% for num in comp_page_obj.paginator.page_range %}
+                {% if comp_page_obj.number == num %}
+                <span class="current">{{ num }}</span>
+                {% elif num > comp_page_obj.number|add:"-3" and num < comp_page_obj.number|add:"3" %}
+                <a href="?tab=components&comp_status={{ comp_status_filter }}&comp_category={{ comp_category_filter }}&comp_assign={{ comp_assign_filter }}&cpage={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if comp_page_obj.has_next %}
+            <a href="?tab=components&comp_status={{ comp_status_filter }}&comp_category={{ comp_category_filter }}&comp_assign={{ comp_assign_filter }}&cpage={{ comp_page_obj.next_page_number }}">Наступна</a>
+            {% else %}
+            <span class="disabled">Наступна</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% else %}
         <div class="empty-state"><p>Комплектуючих ще немає.</p></div>
         {% endif %}
@@ -423,6 +474,78 @@
 
 {# ── Tab: Drone Types ── #}
 <div class="tab-panel{% if tab == 'types' %} active{% endif %}" id="tab-types">
+
+    {# Manufacturers #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Виробники</h2>
+            <a href="{% url 'equipment_accounting:manufacturer_create' %}" class="button">+ Додати</a>
+        </div>
+        {% if manufacturers %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in manufacturers %}
+                <tr>
+                    <td data-label="Назва">{{ m.name }}</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:manufacturer_edit' m.pk %}" class="btn-icon" title="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'equipment_accounting:manufacturer_delete' m.pk %}" class="btn-icon btn-icon-danger" title="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Виробників ще немає.</p></div>
+        {% endif %}
+    </div>
+
+    {# Drone models #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Моделі дронів</h2>
+            <a href="{% url 'equipment_accounting:drone_model_create' %}" class="button">+ Додати</a>
+        </div>
+        {% if drone_models %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Виробник</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dm in drone_models %}
+                <tr>
+                    <td data-label="Назва">{{ dm.name }}</td>
+                    <td data-label="Виробник">{{ dm.manufacturer }}</td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:drone_model_edit' dm.pk %}" class="btn-icon" title="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'equipment_accounting:drone_model_delete' dm.pk %}" class="btn-icon btn-icon-danger" title="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Моделей дронів ще немає.</p></div>
+        {% endif %}
+    </div>
 
     {# FPV drone types #}
     <div class="card">
@@ -574,6 +697,7 @@
             <thead>
                 <tr>
                     <th>Назва</th>
+                    <th>Тип дрона</th>
                     <th>Сигнал</th>
                     <th>Дальність</th>
                     <th></th>
@@ -583,6 +707,7 @@
                 {% for vt in video_templates %}
                 <tr>
                     <td data-label="Назва">{{ vt.name }}</td>
+                    <td data-label="Тип дрона">{{ vt.drone_model|default:"—" }}</td>
                     <td data-label="Сигнал">{% if vt.is_analog %}Аналоговий{% else %}Цифровий{% endif %}</td>
                     <td data-label="Дальність">{{ vt.max_distance }} км</td>
                     <td data-label="" class="actions-cell">
@@ -613,13 +738,12 @@
         });
     });
 
-    /* Auto-submit filter form on change */
-    var filterForm = document.querySelector('.filter-bar');
-    if (filterForm) {
-        filterForm.querySelectorAll('select, input[type="date"]').forEach(function(el) {
-            el.addEventListener('change', function() { filterForm.submit(); });
+    /* Auto-submit filter forms on change */
+    document.querySelectorAll('.filter-bar').forEach(function(form) {
+        form.querySelectorAll('select, input[type="date"]').forEach(function(el) {
+            el.addEventListener('change', function() { form.submit(); });
         });
-    }
+    });
 
     /* Bulk selection */
     var checkAll = document.getElementById('check-all');

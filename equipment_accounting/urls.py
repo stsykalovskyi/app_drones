@@ -11,8 +11,21 @@ urlpatterns = [
 
     # UAV instances
     path('uav/add/', views.uav_create, name='uav_create'),
+    path('uav/<int:pk>/', views.uav_detail, name='uav_detail'),
     path('uav/<int:pk>/edit/', views.uav_edit, name='uav_edit'),
     path('uav/<int:pk>/delete/', views.uav_delete, name='uav_delete'),
+    path('uav/<int:uav_pk>/attach/<int:component_pk>/', views.uav_attach_component, name='uav_attach_component'),
+    path('uav/<int:uav_pk>/detach/<int:component_pk>/', views.uav_detach_component, name='uav_detach_component'),
+
+    # Manufacturers
+    path('manufacturer/add/', views.manufacturer_create, name='manufacturer_create'),
+    path('manufacturer/<int:pk>/edit/', views.manufacturer_edit, name='manufacturer_edit'),
+    path('manufacturer/<int:pk>/delete/', views.manufacturer_delete, name='manufacturer_delete'),
+
+    # Drone models
+    path('drone-model/add/', views.drone_model_create, name='drone_model_create'),
+    path('drone-model/<int:pk>/edit/', views.drone_model_edit, name='drone_model_edit'),
+    path('drone-model/<int:pk>/delete/', views.drone_model_delete, name='drone_model_delete'),
 
     # FPV drone types
     path('fpv-type/add/', views.fpv_type_create, name='fpv_type_create'),
@@ -25,6 +38,7 @@ urlpatterns = [
     path('optical-type/<int:pk>/delete/', views.optical_type_delete, name='optical_type_delete'),
 
     # Components
+    path('component/available-uavs/', views.component_available_uavs, name='component_available_uavs'),
     path('component/add/', views.component_create, name='component_create'),
     path('component/<int:pk>/edit/', views.component_edit, name='component_edit'),
     path('component/<int:pk>/delete/', views.component_delete, name='component_delete'),

@@ -1,14 +1,51 @@
 from django import forms
 from django.contrib.contenttypes.models import ContentType
+from django.db.models.expressions import RawSQL
 
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     BatteryType, SpoolType, OtherComponentType,
-    DroneModel, DronePurpose, Frequency,
+    DroneModel, DronePurpose, Frequency, Manufacturer,
 )
 
 INPUT_CSS = {"class": "form-input"}
+
+
+def _get_available_uavs(content_type_id=None, exclude_component_pk=None):
+    """Return active UAVs filtered by component-type completeness.
+
+    Returns empty queryset when content_type_id is unknown (no type selected yet).
+    For Battery/Spool types excludes UAVs that already have one assigned,
+    optionally ignoring a specific component (used on edit to keep current UAV visible).
+    For other types returns all active UAVs.
+    """
+    if content_type_id is None:
+        return UAVInstance.objects.none()
+
+    base_qs = UAVInstance.objects.filter(status__in=UAVInstance.ACTIVE_STATUSES)
+
+    battery_ct = ContentType.objects.get_for_model(BatteryType)
+    spool_ct   = ContentType.objects.get_for_model(SpoolType)
+
+    if content_type_id in (battery_ct.pk, spool_ct.pk):
+        occ_qs = Component.objects.filter(
+            content_type_id=content_type_id, assigned_to_uav__isnull=False
+        )
+        if exclude_component_pk:
+            occ_qs = occ_qs.exclude(pk=exclude_component_pk)
+        return base_qs.exclude(pk__in=occ_qs.values_list('assigned_to_uav_id', flat=True))
+
+    return base_qs
+
+
+def _frequencies_qs():
+    """Return frequencies ordered by value normalized to MHz (GHz × 1000)."""
+    return Frequency.objects.annotate(
+        value_mhz=RawSQL(
+            "CASE WHEN unit = 'ghz' THEN value * 1000.0 ELSE value END", []
+        )
+    ).order_by('value_mhz')
 
 
 def _build_drone_type_choices():
@@ -51,7 +88,7 @@ class UAVInstanceForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={**INPUT_CSS, "min": "1", "max": "100"}),
     )
     with_kit = forms.BooleanField(
-        label="Комплект",
+        label="Додати комплект",
         initial=True,
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-checkbox"}),
@@ -129,6 +166,21 @@ class ComponentForm(forms.ModelForm):
                 f"{self.instance.content_type_id}-{self.instance.object_id}"
             )
 
+        # Resolve content_type_id for UAV queryset filtering:
+        # prefer the instance value (edit), fall back to submitted POST data.
+        ct_id = None
+        if self.instance.pk:
+            ct_id = self.instance.content_type_id
+        elif self.data.get("component_type_select"):
+            try:
+                ct_id = int(self.data["component_type_select"].split("-")[0])
+            except (ValueError, AttributeError, IndexError):
+                pass
+
+        self.fields["assigned_to_uav"].queryset = _get_available_uavs(
+            ct_id, exclude_component_pk=self.instance.pk or None
+        )
+
     def clean_component_type_select(self):
         value = self.cleaned_data["component_type_select"]
         if not value:
@@ -169,6 +221,11 @@ class FPVDroneTypeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['control_frequencies'].queryset = _frequencies_qs()
+        self.fields['power_template'].queryset = PowerTemplate.objects.filter(is_deleted=False)
+
 
 class OpticalDroneTypeForm(forms.ModelForm):
     class Meta:
@@ -188,6 +245,31 @@ class OpticalDroneTypeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['control_frequencies'].queryset = _frequencies_qs()
+        self.fields['power_template'].queryset = PowerTemplate.objects.filter(is_deleted=False)
+        self.fields['video_template'].queryset = VideoTemplate.objects.filter(is_deleted=False)
+
+
+class ManufacturerForm(forms.ModelForm):
+    class Meta:
+        model = Manufacturer
+        fields = ("name",)
+        widgets = {
+            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Назва виробника"}),
+        }
+
+
+class DroneModelForm(forms.ModelForm):
+    class Meta:
+        model = DroneModel
+        fields = ("name", "manufacturer")
+        widgets = {
+            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Назва моделі"}),
+            "manufacturer": forms.Select(attrs=INPUT_CSS),
+        }
+
 
 class PowerTemplateForm(forms.ModelForm):
     class Meta:
@@ -204,9 +286,10 @@ class PowerTemplateForm(forms.ModelForm):
 class VideoTemplateForm(forms.ModelForm):
     class Meta:
         model = VideoTemplate
-        fields = ("name", "is_analog", "max_distance")
+        fields = ("name", "drone_model", "is_analog", "max_distance")
         widgets = {
             "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Назва шаблону"}),
+            "drone_model": forms.Select(attrs=INPUT_CSS),
             "is_analog": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
             "max_distance": forms.NumberInput(attrs={**INPUT_CSS, "placeholder": "км", "min": "1"}),
         }

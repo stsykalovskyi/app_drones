@@ -41,17 +41,39 @@
     }
     .eq-form .checkbox-group ul {
         list-style: none; padding: 0; margin: 0;
-        display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+        display: flex; flex-wrap: wrap; gap: 0.4rem;
     }
     .eq-form .checkbox-group li {
-        display: flex; align-items: center; gap: 0.4rem;
+        display: flex;
+    }
+    /* Hide the native checkbox — the entire label acts as a toggle chip */
+    .eq-form .checkbox-group li input[type="checkbox"] {
+        position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;
     }
     .eq-form .checkbox-group li label {
-        margin-bottom: 0; text-transform: none; font-size: 0.88rem;
-        color: var(--text); cursor: pointer;
+        display: inline-flex; align-items: center;
+        padding: 0.3rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 0.82rem; font-weight: 600; letter-spacing: 0.02em;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+        user-select: none;
+        margin-bottom: 0; text-transform: none;
     }
-    .eq-form .checkbox-group li input {
-        width: 1.1rem; height: 1.1rem; accent-color: var(--accent); cursor: pointer;
+    .eq-form .checkbox-group li label:hover {
+        border-color: var(--border-active);
+        color: var(--text);
+        background: var(--accent-dim);
+    }
+    /* Selected state via :has() — works because input is inside label */
+    .eq-form .checkbox-group li label:has(input:checked) {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
     }
 
     .eq-form .errorlist {
@@ -71,12 +93,14 @@
 </div>
 
 <div class="card">
-    <form method="post" class="eq-form">
+    <form method="post" class="eq-form"
+          {% if uav_filter_url %} data-uav-url="{{ uav_filter_url }}"{% endif %}
+          {% if form.instance.pk %} data-component-pk="{{ form.instance.pk }}"{% endif %}>
         {% csrf_token %}
 
         {% for field in form %}
         <div class="field">
-            {% if field.field.widget.input_type == 'checkbox' %}
+            {% if field.field.widget.input_type == 'checkbox' and not field.field.widget.allow_multiple_selected %}
             <div class="checkbox-row">
                 {{ field }}
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -105,4 +129,89 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    var statusEl  = document.getElementById('id_status');
+    var uavEl     = document.getElementById('id_assigned_to_uav');
+    var ctEl      = document.getElementById('id_component_type_select');
+    var filterUrl = (document.querySelector('.eq-form') || {}).dataset.uavUrl;
+
+    if (!statusEl || !uavEl) return;
+
+    var uavWrapper = uavEl.closest('.field');
+
+    // Show/hide UAV field based on status
+    function toggleUav() {
+        var show = statusEl.value === 'in_use';
+        uavWrapper.style.display = show ? '' : 'none';
+        if (!show) uavEl.value = '';
+    }
+    statusEl.addEventListener('change', toggleUav);
+    toggleUav();
+
+    // Dynamically filter UAV options based on selected component type
+    var form = document.querySelector('.eq-form');
+    var componentPk = form ? (form.dataset.componentPk || '') : '';
+
+    if (!ctEl || !filterUrl) return;
+
+    function refreshUavs() {
+        var val = ctEl.value;
+        if (!val) {
+            uavEl.innerHTML = '<option value="">---------</option>';
+            return;
+        }
+        var ctId = val.split('-')[0];
+        var url  = filterUrl + '?ct_id=' + ctId;
+        if (componentPk) url += '&exclude=' + componentPk;
+        var prev = uavEl.value;
+
+        fetch(url)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                uavEl.innerHTML = '<option value="">---------</option>';
+                data.uavs.forEach(function (u) {
+                    var opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.text;
+                    if (String(u.id) === String(prev)) opt.selected = true;
+                    uavEl.appendChild(opt);
+                });
+            });
+    }
+
+    ctEl.addEventListener('change', refreshUavs);
+    refreshUavs(); // run on load to apply initial filter
+})();
+
+(function () {
+    // Auto-build VideoTemplate name from drone_model + is_analog + max_distance.
+    // Only activates when all four fields are present on the page.
+    var nameEl   = document.getElementById('id_name');
+    var analogEl = document.getElementById('id_is_analog');
+    var droneEl  = document.getElementById('id_drone_model');
+    var distEl   = document.getElementById('id_max_distance');
+
+    if (!nameEl || !analogEl || !droneEl || !distEl) return;
+
+    function buildName() {
+        var opt       = droneEl.options[droneEl.selectedIndex];
+        var dronePart = (opt && opt.value) ? opt.text.trim() : '';
+        var typePart  = analogEl.checked ? 'аналог' : 'цифра';
+        var dist      = distEl.value.trim();
+        var distPart  = dist ? dist + 'км' : '';
+
+        var parts = [];
+        if (dronePart) parts.push(dronePart);
+        parts.push(typePart);
+        if (distPart) parts.push(distPart);
+        nameEl.value = parts.join(' ');
+    }
+
+    analogEl.addEventListener('change', buildName);
+    droneEl.addEventListener('change', buildName);
+    distEl.addEventListener('input', buildName);
+})();
+</script>
 {% endblock %}

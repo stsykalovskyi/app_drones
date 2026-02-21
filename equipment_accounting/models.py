@@ -106,6 +106,7 @@ class PowerTemplate(models.Model):
     connector = models.CharField(max_length=20, choices=CONNECTOR_CHOICES, verbose_name="Тип конектора")
     configuration = models.CharField(max_length=10, choices=CONFIGURATION_CHOICES, verbose_name="Конфігурація")
     capacity = models.IntegerField(verbose_name="Ємність (mAh)")
+    is_deleted = models.BooleanField(default=False, verbose_name="Видалено")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
 
     class Meta:
@@ -127,8 +128,16 @@ class VideoTemplate(models.Model):
     """Шаблон відео для оптоволоконних котушок"""
 
     name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
+    drone_model = models.ForeignKey(
+        DroneModel,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=False,
+        verbose_name="Тип дрона",
+    )
     is_analog = models.BooleanField(default=True, verbose_name="Аналоговий сигнал")
     max_distance = models.IntegerField(verbose_name="Дальність польоту (км)")
+    is_deleted = models.BooleanField(default=False, verbose_name="Видалено")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
 
     class Meta:

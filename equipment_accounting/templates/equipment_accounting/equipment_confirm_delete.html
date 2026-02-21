@@ -12,6 +12,24 @@
     .delete-msg { margin-bottom: 1.5rem; font-size: 0.95rem; color: var(--text-secondary); }
     .delete-obj { font-weight: 600; color: var(--text); }
     .delete-actions { display: flex; gap: 0.75rem; align-items: center; }
+    .components-block {
+        margin-bottom: 1.25rem; padding: 0.9rem 1rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--accent-dim);
+    }
+    .components-block p {
+        font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.6rem;
+    }
+    .components-list {
+        list-style: none; padding: 0; margin: 0 0 0.85rem;
+        font-size: 0.85rem; color: var(--text);
+        display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
+    }
+    .checkbox-row {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.88rem; color: var(--text);
+    }
+    .checkbox-row input { width: 1rem; height: 1rem; accent-color: #ef4444; cursor: pointer; }
     .btn-danger {
         display: inline-flex; align-items: center; justify-content: center;
         padding: 0.6rem 1.1rem; border-radius: var(--radius-sm);
@@ -36,6 +54,20 @@
     </p>
     <form method="post">
         {% csrf_token %}
+        {% if uav_components %}
+        <div class="components-block">
+            <p>Закріплені комплектуючі ({{ uav_components|length }}):</p>
+            <ul class="components-list">
+                {% for comp in uav_components %}
+                <li>{{ comp.type_display }}</li>
+                {% endfor %}
+            </ul>
+            <label class="checkbox-row">
+                <input type="checkbox" name="delete_components" value="1">
+                Видалити комплектуючі разом з БПЛА
+            </label>
+        </div>
+        {% endif %}
         <div class="delete-actions">
             <button type="submit" class="btn-danger">Видалити</button>
             <a href="{{ cancel_url }}" class="button ghost">Скасувати</a>
