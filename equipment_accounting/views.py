@@ -220,24 +220,23 @@ def uav_detail(request, pk):
     filled_kinds = {comp.kind for comp in assigned_components}
     drone_type = uav.uav_type
 
-    compatible_q = Q()
-    if 'battery' not in filled_kinds:
-        compatible_q |= Q(kind='battery', power_template=drone_type.power_template)
-    if uav.content_type.model == 'opticaldronetype' and 'spool' not in filled_kinds:
-        compatible_q |= Q(
-            kind='spool',
-            video_template__drone_model=drone_type.video_template.drone_model,
-            video_template__is_analog=drone_type.video_template.is_analog,
-        )
+    free_qs_base = Component.objects.filter(
+        assigned_to_uav=None, status__in=['in_use', 'disassembled']
+    ).select_related('power_template', 'video_template', 'other_type')
 
-    if compatible_q:
-        free_components = list(
-            Component.objects.filter(compatible_q, assigned_to_uav=None)
-            .exclude(status='damaged')
-            .select_related('power_template', 'video_template', 'other_type')
+    free_components = []
+    if 'battery' not in filled_kinds:
+        free_components += list(
+            free_qs_base.filter(kind='battery', power_template_id=drone_type.power_template_id)
         )
-    else:
-        free_components = []
+    if uav.content_type.model == 'opticaldronetype' and 'spool' not in filled_kinds:
+        free_components += list(
+            free_qs_base.filter(
+                kind='spool',
+                video_template__drone_model_id=drone_type.video_template.drone_model_id,
+                video_template__is_analog=drone_type.video_template.is_analog,
+            )
+        )
 
     for comp in free_components:
         if comp.kind == 'battery':
