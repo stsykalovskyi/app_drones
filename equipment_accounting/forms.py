@@ -243,10 +243,36 @@ class PowerTemplateForm(forms.ModelForm):
 class VideoTemplateForm(forms.ModelForm):
     class Meta:
         model = VideoTemplate
-        fields = ("name", "drone_model", "is_analog", "max_distance")
+        fields = ("drone_model", "is_analog", "max_distance")
         widgets = {
-            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Назва шаблону"}),
             "drone_model": forms.Select(attrs=INPUT_CSS),
             "is_analog": forms.CheckboxInput(attrs={"class": "form-checkbox"}),
             "max_distance": forms.NumberInput(attrs={**INPUT_CSS, "placeholder": "км", "min": "1"}),
         }
+
+    def _build_name(self, drone_model, is_analog, max_distance):
+        signal = "аналог" if is_analog else "цифра"
+        return f"{drone_model} {signal} {max_distance}км"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        drone_model = cleaned_data.get("drone_model")
+        is_analog = cleaned_data.get("is_analog", False)
+        max_distance = cleaned_data.get("max_distance")
+        if drone_model and max_distance is not None:
+            name = self._build_name(drone_model, is_analog, max_distance)
+            qs = VideoTemplate.objects.filter(name=name)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("Шаблон відео з такими параметрами вже існує.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.name = self._build_name(
+            instance.drone_model, instance.is_analog, instance.max_distance
+        )
+        if commit:
+            instance.save()
+        return instance

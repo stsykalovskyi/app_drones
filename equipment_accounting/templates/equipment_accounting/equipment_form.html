@@ -202,34 +202,5 @@
     kindEl.addEventListener('change', refreshUavs);
     refreshUavs(); // run on load to apply initial filter
 })();
-
-(function () {
-    // Auto-build VideoTemplate name from drone_model + is_analog + max_distance.
-    // Only activates when all four fields are present on the page.
-    var nameEl   = document.getElementById('id_name');
-    var analogEl = document.getElementById('id_is_analog');
-    var droneEl  = document.getElementById('id_drone_model');
-    var distEl   = document.getElementById('id_max_distance');
-
-    if (!nameEl || !analogEl || !droneEl || !distEl) return;
-
-    function buildName() {
-        var opt       = droneEl.options[droneEl.selectedIndex];
-        var dronePart = (opt && opt.value) ? opt.text.trim() : '';
-        var typePart  = analogEl.checked ? 'аналог' : 'цифра';
-        var dist      = distEl.value.trim();
-        var distPart  = dist ? dist + 'км' : '';
-
-        var parts = [];
-        if (dronePart) parts.push(dronePart);
-        parts.push(typePart);
-        if (distPart) parts.push(distPart);
-        nameEl.value = parts.join(' ');
-    }
-
-    analogEl.addEventListener('change', buildName);
-    droneEl.addEventListener('change', buildName);
-    distEl.addEventListener('input', buildName);
-})();
 </script>
 {% endblock %}
