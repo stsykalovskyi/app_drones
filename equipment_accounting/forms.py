@@ -195,6 +195,16 @@ class ComponentForm(forms.ModelForm):
             self.add_error("other_type", "Оберіть тип.")
         return cleaned_data
 
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if instance.assigned_to_uav:
+            instance.status = 'in_use'
+        elif instance.status != 'damaged':
+            instance.status = 'disassembled'
+        if commit:
+            instance.save()
+        return instance
+
 
 class FPVDroneTypeForm(forms.ModelForm):
     class Meta:
