@@ -125,12 +125,26 @@
     .btn-icon {
         display: inline-flex; align-items: center; justify-content: center;
         width: 32px; height: 32px; border-radius: var(--radius-sm);
-        border: 1px solid var(--border); text-decoration: none;
+        border: 1px solid var(--border); text-decoration: none; background: none;
         color: var(--text-secondary); transition: all 0.15s ease; cursor: pointer;
+        position: relative;
     }
     .btn-icon:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
     .btn-icon-danger { color: #ef4444; border-color: rgba(239,68,68,0.3); }
     .btn-icon-danger:hover { background: rgba(239,68,68,0.1); color: #ef4444; border-color: #ef4444; }
+    .btn-icon-warn { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+    .btn-icon-warn:hover { background: rgba(245,158,11,0.1); color: #f59e0b; border-color: #f59e0b; }
+    .btn-icon-success { color: #22c55e; border-color: rgba(34,197,94,0.3); }
+    .btn-icon-success:hover { background: rgba(34,197,94,0.1); color: #22c55e; border-color: #22c55e; }
+    /* Tooltip */
+    .btn-icon[title]:hover::after {
+        content: attr(title);
+        position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+        background: var(--bg-surface, #1e1e2e); color: var(--text);
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        padding: 0.2rem 0.5rem; font-size: 0.72rem; white-space: nowrap;
+        pointer-events: none; z-index: 100;
+    }
 
     /* Checkboxes */
     .row-check, .check-all {
@@ -436,15 +450,34 @@
                     <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
                     <td data-label="Дата" class="date-cell">{{ c.created_at|date:"d.m.Y" }}</td>
                     <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:component_edit' c.pk %}" class="btn-sm">Редагувати</a>
+                        {# Edit #}
+                        <a href="{% url 'equipment_accounting:component_edit' c.pk %}" class="btn-icon" title="Редагувати">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        {# Mark damaged — hidden if already damaged #}
                         {% if c.status != 'damaged' %}
-                        <form method="post" action="{% url 'equipment_accounting:component_mark_damaged' c.pk %}" style="display:inline;">
+                        <form method="post" action="{% url 'equipment_accounting:component_mark_damaged' c.pk %}" style="display:contents;">
                             {% csrf_token %}
                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                            <button type="submit" class="btn-sm btn-warn">Пошкоджено</button>
+                            <button type="submit" class="btn-icon btn-icon-warn" title="Пошкоджено">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </button>
                         </form>
                         {% endif %}
-                        <a href="{% url 'equipment_accounting:component_delete' c.pk %}" class="btn-sm btn-danger">Видалити</a>
+                        {# Restore — shown when damaged or disassembled #}
+                        {% if c.status != 'in_use' %}
+                        <form method="post" action="{% url 'equipment_accounting:component_restore' c.pk %}" style="display:contents;">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button type="submit" class="btn-icon btn-icon-success" title="Відновити">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {# Delete #}
+                        <a href="{% url 'equipment_accounting:component_delete' c.pk %}" class="btn-icon btn-icon-danger" title="Видалити">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}

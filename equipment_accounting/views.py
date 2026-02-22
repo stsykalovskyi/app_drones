@@ -670,6 +670,19 @@ def component_mark_damaged(request, pk):
 
 
 @master_required
+def component_restore(request, pk):
+    """Restore a damaged or disassembled component to in_use status."""
+    if request.method != "POST":
+        return redirect(_list_url("components"))
+    component = get_object_or_404(Component, pk=pk)
+    component.status = "in_use"
+    component.save(update_fields=["status", "updated_at"])
+    messages.success(request, "Комплектуючу відновлено.")
+    next_url = request.POST.get("next") or _list_url("components")
+    return redirect(next_url)
+
+
+@master_required
 def component_delete(request, pk):
     component = get_object_or_404(Component, pk=pk)
     if request.method == "POST":
