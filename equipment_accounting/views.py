@@ -178,7 +178,7 @@ def equipment_list(request):
         "type_choices": type_choices,
         "total_drones": total_drones,
         "status_counts": status_counts,
-        "status_choices": [c for c in UAVInstance.STATUS_CHOICES if c[0] != 'deleted'],
+        "status_choices": [c for c in UAVInstance.STATUS_CHOICES if c[0] not in ('deleted', 'given')],
         "comp_page_obj": comp_page_obj,
         "comp_status_filter": comp_status_filter,
         "comp_category_filter": comp_category_filter,

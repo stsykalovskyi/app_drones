@@ -349,7 +349,7 @@ class UAVInstance(models.Model):
     ]
 
     # Statuses visible in the list (excludes soft-deleted)
-    ACTIVE_STATUSES = ['ready', 'inspection', 'repair', 'deferred', 'given']
+    ACTIVE_STATUSES = ['ready', 'inspection', 'repair', 'deferred']
 
     # Полиморфне посилання на тип БПЛА
     content_type = models.ForeignKey(
