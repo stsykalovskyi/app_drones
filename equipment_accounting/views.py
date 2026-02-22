@@ -297,6 +297,17 @@ def uav_detach_component(request, uav_pk, component_pk):
 # ── Bulk actions ────────────────────────────────────────────────────
 
 @master_required
+def uav_toggle_given(request, pk):
+    """Toggle the 'given' status on a UAV via the list checkbox."""
+    if request.method != "POST":
+        return redirect(_list_url("drones"))
+    uav = get_object_or_404(UAVInstance, pk=pk)
+    uav.status = 'inspection' if uav.status == 'given' else 'given'
+    uav.save(update_fields=['status', 'updated_at'])
+    return redirect(request.POST.get('next') or _list_url("drones"))
+
+
+@master_required
 def uav_bulk_action(request):
     """Handle bulk status change or bulk delete for selected UAVs."""
     if request.method != "POST":

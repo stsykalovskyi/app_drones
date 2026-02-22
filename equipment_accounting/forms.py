@@ -116,7 +116,7 @@ class UAVInstanceForm(forms.ModelForm):
             del self.fields["quantity"]
             del self.fields["with_kit"]
             self.fields["status"].choices = [
-                c for c in UAVInstance.STATUS_CHOICES if c[0] != 'deleted'
+                c for c in UAVInstance.STATUS_CHOICES if c[0] not in ('deleted', 'given')
             ]
             if self.instance.content_type_id:
                 self.fields["drone_type"].initial = (

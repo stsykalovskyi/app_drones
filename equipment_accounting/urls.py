@@ -13,6 +13,7 @@ urlpatterns = [
     path('uav/add/', views.uav_create, name='uav_create'),
     path('uav/<int:pk>/', views.uav_detail, name='uav_detail'),
     path('uav/<int:pk>/edit/', views.uav_edit, name='uav_edit'),
+    path('uav/<int:pk>/toggle-given/', views.uav_toggle_given, name='uav_toggle_given'),
     path('uav/<int:pk>/delete/', views.uav_delete, name='uav_delete'),
     path('uav/<int:uav_pk>/attach/<int:component_pk>/', views.uav_attach_component, name='uav_attach_component'),
     path('uav/<int:uav_pk>/detach/<int:component_pk>/', views.uav_detach_component, name='uav_detach_component'),
