@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Статистика комплектуючих — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.5rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .summary-card {
+        background: var(--surface); backdrop-filter: blur(20px);
+        border-radius: var(--radius); padding: 1.25rem;
+        border: 1px solid var(--border); box-shadow: var(--shadow-card);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .summary-card:hover { box-shadow: var(--shadow-elevated); border-color: var(--border-active); }
+    .summary-label {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.35rem;
+    }
+    .summary-value { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+
+    .toolbar {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;
+    }
+    .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+
+    .eq-table { width: 100%; border-collapse: collapse; }
+    .eq-table th {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted);
+        padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .eq-table td {
+        padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+    }
+    .eq-table tr { transition: background 0.12s ease; }
+    .eq-table tr:hover td { background: var(--accent-dim); }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+
+    .row-warn td { border-left: 3px solid #f59e0b; }
+
+    @media (max-width: 640px) {
+        .eq-table thead { display: none; }
+        .eq-table tr { display: block; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+        .eq-table td {
+            display: flex; justify-content: space-between;
+            padding: 0.25rem 0; border: none;
+        }
+        .eq-table td::before {
+            content: attr(data-label); font-weight: 600;
+            font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--text-muted);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>Статистика комплектуючих</h1>
+    <p>Зведення по батареях, котушках та інших компонентах</p>
+</div>
+
+{# Batteries #}
+<div class="card">
+    <div class="toolbar"><h2>Батареї</h2></div>
+    <div class="summary-grid" style="margin-bottom:1.25rem">
+        <div class="summary-card">
+            <div class="summary-label">Всього</div>
+            <div class="summary-value">{{ battery_summary.total }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Використовується</div>
+            <div class="summary-value">{{ battery_summary.in_use }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Вільних</div>
+            <div class="summary-value">{{ battery_summary.free }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Пошкоджено</div>
+            <div class="summary-value">{{ battery_summary.damaged }}</div>
+        </div>
+    </div>
+    {% if battery_stats %}
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th>Шаблон</th>
+                <th>Конектор</th>
+                <th>Конфіг</th>
+                <th>Ємність</th>
+                <th>Всього</th>
+                <th>Використ.</th>
+                <th>Вільних</th>
+                <th>Пошкоджено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pt in battery_stats %}
+            <tr class="{% if pt.cnt_damaged %}row-warn{% endif %}">
+                <td data-label="Шаблон">{{ pt.name }}</td>
+                <td data-label="Конектор">{{ pt.get_connector_display }}</td>
+                <td data-label="Конфіг">{{ pt.get_configuration_display }}</td>
+                <td data-label="Ємність">{{ pt.capacity }} mAh</td>
+                <td data-label="Всього">{{ pt.total }}</td>
+                <td data-label="Використ.">{{ pt.cnt_in_use }}</td>
+                <td data-label="Вільних">{{ pt.cnt_free }}</td>
+                <td data-label="Пошкоджено">{{ pt.cnt_damaged }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>Батарей ще немає.</p></div>
+    {% endif %}
+</div>
+
+{# Spools #}
+<div class="card">
+    <div class="toolbar"><h2>Котушки</h2></div>
+    <div class="summary-grid" style="margin-bottom:1.25rem">
+        <div class="summary-card">
+            <div class="summary-label">Всього</div>
+            <div class="summary-value">{{ spool_summary.total }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Використовується</div>
+            <div class="summary-value">{{ spool_summary.in_use }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Вільних</div>
+            <div class="summary-value">{{ spool_summary.free }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Пошкоджено</div>
+            <div class="summary-value">{{ spool_summary.damaged }}</div>
+        </div>
+    </div>
+    {% if spool_stats %}
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th>Шаблон</th>
+                <th>Типи дронів</th>
+                <th>Сигнал</th>
+                <th>Всього</th>
+                <th>Використ.</th>
+                <th>Вільних</th>
+                <th>Пошкоджено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for vt in spool_stats %}
+            <tr class="{% if vt.cnt_damaged %}row-warn{% endif %}">
+                <td data-label="Шаблон">{{ vt.name }}</td>
+                <td data-label="Типи дронів">
+                    {% for dt in vt.opticaldronetype_set.all %}
+                        {{ dt }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}—{% endfor %}
+                </td>
+                <td data-label="Сигнал">{% if vt.is_analog %}Аналоговий{% else %}Цифровий{% endif %}</td>
+                <td data-label="Всього">{{ vt.total }}</td>
+                <td data-label="Використ.">{{ vt.cnt_in_use }}</td>
+                <td data-label="Вільних">{{ vt.cnt_free }}</td>
+                <td data-label="Пошкоджено">{{ vt.cnt_damaged }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>Котушок ще немає.</p></div>
+    {% endif %}
+</div>
+
+{# Other #}
+{% if other_stats %}
+<div class="card">
+    <div class="toolbar"><h2>Інше</h2></div>
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th>Тип</th>
+                <th>Категорія</th>
+                <th>Всього</th>
+                <th>Використ.</th>
+                <th>Вільних</th>
+                <th>Пошкоджено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ot in other_stats %}
+            <tr class="{% if ot.cnt_damaged %}row-warn{% endif %}">
+                <td data-label="Тип">{{ ot.model }}</td>
+                <td data-label="Категорія">{{ ot.get_category_display }}</td>
+                <td data-label="Всього">{{ ot.total }}</td>
+                <td data-label="Використ.">{{ ot.cnt_in_use }}</td>
+                <td data-label="Вільних">{{ ot.cnt_free }}</td>
+                <td data-label="Пошкоджено">{{ ot.cnt_damaged }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

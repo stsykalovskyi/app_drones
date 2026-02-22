@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -127,13 +127,15 @@ def equipment_list(request):
         status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
 
     # Components with filters
-    comp_status_filter   = request.GET.get("comp_status", "")
-    comp_category_filter = request.GET.get("comp_category", "")
-    comp_assign_filter   = request.GET.get("comp_assign", "")
+    comp_status_filter     = request.GET.get("comp_status", "")
+    comp_category_filter   = request.GET.get("comp_category", "")
+    comp_assign_filter     = request.GET.get("comp_assign", "")
+    comp_model_filter      = request.GET.get("comp_model", "")
+    comp_drone_type_filter = request.GET.get("comp_drone_type", "")
 
     components_qs = Component.objects.select_related(
         "power_template", "video_template", "other_type", "assigned_to_uav"
-    ).order_by("-created_at")
+    ).exclude(status='given').order_by("-created_at")
     if comp_status_filter:
         components_qs = components_qs.filter(status=comp_status_filter)
     if comp_category_filter in ('battery', 'spool', 'other'):
@@ -142,6 +144,30 @@ def equipment_list(request):
         components_qs = components_qs.filter(assigned_to_uav__isnull=False)
     elif comp_assign_filter == "free":
         components_qs = components_qs.filter(assigned_to_uav__isnull=True)
+    if comp_model_filter:
+        try:
+            model_id = int(comp_model_filter)
+        except ValueError:
+            model_id = None
+        if model_id:
+            pt_ids = list(
+                FPVDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
+            ) + list(
+                OpticalDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
+            )
+            components_qs = components_qs.filter(
+                Q(kind='battery', power_template_id__in=pt_ids) |
+                Q(kind='spool', video_template__drone_model_id=model_id)
+            )
+    if comp_drone_type_filter == 'fpv':
+        fpv_pt_ids = FPVDroneType.objects.values_list('power_template_id', flat=True)
+        components_qs = components_qs.filter(kind='battery', power_template_id__in=fpv_pt_ids)
+    elif comp_drone_type_filter == 'optical':
+        opt_pt_ids = OpticalDroneType.objects.values_list('power_template_id', flat=True)
+        components_qs = components_qs.filter(
+            Q(kind='battery', power_template_id__in=opt_pt_ids) |
+            Q(kind='spool')
+        )
 
     comp_paginator  = Paginator(components_qs, 20)
     comp_page_obj   = comp_paginator.get_page(request.GET.get("cpage"))
@@ -183,6 +209,8 @@ def equipment_list(request):
         "comp_status_filter": comp_status_filter,
         "comp_category_filter": comp_category_filter,
         "comp_assign_filter": comp_assign_filter,
+        "comp_model_filter": comp_model_filter,
+        "comp_drone_type_filter": comp_drone_type_filter,
         "fpv_drone_types": fpv_drone_types,
         "optical_drone_types": optical_drone_types,
         "power_templates": power_templates,
@@ -192,6 +220,63 @@ def equipment_list(request):
     }
 
     return render(request, "equipment_accounting/equipment_list.html", ctx)
+
+
+# ── Component Statistics ─────────────────────────────────────────────
+
+@master_required
+def component_stats(request):
+    battery_stats = PowerTemplate.objects.filter(is_deleted=False).annotate(
+        total=Count('battery_components',
+            filter=~Q(battery_components__status='given')),
+        cnt_in_use=Count('battery_components',
+            filter=Q(battery_components__status='in_use')),
+        cnt_free=Count('battery_components',
+            filter=Q(battery_components__status='disassembled')),
+        cnt_damaged=Count('battery_components',
+            filter=Q(battery_components__status='damaged')),
+    ).filter(total__gt=0).order_by('name')
+
+    spool_stats = VideoTemplate.objects.filter(is_deleted=False).prefetch_related(
+        Prefetch('opticaldronetype_set', queryset=OpticalDroneType.objects.select_related('model'))
+    ).annotate(
+        total=Count('spool_components',
+            filter=~Q(spool_components__status='given')),
+        cnt_in_use=Count('spool_components',
+            filter=Q(spool_components__status='in_use')),
+        cnt_free=Count('spool_components',
+            filter=Q(spool_components__status='disassembled')),
+        cnt_damaged=Count('spool_components',
+            filter=Q(spool_components__status='damaged')),
+    ).filter(total__gt=0).order_by('name')
+
+    other_stats = OtherComponentType.objects.annotate(
+        total=Count('components',
+            filter=~Q(components__status='given')),
+        cnt_in_use=Count('components',
+            filter=Q(components__status='in_use')),
+        cnt_free=Count('components',
+            filter=Q(components__status='disassembled')),
+        cnt_damaged=Count('components',
+            filter=Q(components__status='damaged')),
+    ).filter(total__gt=0).order_by('category', 'model')
+
+    def _kind_summary(kind):
+        qs = Component.objects.filter(kind=kind).exclude(status='given')
+        return {
+            'total':   qs.count(),
+            'in_use':  qs.filter(status='in_use').count(),
+            'free':    qs.filter(status='disassembled').count(),
+            'damaged': qs.filter(status='damaged').count(),
+        }
+
+    return render(request, 'equipment_accounting/component_stats.html', {
+        'battery_stats':   battery_stats,
+        'spool_stats':     spool_stats,
+        'other_stats':     other_stats,
+        'battery_summary': _kind_summary('battery'),
+        'spool_summary':   _kind_summary('spool'),
+    })
 
 
 # ── UAV Detail / Assembly ────────────────────────────────────────────
@@ -302,7 +387,15 @@ def uav_toggle_given(request, pk):
     if request.method != "POST":
         return redirect(_list_url("drones"))
     uav = get_object_or_404(UAVInstance, pk=pk)
-    uav.status = 'inspection' if uav.status == 'given' else 'given'
+    if uav.status == 'given':
+        uav.status = 'inspection'
+    elif uav.status == 'ready':
+        uav.status = 'given'
+        # Transfer all assigned components together with the drone
+        uav.components.update(status='given', assigned_to_uav=None)
+    else:
+        messages.error(request, 'Віддати можна лише готовий дрон.')
+        return redirect(request.POST.get('next') or _list_url("drones"))
     uav.save(update_fields=['status', 'updated_at'])
     return redirect(request.POST.get('next') or _list_url("drones"))
 
@@ -326,6 +419,16 @@ def uav_bulk_action(request):
     if action == "delete":
         qs.update(status='deleted')
         messages.success(request, f"Видалено {count} БПЛА.")
+    elif action == "given":
+        eligible = qs.filter(status='ready')
+        skipped = count - eligible.count()
+        # Transfer all assigned components together with eligible drones
+        Component.objects.filter(assigned_to_uav__in=eligible).update(status='given', assigned_to_uav=None)
+        eligible.update(status='given')
+        msg = f"Віддано {eligible.count()} БПЛА разом з комплектуючими."
+        if skipped:
+            msg += f" Пропущено {skipped} (не готові)."
+        messages.success(request, msg)
     elif action in dict(UAVInstance.STATUS_CHOICES):
         qs.update(status=action)
         label = dict(UAVInstance.STATUS_CHOICES)[action]

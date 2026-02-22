@@ -279,6 +279,7 @@ class Component(models.Model):
         ('in_use', 'Використовується'),
         ('damaged', 'Пошкоджено'),
         ('disassembled', 'Розкомплектовано'),
+        ('given', 'Віддано'),
     ]
 
     kind = models.CharField(max_length=10, choices=KIND_CHOICES, verbose_name="Вид")

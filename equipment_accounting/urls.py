@@ -5,6 +5,7 @@ app_name = 'equipment_accounting'
 
 urlpatterns = [
     path('', views.equipment_list, name='equipment_list'),
+    path('stats/', views.component_stats, name='component_stats'),
 
     # UAV bulk actions
     path('uav/bulk/', views.uav_bulk_action, name='uav_bulk_action'),
