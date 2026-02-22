@@ -267,13 +267,40 @@ class DroneModelForm(forms.ModelForm):
 class PowerTemplateForm(forms.ModelForm):
     class Meta:
         model = PowerTemplate
-        fields = ("name", "connector", "configuration", "capacity")
+        fields = ("configuration", "capacity", "connector")
         widgets = {
-            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Назва шаблону"}),
-            "connector": forms.Select(attrs=INPUT_CSS),
             "configuration": forms.Select(attrs=INPUT_CSS),
             "capacity": forms.NumberInput(attrs={**INPUT_CSS, "placeholder": "mAh", "min": "1"}),
+            "connector": forms.Select(attrs=INPUT_CSS),
         }
+
+    def _build_name(self, configuration, capacity, connector):
+        conf = configuration.upper().replace('s', 'S').replace('p', 'P')
+        conn = connector.upper()
+        return f"{conf} {capacity}mAh {conn}"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        configuration = cleaned_data.get("configuration")
+        capacity = cleaned_data.get("capacity")
+        connector = cleaned_data.get("connector")
+        if configuration and capacity and connector:
+            name = self._build_name(configuration, capacity, connector)
+            qs = PowerTemplate.objects.filter(name=name)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("Шаблон живлення з такими параметрами вже існує.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.name = self._build_name(
+            instance.configuration, instance.capacity, instance.connector
+        )
+        if commit:
+            instance.save()
+        return instance
 
 
 class VideoTemplateForm(forms.ModelForm):
