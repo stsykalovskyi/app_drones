@@ -165,10 +165,12 @@
         toggleUav();
     }
 
-    // Dynamically filter UAV options based on selected component kind
+    // Dynamically filter UAV options based on selected component kind + template
     if (kindEl && uavEl && filterUrl) {
         var form = document.querySelector('.eq-form');
         var componentPk = form ? (form.dataset.componentPk || '') : '';
+        var powerEl = document.getElementById('id_power_template');
+        var videoEl = document.getElementById('id_video_template');
 
         function refreshUavs() {
             var kind = kindEl.value;
@@ -178,6 +180,10 @@
             }
             var url = filterUrl + '?kind=' + kind;
             if (componentPk) url += '&exclude=' + componentPk;
+            if (kind === 'battery' && powerEl && powerEl.value)
+                url += '&power_template=' + powerEl.value;
+            if (kind === 'spool' && videoEl && videoEl.value)
+                url += '&video_template=' + videoEl.value;
             var prev = uavEl.value;
 
             fetch(url)
@@ -195,6 +201,8 @@
         }
 
         kindEl.addEventListener('change', refreshUavs);
+        if (powerEl) powerEl.addEventListener('change', refreshUavs);
+        if (videoEl) videoEl.addEventListener('change', refreshUavs);
         refreshUavs(); // run on load to apply initial filter
     }
 })();

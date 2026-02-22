@@ -609,14 +609,21 @@ _COMPONENT_EXTRA = lambda: {
 
 @login_required
 def component_available_uavs(request):
-    """Return JSON list of UAVs available for a given component kind."""
+    """Return JSON list of UAVs available for a given component kind and template."""
     kind = request.GET.get("kind", "")
+    power_template_id = request.GET.get("power_template") or None
+    video_template_id = request.GET.get("video_template") or None
     exclude_pk = None
     try:
         exclude_pk = int(request.GET.get("exclude", ""))
     except (ValueError, TypeError):
         pass
-    uavs = _get_available_uavs_for_kind(kind, exclude_component_pk=exclude_pk)
+    uavs = _get_available_uavs_for_kind(
+        kind,
+        exclude_component_pk=exclude_pk,
+        power_template_id=power_template_id,
+        video_template_id=video_template_id,
+    )
     return JsonResponse({
         "uavs": [{"id": u.pk, "text": str(u)} for u in uavs]
     })
