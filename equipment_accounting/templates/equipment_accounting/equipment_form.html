@@ -139,68 +139,64 @@
 
     // Show/hide template fields based on kind selection
     if (kindEl) {
-        var powerField = document.getElementById('id_power_template');
-        var videoField = document.getElementById('id_video_template');
-        var otherField = document.getElementById('id_other_type');
-        var powerWrapper = powerField ? powerField.closest('.field') : null;
-        var videoWrapper = videoField ? videoField.closest('.field') : null;
-        var otherWrapper = otherField ? otherField.closest('.field') : null;
+        var powerWrapper = (document.getElementById('id_power_template') || {closest:function(){}}).closest('.field');
+        var videoWrapper = (document.getElementById('id_video_template') || {closest:function(){}}).closest('.field');
+        var otherWrapper = (document.getElementById('id_other_type')     || {closest:function(){}}).closest('.field');
 
         function toggleKindFields() {
             var kind = kindEl.value;
             if (powerWrapper) powerWrapper.style.display = (kind === 'battery') ? '' : 'none';
-            if (videoWrapper) videoWrapper.style.display = (kind === 'spool') ? '' : 'none';
-            if (otherWrapper) otherWrapper.style.display = (kind === 'other') ? '' : 'none';
+            if (videoWrapper) videoWrapper.style.display = (kind === 'spool')   ? '' : 'none';
+            if (otherWrapper) otherWrapper.style.display = (kind === 'other')   ? '' : 'none';
         }
         kindEl.addEventListener('change', toggleKindFields);
         toggleKindFields();
     }
 
-    if (!statusEl || !uavEl) return;
-
-    var uavWrapper = uavEl.closest('.field');
-
-    // Show/hide UAV field based on status
-    function toggleUav() {
-        var show = statusEl.value === 'in_use';
-        uavWrapper.style.display = show ? '' : 'none';
-        if (!show) uavEl.value = '';
+    // Show/hide UAV field based on status (only when status field exists)
+    if (statusEl && uavEl) {
+        var uavWrapper = uavEl.closest('.field');
+        function toggleUav() {
+            var show = statusEl.value === 'in_use';
+            uavWrapper.style.display = show ? '' : 'none';
+            if (!show) uavEl.value = '';
+        }
+        statusEl.addEventListener('change', toggleUav);
+        toggleUav();
     }
-    statusEl.addEventListener('change', toggleUav);
-    toggleUav();
 
     // Dynamically filter UAV options based on selected component kind
-    var form = document.querySelector('.eq-form');
-    var componentPk = form ? (form.dataset.componentPk || '') : '';
+    if (kindEl && uavEl && filterUrl) {
+        var form = document.querySelector('.eq-form');
+        var componentPk = form ? (form.dataset.componentPk || '') : '';
 
-    if (!kindEl || !filterUrl) return;
-
-    function refreshUavs() {
-        var kind = kindEl.value;
-        if (!kind) {
-            uavEl.innerHTML = '<option value="">---------</option>';
-            return;
-        }
-        var url  = filterUrl + '?kind=' + kind;
-        if (componentPk) url += '&exclude=' + componentPk;
-        var prev = uavEl.value;
-
-        fetch(url)
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+        function refreshUavs() {
+            var kind = kindEl.value;
+            if (!kind) {
                 uavEl.innerHTML = '<option value="">---------</option>';
-                data.uavs.forEach(function (u) {
-                    var opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.textContent = u.text;
-                    if (String(u.id) === String(prev)) opt.selected = true;
-                    uavEl.appendChild(opt);
-                });
-            });
-    }
+                return;
+            }
+            var url = filterUrl + '?kind=' + kind;
+            if (componentPk) url += '&exclude=' + componentPk;
+            var prev = uavEl.value;
 
-    kindEl.addEventListener('change', refreshUavs);
-    refreshUavs(); // run on load to apply initial filter
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    uavEl.innerHTML = '<option value="">---------</option>';
+                    data.uavs.forEach(function (u) {
+                        var opt = document.createElement('option');
+                        opt.value = u.id;
+                        opt.textContent = u.text;
+                        if (String(u.id) === String(prev)) opt.selected = true;
+                        uavEl.appendChild(opt);
+                    });
+                });
+        }
+
+        kindEl.addEventListener('change', refreshUavs);
+        refreshUavs(); // run on load to apply initial filter
+    }
 })();
 </script>
 {% endblock %}
