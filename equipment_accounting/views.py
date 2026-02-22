@@ -117,12 +117,12 @@ def equipment_list(request):
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
 
-    # Summary counts (exclude soft-deleted)
+    # Summary counts — only statuses visible in the list (excludes deleted and given)
     all_uavs = UAVInstance.objects.filter(status__in=UAVInstance.ACTIVE_STATUSES)
     total_drones = all_uavs.count()
     status_counts = {}
     for code, label in UAVInstance.STATUS_CHOICES:
-        if code == 'deleted':
+        if code in ('deleted', 'given'):
             continue
         status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
 

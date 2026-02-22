@@ -341,7 +341,6 @@
                         <th>Комплект</th>
                         <th>Додав</th>
                         <th>Дата</th>
-                        <th>Віддано</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -356,14 +355,6 @@
                         <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
                         <td data-label="Додав">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</td>
                         <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
-                        <td data-label="Віддано" style="text-align:center;">
-                            <form method="post" action="{% url 'equipment_accounting:uav_toggle_given' uav.pk %}" style="display:contents;">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <input type="checkbox" class="row-check" {% if uav.status == 'given' %}checked{% endif %}
-                                       onchange="this.form.submit()" title="Віддано">
-                            </form>
-                        </td>
                         <td data-label="" class="actions-cell">
                             <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" title="Деталі">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
