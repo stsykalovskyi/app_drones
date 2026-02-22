@@ -41,6 +41,7 @@ urlpatterns = [
     path('component/available-uavs/', views.component_available_uavs, name='component_available_uavs'),
     path('component/add/', views.component_create, name='component_create'),
     path('component/<int:pk>/edit/', views.component_edit, name='component_edit'),
+    path('component/<int:pk>/damaged/', views.component_mark_damaged, name='component_mark_damaged'),
     path('component/<int:pk>/delete/', views.component_delete, name='component_delete'),
 
     # Power templates

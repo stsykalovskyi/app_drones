@@ -125,13 +125,12 @@ class ComponentForm(forms.ModelForm):
     class Meta:
         model = Component
         fields = ("kind", "power_template", "video_template", "other_type",
-                  "status", "assigned_to_uav", "notes")
+                  "assigned_to_uav", "notes")
         widgets = {
             "kind": forms.Select(attrs=INPUT_CSS),
             "power_template": forms.Select(attrs=INPUT_CSS),
             "video_template": forms.Select(attrs=INPUT_CSS),
             "other_type": forms.Select(attrs=INPUT_CSS),
-            "status": forms.Select(attrs=INPUT_CSS),
             "assigned_to_uav": forms.Select(attrs=INPUT_CSS),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
         }

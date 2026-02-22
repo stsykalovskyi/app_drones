@@ -119,6 +119,8 @@
     .btn-sm:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
     .btn-sm.btn-danger { color: #ef4444; border-color: rgba(239,68,68,0.3); }
     .btn-sm.btn-danger:hover { background: rgba(239,68,68,0.1); color: #ef4444; border-color: #ef4444; }
+    .btn-sm.btn-warn { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+    .btn-sm.btn-warn:hover { background: rgba(245,158,11,0.1); color: #f59e0b; border-color: #f59e0b; }
 
     .btn-icon {
         display: inline-flex; align-items: center; justify-content: center;
@@ -435,6 +437,13 @@
                     <td data-label="Дата" class="date-cell">{{ c.created_at|date:"d.m.Y" }}</td>
                     <td data-label="" class="actions-cell">
                         <a href="{% url 'equipment_accounting:component_edit' c.pk %}" class="btn-sm">Редагувати</a>
+                        {% if c.status != 'damaged' %}
+                        <form method="post" action="{% url 'equipment_accounting:component_mark_damaged' c.pk %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button type="submit" class="btn-sm btn-warn">Пошкоджено</button>
+                        </form>
+                        {% endif %}
                         <a href="{% url 'equipment_accounting:component_delete' c.pk %}" class="btn-sm btn-danger">Видалити</a>
                     </td>
                 </tr>

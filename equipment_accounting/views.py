@@ -53,7 +53,7 @@ def equipment_list(request):
 
     # Drones with filtering (exclude soft-deleted)
     uavs = UAVInstance.objects.select_related("content_type", "created_by", "created_by__profile").prefetch_related(
-        "components", "components__content_type"
+        "components"
     ).filter(status__in=UAVInstance.ACTIVE_STATUSES)
 
     status_filter = request.GET.get("status", "")
@@ -653,6 +653,20 @@ def component_edit(request, pk):
         "form": form, "title": "Редагувати комплектуючу", "tab_redirect": "components",
         **_COMPONENT_EXTRA(),
     })
+
+
+@master_required
+def component_mark_damaged(request, pk):
+    """Mark a component as damaged and detach it from any UAV."""
+    if request.method != "POST":
+        return redirect(_list_url("components"))
+    component = get_object_or_404(Component, pk=pk)
+    component.status = "damaged"
+    component.assigned_to_uav = None
+    component.save(update_fields=["status", "assigned_to_uav", "updated_at"])
+    messages.success(request, "Комплектуючу позначено як пошкоджену.")
+    next_url = request.POST.get("next") or _list_url("components")
+    return redirect(next_url)
 
 
 @master_required
