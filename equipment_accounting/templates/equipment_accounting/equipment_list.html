@@ -88,6 +88,34 @@
     }
     .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
 
+    /* Export column chooser */
+    .export-wrap { position: relative; }
+    .export-panel {
+        display: none; position: absolute; right: 0; top: calc(100% + 6px);
+        z-index: 50; min-width: 240px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); box-shadow: var(--shadow-elevated);
+        padding: 0.75rem 1rem 1rem;
+    }
+    .export-panel.open { display: block; }
+    .export-panel-title {
+        font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.6rem;
+    }
+    .export-col-list {
+        display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem;
+    }
+    .export-col-list label {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.83rem; cursor: pointer; color: var(--text-secondary);
+    }
+    .export-col-list input[type="checkbox"] { accent-color: var(--accent); }
+    .btn-export-dl {
+        width: 100%; padding: 0.55rem; font-size: 0.82rem; font-weight: 600;
+        border: none; border-radius: var(--radius-sm);
+        background: var(--btn-bg); color: var(--btn-text); cursor: pointer;
+    }
+
     .eq-table { width: 100%; border-collapse: collapse; }
     .eq-table th {
         font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
@@ -285,7 +313,26 @@
     <div class="card">
         <div class="toolbar">
             <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
-            <a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div class="export-wrap">
+                    <button type="button" class="button ghost" id="export-toggle-btn">Excel ↓</button>
+                    <div class="export-panel" id="export-panel">
+                        <div class="export-panel-title">Колонки</div>
+                        <div class="export-col-list">
+                            <label><input type="checkbox" name="xcol" value="name" checked> Назва</label>
+                            <label><input type="checkbox" name="xcol" value="count" checked> В наявності</label>
+                            <label><input type="checkbox" name="xcol" value="unit" checked> шт</label>
+                            <label><input type="checkbox" name="xcol" value="messenger" checked> Для мессенджера</label>
+                            <label><input type="checkbox" name="xcol" value="new" checked> Нові</label>
+                            <label><input type="checkbox" name="xcol" value="repair" checked> В ремонті</label>
+                            <label><input type="checkbox" name="xcol" value="mfr_repair" checked> В ремонті у виробника</label>
+                            <label><input type="checkbox" name="xcol" value="total" checked> Підсумок</label>
+                        </div>
+                        <button type="button" class="btn-export-dl" id="export-dl-btn">Завантажити</button>
+                    </div>
+                </div>
+                <a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>
+            </div>
         </div>
 
         <form method="get" class="filter-bar">
@@ -1016,6 +1063,34 @@ function showModal(id, title, message, onConfirm) {
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', onOverlay);
 }
+
+// ── Excel export column chooser ──────────────────────────────────────
+(function () {
+    var toggleBtn = document.getElementById('export-toggle-btn');
+    var panel = document.getElementById('export-panel');
+    var dlBtn = document.getElementById('export-dl-btn');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        panel.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!panel.contains(e.target) && e.target !== toggleBtn) {
+            panel.classList.remove('open');
+        }
+    });
+
+    dlBtn.addEventListener('click', function () {
+        var base = "{% url 'equipment_accounting:uav_export_excel' %}?";
+        panel.querySelectorAll('input[name="xcol"]').forEach(function (cb) {
+            base += 'col_' + cb.value + '=' + (cb.checked ? '1' : '0') + '&';
+        });
+        window.location.href = base;
+        panel.classList.remove('open');
+    });
+})();
 </script>
 
 {# Warning modal (single button) #}

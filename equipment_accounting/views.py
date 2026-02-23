@@ -1,3 +1,4 @@
+import io
 from datetime import date
 from functools import wraps
 
@@ -7,7 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -311,6 +312,182 @@ def drone_location_stats(request):
         'locations': locations,
         'total_all': total_all,
     })
+
+
+# ── Excel export ─────────────────────────────────────────────────────
+
+EXPORT_COLS = [
+    ('name',       'Назва'),
+    ('count',      'В наявності'),
+    ('unit',       'шт'),
+    ('messenger',  'Для мессенджера'),
+    ('new',        'Нові'),
+    ('repair',     'В ремонті'),
+    ('mfr_repair', 'В ремонті у виробника'),
+    ('total',      'Підсумок'),
+]
+
+_SECTION_PRIORITY = {
+    'День': 0, 'Ніч': 1, 'Оптика': 2,
+    'Носій': 3, 'Мінувальник': 4, 'Перехоплювач': 5, 'Бомбардувальник': 6,
+}
+
+_SECTION_STYLE = {
+    'День':   {'bg': 'BDD7EE', 'fg': '1F3864'},
+    'Ніч':    {'bg': '2C3E6B', 'fg': 'FFFFFF'},
+    'Оптика': {'bg': 'E2EFDA', 'fg': '375623'},
+}
+_DEFAULT_SECTION_STYLE = {'bg': 'F2F2F2', 'fg': '333333'}
+
+
+@master_required
+def uav_export_excel(request):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    selected_cols = [c for c, _ in EXPORT_COLS if request.GET.get(f'col_{c}', '1') == '1']
+
+    fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
+    opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
+
+    active_qs = UAVInstance.objects.exclude(status__in=['deleted', 'given']).select_related(
+        'content_type', 'role'
+    )
+
+    fpv_pks = set(active_qs.filter(content_type=fpv_ct).values_list('object_id', flat=True))
+    opt_pks = set(active_qs.filter(content_type=opt_ct).values_list('object_id', flat=True))
+
+    fpv_type_map = (
+        {dt.pk: dt for dt in FPVDroneType.objects.filter(pk__in=fpv_pks)
+         .select_related('model', 'purpose', 'video_frequency')
+         .prefetch_related('control_frequencies')} if fpv_pks else {}
+    )
+    opt_type_map = (
+        {dt.pk: dt for dt in OpticalDroneType.objects.filter(pk__in=opt_pks)
+         .select_related('model', 'purpose', 'video_template')
+         .prefetch_related('control_frequencies')} if opt_pks else {}
+    )
+
+    sections = {}
+    section_order = []
+
+    for uav in active_qs:
+        role_name = uav.role.name if uav.role_id else '—'
+
+        if uav.content_type_id == fpv_ct.pk:
+            dt = fpv_type_map.get(uav.object_id)
+            if not dt:
+                continue
+            section_key = ('Ніч' if dt.has_thermal else 'День') if role_name == 'Ударні' else role_name
+            type_label = _fmt_drone_type_name(dt, 'Радіо')
+            type_key = ('fpv', dt.pk)
+        elif uav.content_type_id == opt_ct.pk:
+            dt = opt_type_map.get(uav.object_id)
+            if not dt:
+                continue
+            section_key = 'Оптика'
+            type_label = _fmt_drone_type_name(dt, 'Оптика')
+            type_key = ('opt', dt.pk)
+        else:
+            continue
+
+        if section_key not in sections:
+            sections[section_key] = {'types': {}, 'type_order': []}
+            section_order.append(section_key)
+
+        if type_key not in sections[section_key]['types']:
+            sections[section_key]['types'][type_key] = {
+                'label': type_label,
+                'ready': 0, 'inspection': 0, 'repair': 0, 'deferred': 0,
+            }
+            sections[section_key]['type_order'].append(type_key)
+
+        t = sections[section_key]['types'][type_key]
+        if uav.status in t:
+            t[uav.status] += 1
+
+    section_order.sort(key=lambda sk: (_SECTION_PRIORITY.get(sk, 99), sk))
+
+    # Build workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'БПЛА'
+
+    col_label_map = dict(EXPORT_COLS)
+    col_map = {c: i + 1 for i, c in enumerate(selected_cols)}
+
+    # Header row
+    hdr_font = Font(bold=True, size=10, name='Calibri')
+    hdr_fill = PatternFill(fill_type='solid', fgColor='D6DCE4')
+    for col_key, col_idx in col_map.items():
+        cell = ws.cell(row=1, column=col_idx, value=col_label_map[col_key])
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = Alignment(wrap_text=True, vertical='center')
+    ws.row_dimensions[1].height = 28
+
+    row_num = 2
+    for section_key in section_order:
+        section = sections[section_key]
+        style = _SECTION_STYLE.get(section_key, _DEFAULT_SECTION_STYLE)
+        sec_fill = PatternFill(fill_type='solid', fgColor=style['bg'])
+        sec_font = Font(bold=True, size=10, name='Calibri', color=style['fg'])
+
+        # Section header row
+        for col_key, col_idx in col_map.items():
+            val = None
+            if col_key == 'name':      val = section_key
+            elif col_key == 'count':   val = 1
+            elif col_key == 'messenger': val = section_key
+            elif col_key == 'total':   val = 0
+            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell.font = sec_font
+            cell.fill = sec_fill
+        row_num += 1
+
+        # Drone type rows
+        for type_key in section['type_order']:
+            t = section['types'][type_key]
+            count = t['ready'] + t['deferred']
+            for col_key, col_idx in col_map.items():
+                val = None
+                if col_key == 'name':        val = t['label']
+                elif col_key == 'count':     val = count
+                elif col_key == 'unit':      val = 'шт'
+                elif col_key == 'messenger': val = f"{t['label']} {count} шт" if count > 0 else None
+                elif col_key == 'new':       val = t['inspection'] or None
+                elif col_key == 'repair':    val = t['repair'] or None
+                elif col_key == 'mfr_repair': val = None
+                elif col_key == 'total':
+                    c_count = col_map.get('count')
+                    c_new = col_map.get('new')
+                    c_repair = col_map.get('repair')
+                    if c_count and c_new and c_repair:
+                        val = f"={get_column_letter(c_count)}{row_num}+{get_column_letter(c_new)}{row_num}-{get_column_letter(c_repair)}{row_num}"
+                    else:
+                        val = count 
+                ws.cell(row=row_num, column=col_idx, value=val)
+            row_num += 1
+
+    # Column widths
+    col_widths = {
+        'name': 52, 'count': 13, 'unit': 6,
+        'messenger': 58, 'new': 10, 'repair': 13,
+        'mfr_repair': 24, 'total': 13,
+    }
+    for col_key, col_idx in col_map.items():
+        ws.column_dimensions[get_column_letter(col_idx)].width = col_widths.get(col_key, 15)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="drones.xlsx"'
+    return response
 
 
 # ── UAV movement history ──────────────────────────────────────────────

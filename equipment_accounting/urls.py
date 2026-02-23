@@ -9,6 +9,9 @@ urlpatterns = [
     path('stats/drones/', views.drone_location_stats, name='drone_location_stats'),
     path('stats/movements/', views.uav_movements, name='uav_movements'),
 
+    # UAV export
+    path('uav/export/excel/', views.uav_export_excel, name='uav_export_excel'),
+
     # UAV bulk actions
     path('uav/bulk/', views.uav_bulk_action, name='uav_bulk_action'),
 
