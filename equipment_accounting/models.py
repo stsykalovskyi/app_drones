@@ -66,7 +66,7 @@ class DroneModel(models.Model):
         unique_together = ['manufacturer', 'name']
 
     def __str__(self):
-        return f"{self.manufacturer.name} {self.name}"
+        return self.name
 
 
 class DronePurpose(models.Model):
