@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .form-hero { margin-bottom: 1.5rem; }
+    .form-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem;
+    }
+
+    .eq-form .field { margin-bottom: 1.25rem; }
+    .eq-form label {
+        display: block; font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); margin-bottom: 0.4rem;
+    }
+    .eq-form .form-input {
+        width: 100%; padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--input-bg); backdrop-filter: blur(8px);
+        color: var(--text); font-size: 0.9rem; font-family: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease; outline: none;
+    }
+    .eq-form .form-input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .eq-form select.form-input { cursor: pointer; }
+
+    .eq-form .form-checkbox {
+        width: 1.1rem; height: 1.1rem; accent-color: var(--accent); cursor: pointer;
+        flex-shrink: 0;
+    }
+    .eq-form .checkbox-row {
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .eq-form .checkbox-row label {
+        margin-bottom: 0; text-transform: none; font-size: 0.9rem;
+        color: var(--text); cursor: pointer;
+    }
+
+    .eq-form .errorlist {
+        list-style: none; padding: 0; margin: 0.3rem 0 0;
+        font-size: 0.82rem; color: #ef4444;
+    }
+
+    /* Kit preview section */
+    .kit-section {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        padding: 1rem 1.1rem;
+    }
+    .kit-section-label {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); margin-bottom: 0.75rem;
+        display: block;
+    }
+    .kit-items {
+        display: flex; flex-direction: column; gap: 0.5rem;
+        margin-bottom: 0.85rem;
+    }
+    .kit-item {
+        display: flex; align-items: center; gap: 0.65rem;
+        font-size: 0.88rem;
+    }
+    .kit-item-icon {
+        font-size: 1.1rem; flex-shrink: 0;
+    }
+    .kit-item-name {
+        color: var(--text);
+        font-weight: 500;
+    }
+    .kit-item-sub {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+    .kit-checkboxes {
+        display: flex; gap: 1.5rem; flex-wrap: wrap;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .form-actions {
+        display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="card">
+    <form method="post" class="eq-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <ul class="errorlist" style="margin-bottom: 1rem;">
+            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+
+        <!-- Drone type -->
+        <div class="field">
+            <label for="{{ form.drone_type.id_for_label }}">{{ form.drone_type.label }}</label>
+            {{ form.drone_type }}
+            {% if form.drone_type.errors %}
+            <ul class="errorlist">{% for e in form.drone_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+
+        <!-- Kit preview (shown once a drone type is selected) -->
+        <div class="field" id="kit-section" style="display:none;">
+            <div class="kit-section">
+                <span class="kit-section-label">Комплект при створенні</span>
+                <div class="kit-items" id="kit-items">
+                    <!-- Filled by JS -->
+                </div>
+                <div class="kit-checkboxes">
+                    <div class="checkbox-row">
+                        {{ form.with_battery }}
+                        <label for="{{ form.with_battery.id_for_label }}">{{ form.with_battery.label }}</label>
+                    </div>
+                    <div class="checkbox-row" id="spool-checkbox-row" style="display:none;">
+                        {{ form.with_spool }}
+                        <label for="{{ form.with_spool.id_for_label }}">{{ form.with_spool.label }}</label>
+                    </div>
+                </div>
+            </div>
+            {% if form.with_battery.errors %}
+            <ul class="errorlist">{% for e in form.with_battery.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+            {% if form.with_spool.errors %}
+            <ul class="errorlist">{% for e in form.with_spool.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+
+        <!-- Quantity -->
+        <div class="field">
+            <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
+            {{ form.quantity }}
+            {% if form.quantity.errors %}
+            <ul class="errorlist">{% for e in form.quantity.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+
+        <!-- Source location -->
+        <div class="field">
+            <label for="{{ form.from_location.id_for_label }}">{{ form.from_location.label }}</label>
+            {{ form.from_location }}
+            {% if form.from_location.errors %}
+            <ul class="errorlist">{% for e in form.from_location.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+
+        <!-- Role / Призначення -->
+        <div class="field">
+            <label for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>
+            {{ form.role }}
+            {% if form.role.errors %}
+            <ul class="errorlist">{% for e in form.role.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Зберегти</button>
+            <a href="{% url 'equipment_accounting:equipment_list' %}" class="button ghost">Скасувати</a>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    var KIT_DATA = {{ drone_types_kit_json|safe }};
+
+    var droneTypeEl      = document.getElementById('id_drone_type');
+    var kitSection       = document.getElementById('kit-section');
+    var kitItems         = document.getElementById('kit-items');
+    var spoolRow         = document.getElementById('spool-checkbox-row');
+    var withBatteryEl    = document.getElementById('id_with_battery');
+    var withSpoolEl      = document.getElementById('id_with_spool');
+
+    function updateKitPreview() {
+        var val = droneTypeEl ? droneTypeEl.value : '';
+        var kit = KIT_DATA[val];
+
+        if (!kit) {
+            kitSection.style.display = 'none';
+            return;
+        }
+
+        kitSection.style.display = '';
+
+        // Build kit items HTML
+        var html = '';
+
+        // Battery item
+        var batteryActive = withBatteryEl && withBatteryEl.checked;
+        html += '<div class="kit-item">';
+        html += '<span class="kit-item-icon">🔋</span>';
+        html += '<span class="kit-item-name">' + escHtml(kit.battery_name) + '</span>';
+        if (!batteryActive) {
+            html += '<span class="kit-item-sub">— не додавати</span>';
+        }
+        html += '</div>';
+
+        // Spool item (optical only)
+        var isOptical = kit.category === 'optical';
+        spoolRow.style.display = isOptical ? '' : 'none';
+        if (!isOptical && withSpoolEl) {
+            withSpoolEl.checked = false;
+        }
+
+        if (isOptical && kit.spool_name) {
+            var spoolActive = withSpoolEl && withSpoolEl.checked;
+            html += '<div class="kit-item">';
+            html += '<span class="kit-item-icon">📡</span>';
+            html += '<span class="kit-item-name">' + escHtml(kit.spool_name) + '</span>';
+            if (!spoolActive) {
+                html += '<span class="kit-item-sub">— не додавати</span>';
+            }
+            html += '</div>';
+        }
+
+        kitItems.innerHTML = html;
+    }
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    if (droneTypeEl) {
+        droneTypeEl.addEventListener('change', updateKitPreview);
+    }
+    if (withBatteryEl) {
+        withBatteryEl.addEventListener('change', updateKitPreview);
+    }
+    if (withSpoolEl) {
+        withSpoolEl.addEventListener('change', updateKitPreview);
+    }
+
+    // Run on load to restore state after form validation failure
+    updateKitPreview();
+})();
+</script>
+{% endblock %}

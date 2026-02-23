@@ -1,0 +1,42 @@
+[
+  {
+    "model": "equipment_accounting.dronerole",
+    "pk": 1,
+    "fields": {
+      "name": "Носій",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "equipment_accounting.dronerole",
+    "pk": 2,
+    "fields": {
+      "name": "Мінувальник",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "equipment_accounting.dronerole",
+    "pk": 3,
+    "fields": {
+      "name": "Перехоплювач",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "equipment_accounting.dronerole",
+    "pk": 4,
+    "fields": {
+      "name": "Бомбардувальник",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "equipment_accounting.dronerole",
+    "pk": 5,
+    "fields": {
+      "name": "Ударні",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  }
+]

@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Переміщення БПЛА — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.5rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+
+    .filter-bar {
+        display: flex; gap: 0.75rem; margin-bottom: 1rem;
+        flex-wrap: wrap; align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+        padding: 0.55rem 0.75rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg);
+        color: var(--text); font-size: 0.85rem; font-family: inherit;
+        outline: none; transition: border-color 0.2s ease;
+    }
+    .filter-bar select:focus, .filter-bar input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .filter-bar input[type="date"] { width: auto; }
+    .date-field { display: flex; flex-direction: column; gap: 0.15rem; }
+    .date-label {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted); line-height: 1;
+    }
+    .btn-reset-filter {
+        padding: 0.55rem 0.75rem; font-size: 0.82rem; font-weight: 600;
+        color: var(--text-muted); text-decoration: none; white-space: nowrap;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-reset-filter:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); }
+
+    .toolbar {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;
+    }
+    .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+
+    /* Main table */
+    .eq-table { width: 100%; border-collapse: collapse; }
+    .eq-table th {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted);
+        padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .eq-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+
+    .group-row { cursor: pointer; transition: background 0.12s ease; }
+    .group-row:hover td { background: var(--accent-dim); }
+    .group-row.expanded td { background: var(--accent-dim); }
+
+    .expand-cell { width: 36px; text-align: center; }
+    .expand-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 4px;
+        font-size: 0.7rem; color: var(--text-muted);
+        border: 1px solid var(--border);
+        transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        user-select: none;
+    }
+    .group-row.expanded .expand-icon {
+        transform: rotate(90deg); color: var(--accent); border-color: var(--accent);
+    }
+
+    .detail-row { display: none; }
+    .detail-row.visible { display: table-row; }
+    .detail-row td {
+        padding: 0; border-bottom: 2px solid var(--border-active);
+        background: var(--bg-sub);
+    }
+
+    /* Nested detail table */
+    .detail-inner { padding: 0.75rem 1rem 1rem 2.5rem; }
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .detail-table th {
+        font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        padding: 0.4rem 0.6rem; text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .detail-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .detail-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+    .uav-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .uav-link:hover { text-decoration: underline; }
+
+    .cat-badge {
+        display: inline-block; padding: 0.1rem 0.45rem;
+        border-radius: 999px; font-size: 0.7rem; font-weight: 600;
+        background: var(--accent-dim); color: var(--text-muted);
+    }
+
+    .date-cell { white-space: nowrap; color: var(--text-secondary); }
+
+    .reason-badge {
+        display: inline-block; padding: 0.2rem 0.6rem;
+        border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+        background: var(--accent-dim); color: var(--accent);
+    }
+    .reason-badge.given    { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .reason-badge.returned { background: rgba(34,197,94,0.12);   color: #22c55e; }
+    .reason-badge.repair   { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+    .reason-badge.created  { background: rgba(56,189,248,0.12);  color: #38bdf8; }
+
+    .arrow { color: var(--text-muted); margin: 0 0.25rem; }
+
+    .cnt-value { font-weight: 700; color: var(--accent); }
+
+    .role-hdr-row td {
+        padding: 0.45rem 0.6rem 0.2rem;
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.07em; color: var(--text-muted);
+        border-bottom: none; background: none;
+    }
+    .sub-hdr-row td {
+        padding: 0.2rem 0.6rem 0.2rem 1rem;
+        font-size: 0.72rem; font-weight: 600;
+        color: var(--text-secondary); border-bottom: none; background: none;
+    }
+    .sub-hdr-row .day-label  { color: #f59e0b; }
+    .sub-hdr-row .night-label { color: #818cf8; }
+
+    .batch-hdr-row td {
+        padding: 0.55rem 0.6rem 0.3rem;
+        border-top: 1px solid var(--border); border-bottom: none;
+        font-size: 0.8rem; background: none;
+    }
+    .batch-hdr-row:first-child td { border-top: none; }
+    .batch-route { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.5rem; }
+    .batch-user  { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.5rem; }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+
+    .pagination {
+        display: flex; justify-content: center; align-items: center;
+        gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap;
+    }
+    .pagination a, .pagination span {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 36px; height: 36px; padding: 0 0.5rem;
+        border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+        text-decoration: none; border: 1px solid var(--border);
+        color: var(--text-secondary); transition: all 0.15s ease;
+    }
+    .pagination a:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .pagination .current { background: var(--accent); color: var(--btn-text); border-color: var(--accent); font-weight: 700; }
+    .pagination .disabled { opacity: 0.4; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>Переміщення БПЛА</h1>
+    <p>Повна історія переміщень між локаціями</p>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <h2>Записи <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
+    </div>
+
+    <form method="get" class="filter-bar">
+        <select name="reason">
+            <option value="">Всі події</option>
+            {% for code, label in reason_choices %}
+            <option value="{{ code }}"{% if reason_filter == code %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="location">
+            <option value="">Всі локації</option>
+            {% for loc in locations %}
+            <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
+            {% endfor %}
+        </select>
+        <div class="date-field">
+            <label class="date-label">Дата від</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="date-field">
+            <label class="date-label">Дата до</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        {% if reason_filter or location_filter or date_from or date_to %}
+        <a href="{% url 'equipment_accounting:uav_movements' %}" class="btn-reset-filter">&#10005; Скинути</a>
+        {% endif %}
+    </form>
+
+    {% if page_obj.object_list %}
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th class="expand-cell"></th>
+                <th>Дата</th>
+                <th style="text-align:right">Дронів</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in page_obj %}
+            {# Date summary row #}
+            <tr class="group-row" onclick="toggleGroup({{ forloop.counter }})">
+                <td class="expand-cell">
+                    <span class="expand-icon" id="expand-{{ forloop.counter }}">&#9654;</span>
+                </td>
+                <td class="date-cell">{{ g.date|date:"d.m.Y" }}</td>
+                <td style="text-align:right"><span class="cnt-value">{{ g.count }}</span></td>
+            </tr>
+            {# Expandable detail row #}
+            <tr class="detail-row" id="detail-{{ forloop.counter }}">
+                <td colspan="3">
+                    <div class="detail-inner">
+                        <table class="detail-table">
+                            <tbody>
+                                {% for batch in g.batches %}
+                                <tr class="batch-hdr-row">
+                                    <td colspan="2">
+                                        <span class="reason-badge {{ batch.reason }}">{{ batch.reason_label }}</span>
+                                        <span class="batch-route">
+                                            {% if batch.from_location_name %}{{ batch.from_location_name }}{% else %}—{% endif %}
+                                            <span class="arrow">→</span>
+                                            {{ batch.to_location_name }}
+                                        </span>
+                                        <span class="batch-user">{{ batch.user_name }}</span>
+                                    </td>
+                                </tr>
+                                {% for rg in batch.role_groups %}
+                                {% if rg.role_name == "Ударні" %}
+                                    {# Ударні: skip role header, show День/Ніч directly #}
+                                    {% for sg in rg.sub_groups %}
+                                    <tr class="sub-hdr-row">
+                                        <td colspan="2">
+                                            {% if sg.sub_label == "День" %}
+                                            <span class="day-label">☀ {{ sg.sub_label }}</span>
+                                            {% else %}
+                                            <span class="night-label">🌙 {{ sg.sub_label }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% for t in sg.types %}
+                                    <tr>
+                                        <td>
+                                            <span class="cat-badge" style="margin-right:0.35rem">{{ t.category }}</span>
+                                            {{ t.type_label }}
+                                        </td>
+                                        <td style="text-align:right"><span class="cnt-value">{{ t.count }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% endfor %}
+                                {% else %}
+                                    {# Other roles: show role name then drones #}
+                                    <tr class="role-hdr-row">
+                                        <td colspan="2">{{ rg.role_name }}</td>
+                                    </tr>
+                                    {% for sg in rg.sub_groups %}
+                                    {% for t in sg.types %}
+                                    <tr>
+                                        <td>
+                                            <span class="cat-badge" style="margin-right:0.35rem">{{ t.category }}</span>
+                                            {{ t.type_label }}
+                                        </td>
+                                        <td style="text-align:right"><span class="cnt-value">{{ t.count }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% endfor %}
+                                {% endif %}
+                                {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?reason={{ reason_filter }}&location={{ location_filter|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.previous_page_number }}">Попередня</a>
+        {% else %}
+        <span class="disabled">Попередня</span>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+            <a href="?reason={{ reason_filter }}&location={{ location_filter|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="?reason={{ reason_filter }}&location={{ location_filter|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.next_page_number }}">Наступна</a>
+        {% else %}
+        <span class="disabled">Наступна</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state"><p>Переміщень не знайдено.</p></div>
+    {% endif %}
+</div>
+
+<script>
+function toggleGroup(id) {
+    var row = document.getElementById('detail-' + id);
+    var groupRow = row.previousElementSibling;
+    var expanded = row.classList.toggle('visible');
+    groupRow.classList.toggle('expanded', expanded);
+}
+
+document.querySelectorAll('.filter-bar select').forEach(function(el) {
+    el.addEventListener('change', function() { el.closest('form').submit(); });
+});
+document.querySelectorAll('.filter-bar input[type="date"]').forEach(function(el) {
+    el.addEventListener('change', function() { el.closest('form').submit(); });
+});
+</script>
+{% endblock %}

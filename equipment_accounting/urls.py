@@ -6,6 +6,8 @@ app_name = 'equipment_accounting'
 urlpatterns = [
     path('', views.equipment_list, name='equipment_list'),
     path('stats/', views.component_stats, name='component_stats'),
+    path('stats/drones/', views.drone_location_stats, name='drone_location_stats'),
+    path('stats/movements/', views.uav_movements, name='uav_movements'),
 
     # UAV bulk actions
     path('uav/bulk/', views.uav_bulk_action, name='uav_bulk_action'),
@@ -40,6 +42,7 @@ urlpatterns = [
     path('optical-type/<int:pk>/delete/', views.optical_type_delete, name='optical_type_delete'),
 
     # Components
+    path('component/bulk/', views.component_bulk_action, name='component_bulk_action'),
     path('component/available-uavs/', views.component_available_uavs, name='component_available_uavs'),
     path('component/add/', views.component_create, name='component_create'),
     path('component/<int:pk>/edit/', views.component_edit, name='component_edit'),

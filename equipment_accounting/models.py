@@ -4,6 +4,34 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 
 
+# ============== ЛОКАЦІЇ ==============
+
+class Location(models.Model):
+    """Physical location a UAV or component can be at."""
+
+    TYPE_CHOICES = [
+        ('workshop', 'Майстерня'),
+        ('manufacturer', 'Виробник'),
+        ('brigade', 'Бригада'),
+        ('dusha', 'Дюша'),
+        ('position', 'Позиція'),
+    ]
+
+    name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
+    location_type = models.CharField(
+        max_length=20, choices=TYPE_CHOICES, verbose_name="Тип"
+    )
+    notes = models.TextField(blank=True, verbose_name="Примітки")
+
+    class Meta:
+        verbose_name = "Локація"
+        verbose_name_plural = "Локації"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 # ============== ДОВІДНИКИ ==============
 
 class Manufacturer(models.Model):
@@ -146,6 +174,9 @@ class VideoTemplate(models.Model):
         ordering = ['name']
 
     def __str__(self):
+        if self.drone_model_id:
+            signal = "аналог" if self.is_analog else "цифра"
+            return f"{self.drone_model} ({signal} {self.max_distance}км)"
         return self.name
 
 
@@ -335,6 +366,22 @@ class Component(models.Model):
         return f"Інше: {self.other_type}"
 
 
+# ============== РОЛІ БПЛА ==============
+
+class DroneRole(models.Model):
+    """Тактична роль БПЛА (носій, мінувальник, перехоплювач, тощо)."""
+    name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+
+    class Meta:
+        verbose_name = "Роль БПЛА"
+        verbose_name_plural = "Ролі БПЛА"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 # ============== ІНВЕНТАРНІ ЕКЗЕМПЛЯРИ ==============
 
 class UAVInstance(models.Model):
@@ -366,6 +413,20 @@ class UAVInstance(models.Model):
         choices=STATUS_CHOICES,
         default='inspection',
         verbose_name="Статус"
+    )
+    current_location = models.ForeignKey(
+        'Location',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='current_uavs',
+        verbose_name="Поточна локація",
+    )
+    role = models.ForeignKey(
+        DroneRole,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='uavs',
+        verbose_name="Призначення",
     )
     created_by = models.ForeignKey(
         User,
@@ -425,3 +486,59 @@ class UAVInstance(models.Model):
 
     def get_kit_status_display(self):
         return self.KIT_LABELS[self.get_kit_status()]
+
+
+class UAVMovement(models.Model):
+    """Tracks every location change for a UAV."""
+
+    REASON_CHOICES = [
+        ('created', 'Надійшов'),
+        ('given', 'Відданий'),
+        ('repair', 'Ремонт'),
+        ('returned', 'Повернуто'),
+        ('transferred', 'Переміщено'),
+    ]
+
+    uav = models.ForeignKey(
+        UAVInstance,
+        on_delete=models.CASCADE,
+        related_name='movements',
+        verbose_name="БПЛА",
+    )
+    from_location = models.ForeignKey(
+        Location,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='movements_from',
+        verbose_name="Звідки",
+    )
+    to_location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        related_name='movements_to',
+        verbose_name="Куди",
+    )
+    moved_by = models.ForeignKey(
+        User,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='uav_movements',
+        verbose_name="Хто переміщав",
+    )
+    reason = models.CharField(
+        max_length=20,
+        choices=REASON_CHOICES,
+        default='transferred',
+        verbose_name="Причина",
+    )
+    notes = models.TextField(blank=True, verbose_name="Примітки")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
+
+    class Meta:
+        verbose_name = "Переміщення БПЛА"
+        verbose_name_plural = "Переміщення БПЛА"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        frm = self.from_location or "—"
+        return f"БПЛА #{self.uav_id}: {frm} → {self.to_location}"

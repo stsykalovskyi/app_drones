@@ -147,6 +147,14 @@
         </div>
         {% endif %}
         <div class="info-row">
+            <span class="info-label">Поточна локація</span>
+            <span class="info-value">{{ uav.current_location.name|default:"—" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Призначення</span>
+            <span class="info-value">{{ uav.role.name|default:"—" }}</span>
+        </div>
+        <div class="info-row">
             <span class="info-label">Додав</span>
             <span class="info-value">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</span>
         </div>
@@ -238,5 +246,38 @@
     {% endif %}
 </div>
 {% endif %}
+
+{# ── Movement history ── #}
+<div class="card section-card">
+    <div class="toolbar">
+        <h2>Історія переміщень</h2>
+    </div>
+    {% if movements %}
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Подія</th>
+                <th>Звідки</th>
+                <th>Куди</th>
+                <th>Хто</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in movements %}
+            <tr>
+                <td style="white-space:nowrap; color:var(--text-secondary);">{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ m.get_reason_display }}</td>
+                <td>{{ m.from_location.name|default:"—" }}</td>
+                <td>{{ m.to_location.name }}</td>
+                <td>{% if m.moved_by %}{{ m.moved_by.profile.display_name }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Переміщень ще не зафіксовано.</div>
+    {% endif %}
+</div>
 
 {% endblock %}

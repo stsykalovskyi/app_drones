@@ -307,6 +307,13 @@ UNFOLD = {
                         ),
                     },
                     {
+                        "title": "Ролі БПЛА",
+                        "icon": "military_tech",
+                        "link": reverse_lazy(
+                            "admin:equipment_accounting_dronerole_changelist"
+                        ),
+                    },
+                    {
                         "title": "Частоти",
                         "icon": "wifi",
                         "link": reverse_lazy(
@@ -366,20 +373,6 @@ UNFOLD = {
                 "title": "Комплектуючі",
                 "separator": True,
                 "items": [
-                    {
-                        "title": "Типи батарей",
-                        "icon": "battery_full",
-                        "link": reverse_lazy(
-                            "admin:equipment_accounting_batterytype_changelist"
-                        ),
-                    },
-                    {
-                        "title": "Типи котушок",
-                        "icon": "settings_input_svideo",
-                        "link": reverse_lazy(
-                            "admin:equipment_accounting_spooltype_changelist"
-                        ),
-                    },
                     {
                         "title": "Інші комплектуючі",
                         "icon": "settings",

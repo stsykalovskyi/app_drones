@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}БПЛА по локаціях — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.5rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .summary-card {
+        background: var(--surface); backdrop-filter: blur(20px);
+        border-radius: var(--radius); padding: 1.25rem;
+        border: 1px solid var(--border); box-shadow: var(--shadow-card);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .summary-card:hover { box-shadow: var(--shadow-elevated); border-color: var(--border-active); }
+    .summary-label {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.35rem;
+    }
+    .summary-value { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+
+    .toolbar {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;
+    }
+    .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+
+    .eq-table { width: 100%; border-collapse: collapse; }
+    .eq-table th {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted);
+        padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .eq-table td {
+        padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+    }
+    .eq-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .eq-table tr { transition: background 0.12s ease; }
+    .eq-table tr:hover td { background: var(--accent-dim); }
+    .eq-table .total-col { font-weight: 700; color: var(--accent); }
+
+    .loc-link {
+        color: var(--text); text-decoration: none; font-weight: 600;
+        transition: color 0.15s ease;
+    }
+    .loc-link:hover { color: var(--accent); }
+
+    .loc-type-badge {
+        display: inline-block; padding: 0.15rem 0.5rem;
+        border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        background: var(--accent-dim); color: var(--text-muted);
+    }
+
+    .cnt-zero { color: var(--text-muted); }
+    .cnt-given { color: #94a3b8; }
+    .cnt-repair { color: #f59e0b; }
+    .cnt-ready { color: #22c55e; }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>БПЛА по локаціях</h1>
+    <p>Розподіл дронів між усіма локаціями</p>
+</div>
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="summary-label">Всього БПЛА</div>
+        <div class="summary-value">{{ total_all }}</div>
+    </div>
+    {% for loc in locations %}
+    {% if loc.total > 0 %}
+    <div class="summary-card">
+        <div class="summary-label">{{ loc.name }}</div>
+        <div class="summary-value">{{ loc.total }}</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <h2>Деталізація по локаціях</h2>
+    </div>
+
+    {% if locations %}
+    <table class="eq-table">
+        <thead>
+            <tr>
+                <th>Локація</th>
+                <th>Тип</th>
+                <th style="text-align:right">Всього</th>
+                <th style="text-align:right">Готових</th>
+                <th style="text-align:right">На перевірці</th>
+                <th style="text-align:right">Ремонт</th>
+                <th style="text-align:right">Відкладено</th>
+                <th style="text-align:right">Відданих</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for loc in locations %}
+            <tr>
+                <td>
+                    <a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones&location={{ loc.pk }}"
+                       class="loc-link">{{ loc.name }}</a>
+                </td>
+                <td><span class="loc-type-badge">{{ loc.get_location_type_display }}</span></td>
+                <td class="num total-col">{{ loc.total }}</td>
+                <td class="num {% if loc.cnt_ready %}cnt-ready{% else %}cnt-zero{% endif %}">{{ loc.cnt_ready }}</td>
+                <td class="num {% if not loc.cnt_inspection %}cnt-zero{% endif %}">{{ loc.cnt_inspection }}</td>
+                <td class="num {% if loc.cnt_repair %}cnt-repair{% else %}cnt-zero{% endif %}">{{ loc.cnt_repair }}</td>
+                <td class="num {% if not loc.cnt_deferred %}cnt-zero{% endif %}">{{ loc.cnt_deferred }}</td>
+                <td class="num {% if loc.cnt_given %}cnt-given{% else %}cnt-zero{% endif %}">{{ loc.cnt_given }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>Даних немає.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

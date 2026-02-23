@@ -67,6 +67,13 @@
     }
     .filter-bar input[type="text"] { flex: 1; min-width: 150px; }
     .filter-bar input[type="date"] { width: auto; }
+    .btn-reset-filter {
+        padding: 0.55rem 0.75rem; font-size: 0.82rem; font-weight: 600;
+        color: var(--text-muted); text-decoration: none; white-space: nowrap;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-reset-filter:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); }
     .date-field {
         display: flex; flex-direction: column; gap: 0.15rem;
     }
@@ -98,6 +105,7 @@
         border-radius: 999px; font-size: 0.75rem; font-weight: 600;
         background: var(--accent-dim); color: var(--accent);
     }
+    .status-badge.given { background: rgba(148,163,184,0.15); color: #94a3b8; }
     .date-cell { white-space: nowrap; color: var(--text-secondary); }
     .kit-full { color: #22c55e; font-weight: 600; }
     .kit-partial { color: #f59e0b; font-weight: 600; }
@@ -305,6 +313,12 @@
                 <option value="{{ code }}"{% if kit_filter == code %} selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+            <select name="location">
+                <option value="">Всі локації</option>
+                {% for loc in locations %}
+                <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
+                {% endfor %}
+            </select>
             <div class="date-field">
                 <label class="date-label">Дата від</label>
                 <input type="date" name="date_from" value="{{ date_from }}">
@@ -313,6 +327,9 @@
                 <label class="date-label">Дата до</label>
                 <input type="date" name="date_to" value="{{ date_to }}">
             </div>
+            {% if status_filter or category_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
+            <a href="?tab=drones" class="btn-reset-filter">&#10005; Скинути</a>
+            {% endif %}
         </form>
 
         {% if page_obj %}
@@ -329,6 +346,12 @@
                     <option value="given">Віддати</option>
                     <option value="delete">Видалити</option>
                 </select>
+                <select name="to_location_id" id="bulk-location-select" style="display:none;">
+                    <option value="">— Локація —</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
                 <button type="submit" class="btn-sm" id="bulk-submit">Застосувати</button>
             </div>
 
@@ -340,9 +363,11 @@
                         <th>Категорія</th>
                         <th>Тип</th>
                         <th>Статус</th>
+                        <th>Призначення</th>
                         <th>Комплект</th>
                         <th>Додав</th>
                         <th>Дата</th>
+                        <th>Локація</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -353,14 +378,23 @@
                         <td data-label="ID">{{ uav.id }}</td>
                         <td data-label="Категорія">{{ uav.get_category }}</td>
                         <td data-label="Тип">{{ uav.uav_type }}</td>
-                        <td data-label="Статус"><span class="status-badge">{{ uav.get_status_display }}</span></td>
+                        <td data-label="Статус"><span class="status-badge{% if uav.status == 'given' %} given{% endif %}">{{ uav.get_status_display }}</span></td>
+                        <td data-label="Призначення">{{ uav.role.name|default:"—" }}</td>
                         <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
                         <td data-label="Додав">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</td>
                         <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
+                        <td data-label="Локація">{{ uav.current_location.name|default:"—" }}</td>
                         <td data-label="" class="actions-cell">
                             <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                             </a>
+                            {% if uav.status == 'ready' %}
+                            <button type="button" class="btn-icon btn-icon-success" data-tooltip="Віддати"
+                                data-give-url="{% url 'equipment_accounting:uav_toggle_given' uav.pk %}"
+                                onclick="openGiveModal(this.dataset.giveUrl)">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                            {% endif %}
                             <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" data-tooltip="Редагувати">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </a>
@@ -442,12 +476,22 @@
                 <option value="fpv"{% if comp_drone_type_filter == 'fpv' %} selected{% endif %}>Радіо</option>
                 <option value="optical"{% if comp_drone_type_filter == 'optical' %} selected{% endif %}>Оптика</option>
             </select>
+            <a href="?tab=components" class="btn-reset-filter">&#10005; Скинути</a>
         </form>
 
         {% if comp_page_obj %}
+        <form method="post" action="{% url 'equipment_accounting:component_bulk_action' %}" id="comp-bulk-form">
+            {% csrf_token %}
+
+            <div class="bulk-bar" id="comp-bulk-bar">
+                <span class="bulk-count">Обрано: <span id="comp-bulk-count-num">0</span></span>
+                <button type="submit" class="btn-sm btn-danger" id="comp-bulk-submit">Видалити</button>
+            </div>
+
         <table class="eq-table">
             <thead>
                 <tr>
+                    <th class="th-check"><input type="checkbox" class="check-all" id="comp-check-all"></th>
                     <th>Тип</th>
                     <th>Статус</th>
                     <th>Закріплена за</th>
@@ -458,6 +502,7 @@
             <tbody>
                 {% for c in comp_page_obj %}
                 <tr>
+                    <td><input type="checkbox" name="selected" value="{{ c.pk }}" class="comp-row-check"></td>
                     <td data-label="Тип">{{ c }}</td>
                     <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
                     <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
@@ -521,6 +566,7 @@
         </div>
         {% endif %}
 
+        </form>
         {% else %}
         <div class="empty-state"><p>Комплектуючих ще немає.</p></div>
         {% endif %}
@@ -832,6 +878,16 @@
         cb.addEventListener('change', updateBulkBar);
     });
 
+    // Show/hide location selector based on chosen bulk action
+    var bulkLocationSelect = document.getElementById('bulk-location-select');
+    actionSelect.addEventListener('change', function() {
+        var action = actionSelect.value;
+        var needsLocation = (action === 'given' || action === 'repair');
+        if (bulkLocationSelect) {
+            bulkLocationSelect.style.display = needsLocation ? '' : 'none';
+        }
+    });
+
     bulkSubmit.addEventListener('click', function(e) {
         var action = actionSelect.value;
         if (!action) {
@@ -851,6 +907,86 @@
         }
     });
 })();
+
+// Component bulk selection
+(function () {
+    var compCheckAll = document.getElementById('comp-check-all');
+    var compBulkBar  = document.getElementById('comp-bulk-bar');
+    var compBulkCount = document.getElementById('comp-bulk-count-num');
+    var compBulkForm  = document.getElementById('comp-bulk-form');
+    var compBulkSubmit = document.getElementById('comp-bulk-submit');
+
+    if (!compCheckAll) return;
+
+    var compRowChecks = document.querySelectorAll('.comp-row-check');
+
+    function updateCompBulkBar() {
+        var checked = document.querySelectorAll('.comp-row-check:checked');
+        var count = checked.length;
+        compBulkCount.textContent = count;
+        compBulkBar.classList.toggle('visible', count > 0);
+        compCheckAll.checked = count > 0 && count === compRowChecks.length;
+        compCheckAll.indeterminate = count > 0 && count < compRowChecks.length;
+    }
+
+    compCheckAll.addEventListener('change', function () {
+        compRowChecks.forEach(function (cb) { cb.checked = compCheckAll.checked; });
+        updateCompBulkBar();
+    });
+
+    compRowChecks.forEach(function (cb) {
+        cb.addEventListener('change', updateCompBulkBar);
+    });
+
+    compBulkSubmit.addEventListener('click', function (e) {
+        e.preventDefault();
+        var count = document.querySelectorAll('.comp-row-check:checked').length;
+        showModal(
+            'confirm-modal',
+            'Видалити комплектуючі',
+            'Видалити ' + count + ' комплектуючих? Цю дію не можна скасувати.',
+            function () { compBulkForm.submit(); }
+        );
+    });
+})();
+
+// Per-row give modal
+function openGiveModal(url) {
+    var overlay = document.getElementById('give-modal');
+    var locationSelect = document.getElementById('give-location-select');
+    var confirmBtn = document.getElementById('give-confirm-btn');
+    var cancelBtn = overlay.querySelector('.btn-cancel');
+
+    // Reset location selection
+    if (locationSelect) locationSelect.value = '';
+
+    overlay.classList.add('visible');
+
+    function close() {
+        overlay.classList.remove('visible');
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', close);
+        document.removeEventListener('keydown', onKey);
+        overlay.removeEventListener('click', onOverlay);
+    }
+
+    function onConfirm() {
+        var form = document.getElementById('give-action-form');
+        var locationInput = document.getElementById('give-action-location');
+        form.action = url;
+        locationInput.value = locationSelect ? locationSelect.value : '';
+        close();
+        form.submit();
+    }
+
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onOverlay(e) { if (e.target === overlay) close(); }
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', onOverlay);
+}
 
 /* Modal helper */
 function showModal(id, title, message, onConfirm) {
@@ -904,4 +1040,30 @@ function showModal(id, title, message, onConfirm) {
         </div>
     </div>
 </div>
+
+{# Give modal — location picker for per-row give action #}
+<div class="modal-overlay" id="give-modal">
+    <div class="modal-box">
+        <h3>Віддати БПЛА</h3>
+        <p>Куди переміщується дрон? (необов'язково)</p>
+        <div style="margin-bottom: 1.25rem;">
+            <select id="give-location-select" style="width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none;">
+                <option value="">— Не вказано —</option>
+                {% for loc in locations %}
+                <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel">Скасувати</button>
+            <button type="button" class="btn-confirm-warn" id="give-confirm-btn">Віддати</button>
+        </div>
+    </div>
+</div>
+
+{# Hidden form for per-row give action (outside bulk form to avoid nesting) #}
+<form method="post" id="give-action-form" action="" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="to_location_id" id="give-action-location" value="">
+</form>
 {% endblock %}

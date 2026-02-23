@@ -6,8 +6,8 @@ from django.db.models.expressions import RawSQL
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
-    OtherComponentType,
-    DroneModel, DronePurpose, Frequency, Manufacturer,
+    OtherComponentType, Location,
+    DroneModel, DronePurpose, DroneRole, Frequency, Manufacturer,
 )
 
 INPUT_CSS = {"class": "form-input"}
@@ -94,27 +94,47 @@ class UAVInstanceForm(forms.ModelForm):
         initial=1,
         widget=forms.NumberInput(attrs={**INPUT_CSS, "min": "1", "max": "100"}),
     )
-    with_kit = forms.BooleanField(
-        label="Додати комплект",
+    from_location = forms.ModelChoiceField(
+        label="Звідки надходять",
+        queryset=Location.objects.exclude(location_type='workshop'),
+        required=False,
+        empty_label="— Оберіть локацію —",
+        widget=forms.Select(attrs=INPUT_CSS),
+    )
+    with_battery = forms.BooleanField(
+        label="Додати батарею",
         initial=True,
         required=False,
-        widget=forms.CheckboxInput(attrs={"class": "form-checkbox"}),
+        widget=forms.CheckboxInput(attrs={"class": "form-checkbox", "id": "id_with_battery"}),
+    )
+    with_spool = forms.BooleanField(
+        label="Додати котушку",
+        initial=True,
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-checkbox", "id": "id_with_spool"}),
     )
 
     class Meta:
         model = UAVInstance
-        fields = ("status", "notes")
+        fields = ("status", "role", "notes")
         widgets = {
             "status": forms.Select(attrs=INPUT_CSS),
+            "role": forms.Select(attrs=INPUT_CSS),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["drone_type"].choices = _build_drone_type_choices()
+        self.fields["role"].queryset = DroneRole.objects.all()
+        self.fields["role"].label = "Призначення"
+        self.fields["role"].empty_label = "— Без призначення —"
+        self.fields["role"].required = False
         if self.instance.pk:
             del self.fields["quantity"]
-            del self.fields["with_kit"]
+            del self.fields["from_location"]
+            del self.fields["with_battery"]
+            del self.fields["with_spool"]
             self.fields["status"].choices = [
                 c for c in UAVInstance.STATUS_CHOICES if c[0] not in ('deleted', 'given')
             ]
@@ -125,6 +145,20 @@ class UAVInstanceForm(forms.ModelForm):
         else:
             del self.fields["status"]
             del self.fields["notes"]
+            # Default from_location to "Виробник"
+            try:
+                self.fields["from_location"].initial = Location.objects.get(
+                    location_type='manufacturer'
+                ).pk
+            except Location.DoesNotExist:
+                pass
+        # Default призначення to "Ударні" when none is set
+        if not self.instance.role_id:
+            try:
+                default_pk = DroneRole.objects.values_list('pk', flat=True).get(name='Ударні')
+                self.initial['role'] = default_pk
+            except DroneRole.DoesNotExist:
+                pass
 
     def clean_drone_type(self):
         value = self.cleaned_data["drone_type"]
