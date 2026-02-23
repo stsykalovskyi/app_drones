@@ -1110,19 +1110,29 @@
             var hasQuery = href.indexOf('?') !== -1;
             var isActive;
             if (hasQuery) {
-                // Submenu links with ?tab=: match the tab value exactly
+                // Submenu links with ?tab=: match only when the URL actually has a tab param
                 var hrefTab = href.split('tab=')[1];
-                var urlTab = search.split('tab=')[1];
-                var currentTab = urlTab ? urlTab.split('&')[0] : 'drones';
-                isActive = path.startsWith(href.split('?')[0]) && hrefTab === currentTab;
+                var tabIdx = search.indexOf('tab=');
+                var urlTab = tabIdx !== -1 ? search.slice(tabIdx + 4).split('&')[0] : null;
+                isActive = urlTab !== null && path.startsWith(href.split('?')[0]) && hrefTab === urlTab;
             } else if (a.closest('.submenu')) {
                 // Submenu links without query: exact path match to avoid prefix collisions
                 isActive = path === href;
             } else {
-                // Top-level links: prefix match so parent stays active on sub-pages
-                isActive = href === '/' ? path === '/' : path.startsWith(href);
+                // Top-level links with a submenu: active state is set by child-detection below
+                var parentLi = a.closest('li');
+                var hasSubmenu = parentLi && parentLi.querySelector(':scope > .submenu');
+                isActive = !hasSubmenu && (href === '/' ? path === '/' : path.startsWith(href));
             }
             if (isActive) a.classList.add('active');
+        });
+
+        /* Highlight parent nav item when an active submenu child exists */
+        document.querySelectorAll('.sidebar-nav > li').forEach(function(li) {
+            if (li.querySelector('.submenu a.active')) {
+                var parentLink = li.querySelector(':scope > a');
+                if (parentLink) parentLink.classList.add('active');
+            }
         });
 
         /* mobile menu */

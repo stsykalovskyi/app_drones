@@ -316,18 +316,30 @@ def drone_location_stats(request):
 # ── UAV movement history ──────────────────────────────────────────────
 
 def _fmt_freq(f):
-    """Format a Frequency object as e.g. '900mhz' or '5.8gh'."""
+    """Format a Frequency object as e.g. '900gh' or '5.8gh'."""
     v = f.value
     val_str = str(int(v)) if v == int(v) else str(v)
-    unit = 'gh' if f.unit == 'ghz' else 'mhz'
-    return f"{val_str}{unit}"
+    return f"{val_str}gh"
 
 
 def _fmt_drone_type_name(dt, category):
-    """Format drone type as: 'ModelName (prop\') (freq1 freq2) (#purpose)'."""
+    """Format drone type label.
+
+    FPV  → 'ModelName (prop\') (freq1 freq2) (#purpose)'
+    Optic → 'ModelName (prop\') distancekm [ніч]'
+    """
+    if category == 'Оптика':
+        name = f"{dt.model.name} ({dt.prop_size}')"
+        if getattr(dt, 'video_template_id', None):
+            name += f" {dt.video_template.max_distance}км"
+        if dt.has_thermal:
+            name += " ніч"
+        return name
+
+    # FPV / radio drone
     name = f"{dt.model.name} ({dt.prop_size}')"
     freq_parts = [_fmt_freq(f) for f in dt.control_frequencies.all()]
-    if category == 'Радіо' and getattr(dt, 'video_frequency_id', None):
+    if getattr(dt, 'video_frequency_id', None):
         freq_parts.append(_fmt_freq(dt.video_frequency))
     if freq_parts:
         name += f" ({' '.join(freq_parts)})"
@@ -337,47 +349,65 @@ def _fmt_drone_type_name(dt, category):
 
 
 def _build_role_groups(uav_objs, fpv_ct, opt_ct, fpv_types, opt_types):
-    """Return hierarchical role_groups list for a set of UAV instances."""
-    rk_order = []
-    rk_data = {}
+    """Return hierarchical role_groups list.
+
+    FPV drones are grouped by role (Ударні → День/Ніч sub-groups, others by
+    role name).  Optical drones are appended as a single 'Оптика' section at
+    the end, regardless of the UAV's assigned role.
+    """
+    fpv_rk_order = []
+    fpv_rk_data = {}
+    opt_type_order = []
+    opt_type_data = {}
+
     for uav in uav_objs:
         if uav.content_type_id == fpv_ct.pk:
             dt = fpv_types.get(uav.object_id)
-            category = 'Радіо'
+            role_name = uav.role.name if uav.role_id else '—'
+            if role_name == 'Ударні' and dt is not None:
+                sub_label = 'Ніч' if dt.has_thermal else 'День'
+            else:
+                sub_label = None
+            rk = (role_name, sub_label)
+            if rk not in fpv_rk_data:
+                fpv_rk_data[rk] = {}
+                fpv_rk_order.append(rk)
+            type_key = dt.pk if dt else None
+            if type_key not in fpv_rk_data[rk]:
+                fpv_rk_data[rk][type_key] = {
+                    'category': 'Радіо',
+                    'type_label': _fmt_drone_type_name(dt, 'Радіо') if dt else '—',
+                    'count': 0,
+                }
+            fpv_rk_data[rk][type_key]['count'] += 1
+
         elif uav.content_type_id == opt_ct.pk:
             dt = opt_types.get(uav.object_id)
-            category = 'Оптика'
-        else:
-            dt, category = None, '—'
-
-        role_name = uav.role.name if uav.role_id else '—'
-        if role_name == 'Ударні' and dt is not None:
-            sub_label = 'Ніч' if dt.has_thermal else 'День'
-        else:
-            sub_label = None
-
-        rk = (role_name, sub_label)
-        if rk not in rk_data:
-            rk_data[rk] = {}
-            rk_order.append(rk)
-
-        type_key = (category, dt.pk if dt else None)
-        if type_key not in rk_data[rk]:
-            rk_data[rk][type_key] = {
-                'category': category,
-                'type_label': _fmt_drone_type_name(dt, category) if dt else '—',
-                'count': 0,
-            }
-        rk_data[rk][type_key]['count'] += 1
+            type_key = dt.pk if dt else None
+            if type_key not in opt_type_data:
+                opt_type_data[type_key] = {
+                    'category': 'Оптика',
+                    'type_label': _fmt_drone_type_name(dt, 'Оптика') if dt else '—',
+                    'count': 0,
+                }
+                opt_type_order.append(type_key)
+            opt_type_data[type_key]['count'] += 1
 
     role_groups = []
-    for (role_name, sub_label) in rk_order:
+    for (role_name, sub_label) in fpv_rk_order:
         if not role_groups or role_groups[-1]['role_name'] != role_name:
             role_groups.append({'role_name': role_name, 'sub_groups': []})
         role_groups[-1]['sub_groups'].append({
             'sub_label': sub_label,
-            'types': list(rk_data[(role_name, sub_label)].values()),
+            'types': list(fpv_rk_data[(role_name, sub_label)].values()),
         })
+
+    if opt_type_order:
+        role_groups.append({
+            'role_name': 'Оптика',
+            'sub_groups': [{'sub_label': None, 'types': [opt_type_data[k] for k in opt_type_order]}],
+        })
+
     return role_groups
 
 
