@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Майстерня{% endblock %}</title>
+
+    <!-- Block all search engine indexing -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+
+    <!-- Open Graph (Facebook, Telegram, Viber, WhatsApp) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}Майстерня{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Система обліку майна{% endblock %}">
+    <meta property="og:locale" content="uk_UA">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block twitter_title %}Майстерня{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Система обліку майна{% endblock %}">
     <style>
         /* ── theme tokens ── */
         :root {
