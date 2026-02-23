@@ -1,7 +1,0 @@
-[
-  {"model": "equipment_accounting.location", "fields": {"name": "Майстерня",  "location_type": "workshop",      "notes": ""}},
-  {"model": "equipment_accounting.location", "fields": {"name": "Виробник",   "location_type": "manufacturer",  "notes": ""}},
-  {"model": "equipment_accounting.location", "fields": {"name": "Бригада",    "location_type": "brigade",       "notes": ""}},
-  {"model": "equipment_accounting.location", "fields": {"name": "Дюша",       "location_type": "dusha",         "notes": ""}},
-  {"model": "equipment_accounting.location", "fields": {"name": "Позиція",    "location_type": "position",      "notes": ""}}
-]
