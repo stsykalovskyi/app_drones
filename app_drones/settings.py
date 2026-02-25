@@ -400,6 +400,13 @@ UNFOLD = {
                             "admin:expense_log_expense_changelist"
                         ),
                     },
+                    {
+                        "title": "Категорії витрат",
+                        "icon": "category",
+                        "link": reverse_lazy(
+                            "admin:expense_log_expense_category"
+                        ),
+                    },
                 ],
             },
         ],

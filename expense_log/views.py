@@ -108,6 +108,23 @@ def expense_create(request):
 
 
 @master_required
+def expense_detail(request, pk):
+    is_commander = request.user.is_superuser or request.user.groups.filter(
+        name=COMMANDER_GROUP
+    ).exists()
+    if is_commander:
+        expense = get_object_or_404(Expense.objects.select_related("category", "created_by"), pk=pk)
+    else:
+        expense = get_object_or_404(Expense.objects.select_related("category", "created_by"), pk=pk, created_by=request.user)
+
+    return render(request, "expense_log/expense_detail.html", {
+        "expense": expense,
+        "is_commander": is_commander,
+        "can_edit": expense.created_by == request.user or is_commander,
+    })
+
+
+@master_required
 def expense_edit(request, pk):
     expense = get_object_or_404(Expense, pk=pk, created_by=request.user)
 

@@ -39,3 +39,6 @@ pip-delete-this-directory.txt
 
 # Sensitive credentials
 credentials/
+
+#
+temp/

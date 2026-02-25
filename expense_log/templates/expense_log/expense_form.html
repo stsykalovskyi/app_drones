@@ -106,6 +106,16 @@
         </div>
 
         <div class="field">
+            <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+            {{ form.category }}
+            {% if form.category.errors %}
+            <ul class="errorlist">
+                {% for error in form.category.errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="field">
             <label for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
             {{ form.amount }}
             {% if form.amount.help_text %}

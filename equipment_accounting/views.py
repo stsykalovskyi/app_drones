@@ -466,7 +466,7 @@ def uav_export_excel(request):
                     if c_count and c_new and c_repair:
                         val = f"={get_column_letter(c_count)}{row_num}+{get_column_letter(c_new)}{row_num}-{get_column_letter(c_repair)}{row_num}"
                     else:
-                        val = count 
+                        val = count
                 ws.cell(row=row_num, column=col_idx, value=val)
             row_num += 1
 

@@ -1,7 +1,14 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Expense
+from .models import Category, Expense
+
+
+@admin.register(Category)
+class CategoryAdmin(ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+    ordering = ("name",)
 
 
 @admin.register(Expense)

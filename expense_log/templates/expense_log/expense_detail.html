@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Витрата #{{ expense.pk }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .detail-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+    }
+    .detail-header h1 {
+        font-size: clamp(1.2rem, 3vw, 1.5rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.2rem;
+    }
+    .detail-header .breadcrumb {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+    .detail-header .breadcrumb a {
+        color: var(--text-muted);
+        text-decoration: none;
+    }
+    .detail-header .breadcrumb a:hover { color: var(--accent); }
+
+    .detail-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    @media (max-width: 640px) {
+        .detail-grid { grid-template-columns: 1fr; }
+    }
+
+    .detail-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+        padding: 1.25rem;
+    }
+    .detail-card h2 {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin: 0 0 1rem;
+    }
+
+    .field-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        margin-bottom: 1rem;
+    }
+    .field-row:last-child { margin-bottom: 0; }
+    .field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+    .field-value {
+        font-size: 0.92rem;
+        color: var(--text);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .field-value.amount {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--accent);
+    }
+    .field-value.muted { color: var(--text-muted); }
+
+    .receipt-block {
+        margin-top: 1rem;
+    }
+    .receipt-img-wrap {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        cursor: zoom-in;
+        max-width: 360px;
+    }
+    .receipt-img-wrap img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .receipt-file-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.55rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text);
+        text-decoration: none;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .receipt-file-link:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* lightbox */
+    .lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: var(--radius-sm);
+        box-shadow: 0 8px 40px rgba(0,0,0,.6);
+        cursor: default;
+    }
+    .lightbox-close {
+        position: fixed;
+        top: 0.75rem; right: 0.75rem;
+        z-index: 10001;
+        width: 40px; height: 40px;
+        border: none; border-radius: 50%;
+        background: rgba(255,255,255,.15);
+        color: #fff; font-size: 1.5rem;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background .15s;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <div>
+        <div class="breadcrumb">
+            <a href="{% url 'expense_log:expense_list' %}">Витрати</a> / #{{ expense.pk }}
+        </div>
+        <h1>{{ expense.date|date:"d.m.Y" }} — {{ expense.amount|floatformat:2 }} грн</h1>
+    </div>
+    <div class="detail-actions">
+        {% if can_edit %}
+        <a href="{% url 'expense_log:expense_edit' expense.pk %}" class="button">Редагувати</a>
+        {% endif %}
+        <a href="{% url 'expense_log:expense_list' %}" class="button button-secondary">← Назад</a>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-card">
+        <h2>Основне</h2>
+
+        <div class="field-row">
+            <span class="field-label">Сума</span>
+            <span class="field-value amount">{{ expense.amount|floatformat:2 }} грн</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Дата</span>
+            <span class="field-value">{{ expense.date|date:"d.m.Y" }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Категорія</span>
+            <span class="field-value {% if not expense.category %}muted{% endif %}">
+                {{ expense.category.name|default:"—" }}
+            </span>
+        </div>
+        {% if is_commander %}
+        <div class="field-row">
+            <span class="field-label">Хто додав</span>
+            <span class="field-value">
+                {% if expense.created_by.profile %}{{ expense.created_by.profile.display_name }}{% else %}{{ expense.created_by.username }}{% endif %}
+            </span>
+        </div>
+        {% endif %}
+        <div class="field-row">
+            <span class="field-label">Створено</span>
+            <span class="field-value muted">{{ expense.created_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        {% if expense.updated_at != expense.created_at %}
+        <div class="field-row">
+            <span class="field-label">Оновлено</span>
+            <span class="field-value muted">{{ expense.updated_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="detail-card">
+        <h2>Деталі</h2>
+
+        <div class="field-row">
+            <span class="field-label">На що витрачено</span>
+            <span class="field-value">{{ expense.description }}</span>
+        </div>
+        {% if expense.notes %}
+        <div class="field-row">
+            <span class="field-label">Примітки</span>
+            <span class="field-value">{{ expense.notes }}</span>
+        </div>
+        {% endif %}
+
+        {% if expense.receipt %}
+        <div class="field-row receipt-block">
+            <span class="field-label">Квитанція</span>
+            {% with url=expense.receipt.url name=expense.receipt.name %}
+            {% if name|lower|slice:"-4:" in ".jpg.png.gif.bmp" or ".jpeg" in name|lower or ".webp" in name|lower %}
+            <div class="receipt-img-wrap" id="receipt-thumb">
+                <img src="{{ url }}" alt="Квитанція">
+            </div>
+            {% else %}
+            <a href="{{ url }}" target="_blank" class="receipt-file-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Відкрити файл
+            </a>
+            {% endif %}
+            {% endwith %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+    <button class="lightbox-close" type="button">&times;</button>
+    <img src="" alt="Квитанція">
+</div>
+
+<script>
+(function() {
+    var thumb = document.getElementById('receipt-thumb');
+    if (!thumb) return;
+    var lightbox = document.getElementById('lightbox');
+    var lbImg = lightbox.querySelector('img');
+    var lbClose = lightbox.querySelector('.lightbox-close');
+    var src = thumb.querySelector('img').src;
+
+    thumb.addEventListener('click', function() {
+        lbImg.src = src;
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    });
+    function close() {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+        lbImg.src = '';
+    }
+    lbClose.addEventListener('click', close);
+    lightbox.addEventListener('click', function(e) { if (e.target === lightbox) close(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close(); });
+})();
+</script>
+{% endblock %}
