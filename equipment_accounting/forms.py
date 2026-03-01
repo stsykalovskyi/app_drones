@@ -116,10 +116,11 @@ class UAVInstanceForm(forms.ModelForm):
 
     class Meta:
         model = UAVInstance
-        fields = ("status", "role", "notes")
+        fields = ("status", "role", "current_location", "notes")
         widgets = {
             "status": forms.Select(attrs=INPUT_CSS),
             "role": forms.Select(attrs=INPUT_CSS),
+            "current_location": forms.Select(attrs=INPUT_CSS),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 3, "placeholder": "Примітки"}),
         }
 
@@ -130,6 +131,9 @@ class UAVInstanceForm(forms.ModelForm):
         self.fields["role"].label = "Призначення"
         self.fields["role"].empty_label = "— Без призначення —"
         self.fields["role"].required = False
+        self.fields["current_location"].queryset = Location.objects.all()
+        self.fields["current_location"].empty_label = "— Оберіть локацію —"
+        self.fields["current_location"].required = False
         if self.instance.pk:
             del self.fields["quantity"]
             del self.fields["from_location"]
@@ -144,6 +148,7 @@ class UAVInstanceForm(forms.ModelForm):
                 )
         else:
             del self.fields["status"]
+            del self.fields["current_location"]
             del self.fields["notes"]
             # Default from_location to "Виробник"
             try:

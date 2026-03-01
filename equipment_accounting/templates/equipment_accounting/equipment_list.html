@@ -241,6 +241,56 @@
         }
     }
 
+    /* Badge / card view */
+    .badge-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem; margin-top: 1rem;
+    }
+    .drone-badge {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1.1rem 1.25rem;
+        box-shadow: var(--shadow-card);
+        display: flex; flex-direction: column; gap: 0.6rem;
+        transition: box-shadow 0.2s, border-color 0.2s;
+        text-decoration: none; color: inherit; cursor: pointer;
+    }
+    .drone-badge:hover { box-shadow: var(--shadow-elevated); border-color: var(--border-active); }
+    .badge-top { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+    .cat-chip {
+        display: inline-block; padding: 0.18rem 0.55rem; border-radius: 999px;
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .cat-chip-radio   { background: rgba(59,130,246,.15); color: #3b82f6; }
+    .cat-chip-optical { background: rgba(34,197,94,.15);  color: #22c55e; }
+    .badge-date { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+    .badge-type { font-size: 0.88rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .badge-count { font-size: 2rem; font-weight: 800; color: var(--accent); line-height: 1; }
+    .badge-statuses { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .st-pill {
+        display: inline-block; padding: 0.15rem 0.5rem;
+        border-radius: 999px; font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+    }
+    .st-ready      { background: rgba(34,197,94,.15);   color: #22c55e; }
+    .st-inspection { background: rgba(59,130,246,.15);  color: #3b82f6; }
+    .st-repair     { background: rgba(245,158,11,.15);  color: #f59e0b; }
+    .st-deferred   { background: rgba(148,163,184,.15); color: #94a3b8; }
+    .st-given      { background: rgba(148,163,184,.1);  color: #94a3b8; }
+
+    /* Expandable group rows */
+    .group-detail-row > td { padding: 0; border-bottom: 2px solid var(--border); }
+    .group-uavs-inner { background: var(--bg-sub, var(--surface)); }
+    .group-uav-row td { padding: 0.6rem 0.75rem; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+    .group-uav-row:last-child td { border-bottom: none; }
+    .group-uav-row:hover td { background: var(--accent-dim); }
+    .expand-btn svg { transition: transform 0.2s ease; }
+    .expand-btn.open svg { transform: rotate(90deg); }
+
+    /* View toggle active state */
+    .btn-icon.view-active {
+        background: var(--accent-dim); color: var(--accent); border-color: var(--accent);
+    }
+
     /* Modal */
     .modal-overlay {
         position: fixed; inset: 0;
@@ -314,6 +364,12 @@
         <div class="toolbar">
             <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
             <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button type="button" class="btn-icon" id="view-table-btn" data-tooltip="Таблиця">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+                <button type="button" class="btn-icon" id="view-badge-btn" data-tooltip="Картки">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
                 <div class="export-wrap">
                     <button type="button" class="button ghost" id="export-toggle-btn">Excel ↓</button>
                     <div class="export-panel" id="export-panel">
@@ -379,111 +435,166 @@
             {% endif %}
         </form>
 
-        {% if page_obj %}
-        <form method="post" action="{% url 'equipment_accounting:uav_bulk_action' %}" id="bulk-form">
-            {% csrf_token %}
-
-            <div class="bulk-bar" id="bulk-bar">
-                <span class="bulk-count">Обрано: <span id="bulk-count-num">0</span></span>
-                <select name="bulk_action" id="bulk-action-select">
-                    <option value="">-- Дія --</option>
-                    {% for code, label in status_choices %}
-                    <option value="{{ code }}">Статус: {{ label }}</option>
-                    {% endfor %}
-                    <option value="given">Віддати</option>
-                    <option value="delete">Видалити</option>
-                </select>
-                <select name="to_location_id" id="bulk-location-select" style="display:none;">
-                    <option value="">— Локація —</option>
-                    {% for loc in locations %}
-                    <option value="{{ loc.pk }}">{{ loc.name }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="btn-sm" id="bulk-submit">Застосувати</button>
+        {# ── Badge view ── #}
+        <div id="uav-badge-view" style="display:none;">
+            {% if badge_groups %}
+            <div class="badge-grid">
+                {% for group in badge_groups %}
+                <a href="?tab=drones&type={{ group.type_key }}&date_from={{ group.date_str }}&date_to={{ group.date_str }}" class="drone-badge">
+                    <div class="badge-top">
+                        <span class="cat-chip {% if group.category == 'Радіо' %}cat-chip-radio{% else %}cat-chip-optical{% endif %}">{{ group.category }}</span>
+                        <span class="badge-date">{{ group.date|date:"d.m.Y" }}</span>
+                    </div>
+                    <div class="badge-type">{{ group.type_label }}</div>
+                    <div class="badge-count">{{ group.total }}</div>
+                    <div class="badge-statuses">
+                        {% for status, label, count in group.status_items %}
+                        <span class="st-pill st-{{ status }}">{{ count }} {{ label }}</span>
+                        {% endfor %}
+                    </div>
+                </a>
+                {% endfor %}
             </div>
+            {% else %}
+            <div class="empty-state"><p>БПЛА ще не додано.</p></div>
+            {% endif %}
+        </div>
 
+        {# ── Table view ── #}
+        <div id="uav-table-view">
             <table class="eq-table">
                 <thead>
                     <tr>
-                        <th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>
-                        <th>ID</th>
                         <th>Категорія</th>
-                        <th>Тип</th>
-                        <th>Статус</th>
-                        <th>Призначення</th>
-                        <th>Комплект</th>
-                        <th>Додав</th>
-                        <th>Дата</th>
-                        <th>Локація</th>
+                        <th>Тип БПЛА</th>
+                        <th>Дата партії</th>
+                        <th style="text-align:center;">Всього</th>
+                        <th style="text-align:center;color:#22c55e;">Готових</th>
+                        <th style="text-align:center;color:#3b82f6;">Перевірка</th>
+                        <th style="text-align:center;color:#f59e0b;">Ремонт</th>
+                        <th style="text-align:center;color:#94a3b8;">Відкладено</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for uav in page_obj %}
-                    <tr>
-                        <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check"></td>
-                        <td data-label="ID">{{ uav.id }}</td>
-                        <td data-label="Категорія">{{ uav.get_category }}</td>
-                        <td data-label="Тип">{{ uav.uav_type }}</td>
-                        <td data-label="Статус"><span class="status-badge{% if uav.status == 'given' %} given{% endif %}">{{ uav.get_status_display }}</span></td>
-                        <td data-label="Призначення">{{ uav.role.name|default:"—" }}</td>
-                        <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
-                        <td data-label="Додав">{% if uav.created_by %}{{ uav.created_by.profile.display_name }}{% else %}—{% endif %}</td>
-                        <td data-label="Дата" class="date-cell">{{ uav.created_at|date:"d.m.Y" }}</td>
-                        <td data-label="Локація">{{ uav.current_location.name|default:"—" }}</td>
+                    {% for group in badge_groups %}
+                    <tr class="group-row">
+                        <td data-label="Категорія">
+                            <span class="cat-chip {% if group.category == 'Радіо' %}cat-chip-radio{% else %}cat-chip-optical{% endif %}">{{ group.category }}</span>
+                        </td>
+                        <td data-label="Тип БПЛА">{{ group.type_label }}</td>
+                        <td data-label="Дата партії" class="date-cell">{{ group.date|date:"d.m.Y" }}</td>
+                        <td data-label="Всього" style="text-align:center;font-weight:700;">{{ group.total }}</td>
+                        <td data-label="Готових"    style="text-align:center;color:#22c55e;font-weight:600;">{% if group.cnt_ready %}{{ group.cnt_ready }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
+                        <td data-label="Перевірка"  style="text-align:center;color:#3b82f6;font-weight:600;">{% if group.cnt_inspection %}{{ group.cnt_inspection }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
+                        <td data-label="Ремонт"     style="text-align:center;color:#f59e0b;font-weight:600;">{% if group.cnt_repair %}{{ group.cnt_repair }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
+                        <td data-label="Відкладено" style="text-align:center;color:#94a3b8;font-weight:600;">{% if group.cnt_deferred %}{{ group.cnt_deferred }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
                         <td data-label="" class="actions-cell">
-                            <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            </a>
-                            {% if uav.status == 'ready' %}
-                            <button type="button" class="btn-icon btn-icon-success" data-tooltip="Віддати"
-                                data-give-url="{% url 'equipment_accounting:uav_toggle_given' uav.pk %}"
-                                onclick="openGiveModal(this.dataset.giveUrl)">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            <button type="button" class="btn-icon expand-btn" data-target="grp-{{ forloop.counter0 }}" data-tooltip="Показати дрони">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                             </button>
-                            {% endif %}
-                            <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </a>
-                            <a href="{% url 'equipment_accounting:uav_delete' uav.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </a>
                         </td>
                     </tr>
+                    <tr class="group-detail-row" id="grp-{{ forloop.counter0 }}" style="display:none;">
+                        <td colspan="9">
+                            <div class="group-uavs-inner">
+                                <table class="eq-table" style="margin:0;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:40px;">#</th>
+                                            <th>Статус</th>
+                                            <th>Призначення</th>
+                                            <th>Комплект</th>
+                                            <th>Локація</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for uav in group.uavs %}
+                                        <tr class="group-uav-row">
+                                            <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
+                                            <td><span class="status-badge{% if uav.status == 'given' %} given{% endif %}">{{ uav.get_status_display }}</span></td>
+                                            <td>{{ uav.role.name|default:"—" }}</td>
+                                            <td><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
+                                            <td>{{ uav.current_location.name|default:"—" }}</td>
+                                            <td class="actions-cell">
+                                                <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
+                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                                </a>
+                                                {% if uav.status == 'ready' %}
+                                                <button type="button" class="btn-icon btn-icon-success" data-tooltip="Віддати"
+                                                    data-give-url="{% url 'equipment_accounting:uav_toggle_given' uav.pk %}"
+                                                    onclick="openGiveModal(this.dataset.giveUrl)">
+                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                                                </button>
+                                                {% endif %}
+                                                <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                                </a>
+                                                <a href="{% url 'equipment_accounting:uav_delete' uav.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9"><div class="empty-state"><p>БПЛА ще не додано.</p></div></td></tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </form>
-
-        {% if page_obj.paginator.num_pages > 1 %}
-        <div class="pagination">
-            {% if page_obj.has_previous %}
-            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}">Попередня</a>
-            {% else %}
-            <span class="disabled">Попередня</span>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-                {% if page_obj.number == num %}
-                <span class="current">{{ num }}</span>
-                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}">{{ num }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-            <a href="?tab=drones&status={{ status_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}">Наступна</a>
-            {% else %}
-            <span class="disabled">Наступна</span>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {% else %}
-        <div class="empty-state"><p>БПЛА ще не додано.</p></div>
-        {% endif %}
+        </div>{# /uav-table-view #}
     </div>
 </div>
+
+<script>
+(function () {
+    var STORAGE_KEY = 'uav_view_mode';
+    var tableView = document.getElementById('uav-table-view');
+    var badgeView = document.getElementById('uav-badge-view');
+    var tableBtn  = document.getElementById('view-table-btn');
+    var badgeBtn  = document.getElementById('view-badge-btn');
+    if (!tableBtn) return;
+
+    function setView(mode) {
+        if (mode === 'badge') {
+            tableView.style.display = 'none';
+            badgeView.style.display = '';
+            tableBtn.classList.remove('view-active');
+            badgeBtn.classList.add('view-active');
+        } else {
+            tableView.style.display = '';
+            badgeView.style.display = 'none';
+            tableBtn.classList.add('view-active');
+            badgeBtn.classList.remove('view-active');
+        }
+        try { localStorage.setItem(STORAGE_KEY, mode); } catch (e) {}
+    }
+
+    tableBtn.addEventListener('click', function () { setView('table'); });
+    badgeBtn.addEventListener('click', function () { setView('badge'); });
+
+    var saved = 'table';
+    try { saved = localStorage.getItem(STORAGE_KEY) || 'table'; } catch (e) {}
+    setView(saved);
+
+    // Expand / collapse group rows
+    document.querySelectorAll('.expand-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var target = document.getElementById(btn.dataset.target);
+            if (!target) return;
+            var open = target.style.display !== 'none';
+            target.style.display = open ? 'none' : '';
+            btn.classList.toggle('open', !open);
+            btn.setAttribute('data-tooltip', open ? 'Показати дрони' : 'Сховати дрони');
+        });
+    });
+})();
+</script>
 
 {# ── Tab: Components ── #}
 <div class="tab-panel{% if tab == 'components' %} active{% endif %}" id="tab-components">

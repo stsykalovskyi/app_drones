@@ -404,7 +404,7 @@ UNFOLD = {
                         "title": "Категорії витрат",
                         "icon": "category",
                         "link": reverse_lazy(
-                            "admin:expense_log_expense_category"
+                            "admin:expense_log_category_changelist"
                         ),
                     },
                 ],

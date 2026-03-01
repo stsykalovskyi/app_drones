@@ -115,7 +115,42 @@ def equipment_list(request):
         filtered_ids = [u.pk for u in uavs if u.get_kit_status() == kit_filter]
         uavs = uavs.filter(pk__in=filtered_ids)
 
-    paginator = Paginator(uavs.order_by("-created_at"), 20)
+    uavs_ordered = list(uavs.order_by("-created_at"))
+
+    # Badge groups: group by (drone type, creation date) for card view
+    _badge_seen = {}
+    badge_groups = []
+    _status_display = dict(UAVInstance.STATUS_CHOICES)
+    for _uav in uavs_ordered:
+        _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date())
+        if _key not in _badge_seen:
+            _g = {
+                'type_label': str(_uav.uav_type),
+                'category': _uav.get_category(),
+                'date': _uav.created_at.date(),
+                'type_key': f"{_uav.content_type_id}-{_uav.object_id}",
+                'date_str': _uav.created_at.date().isoformat(),
+                'total': 0,
+                'status_counts': {},
+                'uavs': [],
+            }
+            _badge_seen[_key] = _g
+            badge_groups.append(_g)
+        _bg = _badge_seen[_key]
+        _bg['total'] += 1
+        _bg['status_counts'][_uav.status] = _bg['status_counts'].get(_uav.status, 0) + 1
+        _bg['uavs'].append(_uav)
+    for _g in badge_groups:
+        _g['status_items'] = [
+            (s, _status_display.get(s, s), c)
+            for s, c in _g['status_counts'].items()
+        ]
+        _g['cnt_ready']      = _g['status_counts'].get('ready', 0)
+        _g['cnt_inspection'] = _g['status_counts'].get('inspection', 0)
+        _g['cnt_repair']     = _g['status_counts'].get('repair', 0)
+        _g['cnt_deferred']   = _g['status_counts'].get('deferred', 0)
+
+    paginator = Paginator(uavs_ordered, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
@@ -230,6 +265,7 @@ def equipment_list(request):
         "manufacturers": manufacturers,
         "drone_models": drone_models,
         "locations": Location.objects.all(),
+        "badge_groups": badge_groups,
     }
 
     return render(request, "equipment_accounting/equipment_list.html", ctx)
@@ -993,14 +1029,15 @@ def uav_create(request):
                         with_battery=with_battery,
                         with_spool=with_spool,
                     )
-                # Record movement: from_location → workshop
-                UAVMovement.objects.create(
-                    uav=uav,
-                    from_location=from_location,
-                    to_location=workshop,
-                    moved_by=request.user,
-                    reason='created',
-                )
+                # Record movement: from_location → workshop (skip if workshop not configured)
+                if workshop:
+                    UAVMovement.objects.create(
+                        uav=uav,
+                        from_location=from_location,
+                        to_location=workshop,
+                        moved_by=request.user,
+                        reason='created',
+                    )
                 created.append(uav)
             msg = f"Додано {quantity} БПЛА." if quantity > 1 else "БПЛА додано."
             messages.success(request, msg)
