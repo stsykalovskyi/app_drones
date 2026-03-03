@@ -75,6 +75,127 @@
 
     .bool-yes { color: #22c55e; font-weight: 700; }
     .bool-no  { color: #ef4444; font-weight: 700; }
+
+    /* Photo gallery */
+    .photo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 0.75rem;
+    }
+    .photo-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        cursor: pointer;
+    }
+    .photo-item img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        display: block;
+    }
+    .photo-item:hover img { opacity: 0.82; transform: scale(1.03); }
+    .photo-item-actions {
+        position: absolute; top: 4px; right: 4px;
+        display: flex; gap: 4px;
+        opacity: 0; transition: opacity 0.15s ease;
+    }
+    .photo-item:hover .photo-item-actions { opacity: 1; }
+    .photo-action-btn {
+        width: 24px; height: 24px; border-radius: 50%;
+        border: none; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.7rem; font-weight: 700;
+        transition: background 0.15s;
+    }
+    .photo-action-btn.delete { background: rgba(239,68,68,0.85); color: #fff; }
+    .photo-action-btn.delete:hover { background: #ef4444; }
+    .photo-action-btn.edit { background: rgba(0,0,0,0.55); color: #fff; }
+    .photo-action-btn.edit:hover { background: rgba(0,0,0,0.8); }
+    .photo-caption {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        background: rgba(0,0,0,0.5); color: #fff;
+        font-size: 0.7rem; padding: 0.2rem 0.4rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .photo-upload-tile {
+        aspect-ratio: 1;
+        border: 2px dashed var(--border);
+        border-radius: var(--radius-sm);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 0.4rem; cursor: pointer; color: var(--text-muted);
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .photo-upload-tile:hover { border-color: var(--accent); color: var(--accent); }
+    .photo-upload-tile svg { pointer-events: none; }
+    .photo-upload-tile span { font-size: 0.75rem; font-weight: 600; pointer-events: none; }
+
+    /* Lightbox */
+    .lightbox {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.92);
+        z-index: 3000;
+        display: none; align-items: center; justify-content: center;
+        flex-direction: column; gap: 0.75rem;
+        padding: 1.5rem;
+        cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+        max-width: min(90vw, 1200px); max-height: 80vh;
+        object-fit: contain; border-radius: var(--radius);
+        box-shadow: 0 0 60px rgba(0,0,0,0.5);
+        cursor: default;
+    }
+    .lightbox-caption {
+        color: rgba(255,255,255,0.75); font-size: 0.85rem; text-align: center;
+    }
+    .lightbox-close {
+        position: absolute; top: 1rem; right: 1.25rem;
+        color: rgba(255,255,255,0.6); font-size: 1.5rem; cursor: pointer;
+        background: none; border: none; line-height: 1;
+    }
+    .lightbox-close:hover { color: #fff; }
+    .lightbox-nav {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        background: rgba(255,255,255,0.1); border: none; color: #fff;
+        width: 44px; height: 44px; border-radius: 50%;
+        font-size: 1.2rem; cursor: pointer; display: flex;
+        align-items: center; justify-content: center;
+        transition: background 0.15s; user-select: none;
+    }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.22); }
+    .lightbox-nav.prev { left: 1rem; }
+    .lightbox-nav.next { right: 1rem; }
+
+    /* Caption edit modal */
+    .caption-modal {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 4000;
+        display: none; align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .caption-modal.open { display: flex; }
+    .caption-modal-box {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1.5rem;
+        width: 100%; max-width: 380px;
+        box-shadow: var(--shadow-elevated);
+    }
+    .caption-modal-box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .caption-input {
+        width: 100%; box-sizing: border-box;
+        padding: 0.5rem 0.65rem; border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+        font-size: 0.88rem; outline: none;
+        transition: border-color 0.15s;
+    }
+    .caption-input:focus { border-color: var(--accent); }
+    .caption-modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 </style>
 {% endblock %}
 
@@ -247,6 +368,69 @@
 </div>
 {% endif %}
 
+{# ── Photos ── #}
+{# Upload form lives outside the grid to avoid nesting inside <label> #}
+<form method="post" action="{% url 'equipment_accounting:uav_photo_upload' uav.pk %}" enctype="multipart/form-data" id="photo-upload-form">
+    {% csrf_token %}
+    <input type="file" name="photos" id="photo-file-input" multiple accept="image/*" style="display:none;">
+</form>
+
+<div class="card section-card">
+    <div class="toolbar">
+        <h2>Фото {% if photos %}<span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ photos|length }}</span>{% endif %}</h2>
+    </div>
+    <div class="photo-grid">
+        {# Upload tile — label[for] natively opens the file picker #}
+        <label for="photo-file-input" class="photo-upload-tile" title="Додати фото">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Додати фото</span>
+        </label>
+
+        {# Photo tiles #}
+        {% for photo in photos %}
+        <div class="photo-item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption }}">
+            <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'Фото БПЛА' }}" loading="lazy">
+            {% if photo.caption %}<div class="photo-caption">{{ photo.caption }}</div>{% endif %}
+            <div class="photo-item-actions">
+                <button type="button" class="photo-action-btn edit" data-photo-pk="{{ photo.pk }}" data-caption="{{ photo.caption }}" title="Редагувати підпис">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <form method="post" action="{% url 'equipment_accounting:uav_photo_delete' photo.pk %}" style="display:contents;" onsubmit="return confirm('Видалити фото?');">
+                    {% csrf_token %}
+                    <button type="submit" class="photo-action-btn delete" title="Видалити">✕</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# Lightbox #}
+<div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close">&#10005;</button>
+    <button class="lightbox-nav prev" id="lightbox-prev">&#8249;</button>
+    <img src="" alt="" id="lightbox-img">
+    <button class="lightbox-nav next" id="lightbox-next">&#8250;</button>
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+</div>
+
+{# Caption edit modal #}
+<div class="caption-modal" id="caption-modal">
+    <div class="caption-modal-box">
+        <h3>Редагувати підпис</h3>
+        <form method="post" id="caption-edit-form">
+            {% csrf_token %}
+            <input type="text" name="caption" id="caption-input" class="caption-input" placeholder="Підпис до фото (необов'язково)" maxlength="200">
+            <div class="caption-modal-actions">
+                <button type="button" class="btn-sm" id="caption-cancel">Скасувати</button>
+                <button type="submit" class="btn-sm btn-success">Зберегти</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {# ── Movement history ── #}
 <div class="card section-card">
     <div class="toolbar">
@@ -279,5 +463,102 @@
     <div class="empty-state">Переміщень ще не зафіксовано.</div>
     {% endif %}
 </div>
+
+<script>
+(function () {
+    // ── Photo upload ──────────────────────────────────────────────
+    var fileInput  = document.getElementById('photo-file-input');
+    var uploadForm = document.getElementById('photo-upload-form');
+
+    if (fileInput && uploadForm) {
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files.length) uploadForm.submit();
+        });
+    }
+
+    // ── Lightbox ──────────────────────────────────────────────────
+    var photos = [];
+    document.querySelectorAll('.photo-item').forEach(function (item) {
+        photos.push({ src: item.dataset.src, caption: item.dataset.caption || '' });
+    });
+
+    var lightbox   = document.getElementById('lightbox');
+    var lbImg      = document.getElementById('lightbox-img');
+    var lbCaption  = document.getElementById('lightbox-caption');
+    var lbClose    = document.getElementById('lightbox-close');
+    var lbPrev     = document.getElementById('lightbox-prev');
+    var lbNext     = document.getElementById('lightbox-next');
+    var currentIdx = 0;
+
+    function openLightbox(idx) {
+        currentIdx = idx;
+        var p = photos[idx];
+        lbImg.src = p.src;
+        lbCaption.textContent = p.caption;
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        lbPrev.style.display = photos.length > 1 ? '' : 'none';
+        lbNext.style.display = photos.length > 1 ? '' : 'none';
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+        lbImg.src = '';
+    }
+
+    document.querySelectorAll('.photo-item').forEach(function (item) {
+        item.addEventListener('click', function (e) {
+            if (e.target.closest('.photo-item-actions')) return;
+            openLightbox(parseInt(item.dataset.index));
+        });
+    });
+
+    if (lbClose) lbClose.addEventListener('click', closeLightbox);
+    if (lightbox) lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+
+    if (lbPrev) lbPrev.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openLightbox((currentIdx - 1 + photos.length) % photos.length);
+    });
+    if (lbNext) lbNext.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openLightbox((currentIdx + 1) % photos.length);
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (!lightbox || !lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft' && photos.length > 1) openLightbox((currentIdx - 1 + photos.length) % photos.length);
+        if (e.key === 'ArrowRight' && photos.length > 1) openLightbox((currentIdx + 1) % photos.length);
+    });
+
+    // ── Caption edit modal ────────────────────────────────────────
+    var captionModal  = document.getElementById('caption-modal');
+    var captionForm   = document.getElementById('caption-edit-form');
+    var captionInput  = document.getElementById('caption-input');
+    var captionCancel = document.getElementById('caption-cancel');
+
+    document.querySelectorAll('.photo-action-btn.edit').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var pk = btn.dataset.photoPk;
+            captionInput.value = btn.dataset.caption || '';
+            captionForm.action = '{% url "equipment_accounting:uav_photo_edit" 0 %}'.replace('/0/', '/' + pk + '/');
+            captionModal.classList.add('open');
+            setTimeout(function () { captionInput.focus(); }, 50);
+        });
+    });
+
+    if (captionCancel) captionCancel.addEventListener('click', function () {
+        captionModal.classList.remove('open');
+    });
+    if (captionModal) captionModal.addEventListener('click', function (e) {
+        if (e.target === captionModal) captionModal.classList.remove('open');
+    });
+})();
+</script>
 
 {% endblock %}

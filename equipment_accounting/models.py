@@ -542,3 +542,29 @@ class UAVMovement(models.Model):
     def __str__(self):
         frm = self.from_location or "—"
         return f"БПЛА #{self.uav_id}: {frm} → {self.to_location}"
+
+
+def _uav_photo_path(instance, filename):
+    return f"uav_photos/{instance.uav_id}/{filename}"
+
+
+class UAVPhoto(models.Model):
+    """Photo attached to a specific UAV instance."""
+
+    uav = models.ForeignKey(
+        UAVInstance,
+        on_delete=models.CASCADE,
+        related_name='photos',
+        verbose_name="БПЛА",
+    )
+    image = models.ImageField(upload_to=_uav_photo_path, verbose_name="Зображення")
+    caption = models.CharField(max_length=200, blank=True, verbose_name="Підпис")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Фото БПЛА"
+        verbose_name_plural = "Фото БПЛА"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Фото БПЛА #{self.uav_id} ({self.pk})"

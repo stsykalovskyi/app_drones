@@ -24,6 +24,11 @@ urlpatterns = [
     path('uav/<int:uav_pk>/attach/<int:component_pk>/', views.uav_attach_component, name='uav_attach_component'),
     path('uav/<int:uav_pk>/detach/<int:component_pk>/', views.uav_detach_component, name='uav_detach_component'),
 
+    # UAV photos
+    path('uav/<int:uav_pk>/photos/upload/', views.uav_photo_upload, name='uav_photo_upload'),
+    path('uav/photos/<int:photo_pk>/delete/', views.uav_photo_delete, name='uav_photo_delete'),
+    path('uav/photos/<int:photo_pk>/edit/', views.uav_photo_edit, name='uav_photo_edit'),
+
     # Manufacturers
     path('manufacturer/add/', views.manufacturer_create, name='manufacturer_create'),
     path('manufacturer/<int:pk>/edit/', views.manufacturer_edit, name='manufacturer_edit'),

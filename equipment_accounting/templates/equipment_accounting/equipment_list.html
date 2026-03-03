@@ -329,6 +329,52 @@
         border: none; background: var(--accent); color: var(--btn-text);
     }
     .modal-actions .btn-confirm-warn:hover { opacity: 0.9; }
+
+    /* Inline thead filter row */
+    .filter-row th {
+        padding: 0.45rem 0.6rem;
+        background: var(--surface);
+        vertical-align: top;
+        border-bottom: 2px solid var(--border);
+    }
+    .th-filter-input {
+        width: 100%; min-width: 0; box-sizing: border-box;
+        background: var(--bg);
+        border: 1.5px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 0.73rem;
+        padding: 0.3rem 0.5rem;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .th-filter-input:hover:not(:focus) { border-color: var(--text-muted); }
+    .th-filter-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2.5px var(--accent-dim);
+    }
+    .th-filter-date-pair { display: flex; flex-direction: column; gap: 0.25rem; }
+    .th-filter-extra { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: flex-start; }
+    .th-filter-reset {
+        display: inline-flex; align-items: center;
+        font-size: 0.7rem; font-weight: 600; color: #ef4444;
+        text-decoration: none; white-space: nowrap;
+        padding: 0.25rem 0.55rem;
+        border: 1.5px solid rgba(239,68,68,0.3); border-radius: 7px;
+        background: rgba(239,68,68,0.06);
+        transition: background 0.15s ease, border-color 0.15s ease;
+        line-height: 1.4;
+    }
+    .th-filter-reset:hover { background: rgba(239,68,68,0.14); border-color: #ef4444; }
+
+    /* Purpose badges */
+    .purpose-badge {
+        display: inline-block; padding: 0.15rem 0.55rem;
+        border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+    }
+    .purpose-ударні { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .purpose-день   { background: rgba(59,130,246,0.12);  color: #3b82f6; }
+    .purpose-ніч    { background: rgba(139,92,246,0.12);  color: #8b5cf6; }
 </style>
 {% endblock %}
 
@@ -391,50 +437,6 @@
             </div>
         </div>
 
-        <form method="get" class="filter-bar">
-            <input type="hidden" name="tab" value="drones">
-            <select name="status">
-                <option value="">Всі статуси</option>
-                {% for code, label in status_choices %}
-                <option value="{{ code }}"{% if status_filter == code %} selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <select name="category">
-                <option value="">Всі категорії</option>
-                <option value="fpv"{% if category_filter == 'fpv' %} selected{% endif %}>Радіо</option>
-                <option value="optical"{% if category_filter == 'optical' %} selected{% endif %}>Оптика</option>
-            </select>
-            <select name="type">
-                <option value="">Всі типи</option>
-                {% for val, label in type_choices %}
-                <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <select name="kit">
-                <option value="">Комплект</option>
-                {% for code, label in kit_choices %}
-                <option value="{{ code }}"{% if kit_filter == code %} selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <select name="location">
-                <option value="">Всі локації</option>
-                {% for loc in locations %}
-                <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
-                {% endfor %}
-            </select>
-            <div class="date-field">
-                <label class="date-label">Дата від</label>
-                <input type="date" name="date_from" value="{{ date_from }}">
-            </div>
-            <div class="date-field">
-                <label class="date-label">Дата до</label>
-                <input type="date" name="date_to" value="{{ date_to }}">
-            </div>
-            {% if status_filter or category_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
-            <a href="?tab=drones" class="btn-reset-filter">&#10005; Скинути</a>
-            {% endif %}
-        </form>
-
         {# ── Badge view ── #}
         <div id="uav-badge-view" style="display:none;">
             {% if badge_groups %}
@@ -461,34 +463,115 @@
         </div>
 
         {# ── Table view ── #}
+        {# GET form for filters — inputs use form="uav-filter-form" attribute #}
+        <form method="get" id="uav-filter-form">
+            <input type="hidden" name="tab" value="drones">
+        </form>
+
+        {# POST form for bulk actions — wraps the table #}
+        <form method="post" action="{% url 'equipment_accounting:uav_bulk_action' %}" id="uav-bulk-form">
+        {% csrf_token %}
+
+        <div class="bulk-bar" id="bulk-bar">
+            <span class="bulk-count">Обрано: <span id="bulk-count-num">0</span></span>
+            <select id="bulk-action-select" name="bulk_action">
+                <option value="">— Дія —</option>
+                <option value="ready">Готовий</option>
+                <option value="inspection">Перевірка</option>
+                <option value="repair">Ремонт</option>
+                <option value="deferred">Відкладено</option>
+                <option value="given">Віддати</option>
+                <option value="delete">Видалити</option>
+            </select>
+            <select name="to_location_id" id="bulk-location-select" style="display:none;">
+                <option value="">— Локація —</option>
+                {% for loc in locations %}
+                <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" id="bulk-submit" class="btn-sm btn-danger">Застосувати</button>
+        </div>
+
         <div id="uav-table-view">
             <table class="eq-table">
                 <thead>
                     <tr>
-                        <th>Категорія</th>
+                        <th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>
                         <th>Тип БПЛА</th>
+                        <th>Призначення</th>
                         <th>Дата партії</th>
+                        <th>Комплект</th>
                         <th style="text-align:center;">Всього</th>
-                        <th style="text-align:center;color:#22c55e;">Готових</th>
-                        <th style="text-align:center;color:#3b82f6;">Перевірка</th>
-                        <th style="text-align:center;color:#f59e0b;">Ремонт</th>
-                        <th style="text-align:center;color:#94a3b8;">Відкладено</th>
                         <th></th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th class="th-filter"></th>
+                        <th class="th-filter">
+                            <select name="type" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                                <option value="">Всі типи</option>
+                                {% for val, label in type_choices %}
+                                <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th class="th-filter">
+                            <select name="purpose" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                                <option value="">Всі</option>
+                                <option value="ударні"{% if purpose_filter == 'ударні' %} selected{% endif %}>Ударні</option>
+                                <option value="день"{% if purpose_filter == 'день' %} selected{% endif %}>День</option>
+                                <option value="ніч"{% if purpose_filter == 'ніч' %} selected{% endif %}>Ніч</option>
+                            </select>
+                        </th>
+                        <th class="th-filter">
+                            <div class="th-filter-date-pair">
+                                <input type="date" name="date_from" value="{{ date_from }}" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата від">
+                                <input type="date" name="date_to"   value="{{ date_to }}"   class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата до">
+                            </div>
+                        </th>
+                        <th class="th-filter">
+                            <select name="kit" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                                <option value="">Всі</option>
+                                {% for code, label in kit_choices %}
+                                <option value="{{ code }}"{% if kit_filter == code %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th class="th-filter" colspan="2">
+                            <div class="th-filter-extra">
+                                <select name="status" class="th-filter-input" style="flex:1;min-width:90px;" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                                    <option value="">Всі статуси</option>
+                                    {% for code, label in status_choices %}
+                                    <option value="{{ code }}"{% if status_filter == code %} selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="location" class="th-filter-input" style="flex:1;min-width:90px;" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                                    <option value="">Всі локації</option>
+                                    {% for loc in locations %}
+                                    <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if status_filter or purpose_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
+                                <a href="?tab=drones" class="th-filter-reset">&#10005; Скинути</a>
+                                {% endif %}
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for group in badge_groups %}
                     <tr class="group-row">
-                        <td data-label="Категорія">
-                            <span class="cat-chip {% if group.category == 'Радіо' %}cat-chip-radio{% else %}cat-chip-optical{% endif %}">{{ group.category }}</span>
+                        <td class="th-check">
+                            <input type="checkbox" class="group-check check-all" data-group="{{ forloop.counter0 }}" title="Вибрати групу">
                         </td>
                         <td data-label="Тип БПЛА">{{ group.type_label }}</td>
+                        <td data-label="Призначення">
+                            <span class="purpose-badge purpose-{{ group.purpose }}">{{ group.purpose_label }}</span>
+                        </td>
                         <td data-label="Дата партії" class="date-cell">{{ group.date|date:"d.m.Y" }}</td>
+                        <td data-label="Комплект">
+                            <span class="kit-{{ group.kit_status }}">{{ group.kit_label }}</span>
+                        </td>
                         <td data-label="Всього" style="text-align:center;font-weight:700;">{{ group.total }}</td>
-                        <td data-label="Готових"    style="text-align:center;color:#22c55e;font-weight:600;">{% if group.cnt_ready %}{{ group.cnt_ready }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
-                        <td data-label="Перевірка"  style="text-align:center;color:#3b82f6;font-weight:600;">{% if group.cnt_inspection %}{{ group.cnt_inspection }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
-                        <td data-label="Ремонт"     style="text-align:center;color:#f59e0b;font-weight:600;">{% if group.cnt_repair %}{{ group.cnt_repair }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
-                        <td data-label="Відкладено" style="text-align:center;color:#94a3b8;font-weight:600;">{% if group.cnt_deferred %}{{ group.cnt_deferred }}{% else %}<span style="color:var(--text-muted)">—</span>{% endif %}</td>
                         <td data-label="" class="actions-cell">
                             <button type="button" class="btn-icon expand-btn" data-target="grp-{{ forloop.counter0 }}" data-tooltip="Показати дрони">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -496,11 +579,12 @@
                         </td>
                     </tr>
                     <tr class="group-detail-row" id="grp-{{ forloop.counter0 }}" style="display:none;">
-                        <td colspan="9">
+                        <td colspan="7">
                             <div class="group-uavs-inner">
                                 <table class="eq-table" style="margin:0;">
                                     <thead>
                                         <tr>
+                                            <th class="th-check"></th>
                                             <th style="width:40px;">#</th>
                                             <th>Статус</th>
                                             <th>Призначення</th>
@@ -512,6 +596,7 @@
                                     <tbody>
                                         {% for uav in group.uavs %}
                                         <tr class="group-uav-row">
+                                            <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>
                                             <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
                                             <td><span class="status-badge{% if uav.status == 'given' %} given{% endif %}">{{ uav.get_status_display }}</span></td>
                                             <td>{{ uav.role.name|default:"—" }}</td>
@@ -543,11 +628,12 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9"><div class="empty-state"><p>БПЛА ще не додано.</p></div></td></tr>
+                    <tr><td colspan="7"><div class="empty-state"><p>БПЛА ще не додано.</p></div></td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>{# /uav-table-view #}
+        </form>{# /uav-bulk-form #}
     </div>
 </div>
 
@@ -1002,48 +1088,91 @@
         });
     });
 
-    /* Bulk selection */
-    var checkAll = document.getElementById('check-all');
-    var bulkBar = document.getElementById('bulk-bar');
-    var bulkCount = document.getElementById('bulk-count-num');
-    var bulkForm = document.getElementById('bulk-form');
-    var bulkSubmit = document.getElementById('bulk-submit');
+    /* UAV Bulk selection */
+    var headerCheckAll = document.getElementById('check-all');
+    var bulkBar     = document.getElementById('bulk-bar');
+    var bulkCount   = document.getElementById('bulk-count-num');
+    var bulkForm    = document.getElementById('uav-bulk-form');
+    var bulkSubmit  = document.getElementById('bulk-submit');
     var actionSelect = document.getElementById('bulk-action-select');
+    var bulkLocationSelect = document.getElementById('bulk-location-select');
 
-    if (!checkAll) return;
+    if (!headerCheckAll) return;
 
-    var rowChecks = document.querySelectorAll('.row-check');
+    function allRowChecks() {
+        return document.querySelectorAll('.row-check');
+    }
 
     function updateBulkBar() {
         var checked = document.querySelectorAll('.row-check:checked');
         var count = checked.length;
+        var total = allRowChecks().length;
         bulkCount.textContent = count;
-        if (count > 0) {
-            bulkBar.classList.add('visible');
-        } else {
-            bulkBar.classList.remove('visible');
-        }
-        checkAll.checked = count > 0 && count === rowChecks.length;
-        checkAll.indeterminate = count > 0 && count < rowChecks.length;
+        bulkBar.classList.toggle('visible', count > 0);
+        headerCheckAll.checked = count > 0 && count === total;
+        headerCheckAll.indeterminate = count > 0 && count < total;
+
+        // Update each group checkbox state
+        document.querySelectorAll('.group-check').forEach(function(gc) {
+            var grp = gc.dataset.group;
+            var grpChecks = document.querySelectorAll('.row-check[data-group="' + grp + '"]');
+            var grpChecked = document.querySelectorAll('.row-check[data-group="' + grp + '"]:checked');
+            gc.checked = grpChecked.length > 0 && grpChecked.length === grpChecks.length;
+            gc.indeterminate = grpChecked.length > 0 && grpChecked.length < grpChecks.length;
+        });
     }
 
-    checkAll.addEventListener('change', function() {
-        rowChecks.forEach(function(cb) { cb.checked = checkAll.checked; });
+    // Header "select all" checkbox
+    headerCheckAll.addEventListener('change', function() {
+        allRowChecks().forEach(function(cb) { cb.checked = headerCheckAll.checked; });
+        document.querySelectorAll('.group-check').forEach(function(gc) {
+            gc.checked = headerCheckAll.checked;
+            gc.indeterminate = false;
+        });
+        // Auto-expand all groups when selecting all
+        if (headerCheckAll.checked) {
+            document.querySelectorAll('.group-detail-row').forEach(function(row) {
+                row.style.display = '';
+            });
+            document.querySelectorAll('.expand-btn').forEach(function(btn) {
+                btn.classList.add('open');
+                btn.setAttribute('data-tooltip', 'Сховати дрони');
+            });
+        }
         updateBulkBar();
     });
 
-    rowChecks.forEach(function(cb) {
+    // Group checkboxes — check/uncheck all UAVs in that group and auto-expand
+    document.querySelectorAll('.group-check').forEach(function(gc) {
+        gc.addEventListener('change', function() {
+            var grp = gc.dataset.group;
+            var grpChecks = document.querySelectorAll('.row-check[data-group="' + grp + '"]');
+            grpChecks.forEach(function(cb) { cb.checked = gc.checked; });
+            // Auto-expand the group detail row when checking
+            if (gc.checked) {
+                var detailRow = document.getElementById('grp-' + grp);
+                var expandBtn = document.querySelector('.expand-btn[data-target="grp-' + grp + '"]');
+                if (detailRow && detailRow.style.display === 'none') {
+                    detailRow.style.display = '';
+                    if (expandBtn) {
+                        expandBtn.classList.add('open');
+                        expandBtn.setAttribute('data-tooltip', 'Сховати дрони');
+                    }
+                }
+            }
+            updateBulkBar();
+        });
+    });
+
+    // Individual UAV checkboxes
+    document.querySelectorAll('.row-check').forEach(function(cb) {
         cb.addEventListener('change', updateBulkBar);
     });
 
-    // Show/hide location selector based on chosen bulk action
-    var bulkLocationSelect = document.getElementById('bulk-location-select');
+    // Show/hide location selector based on chosen action
     actionSelect.addEventListener('change', function() {
-        var action = actionSelect.value;
-        var needsLocation = (action === 'given' || action === 'repair');
-        if (bulkLocationSelect) {
-            bulkLocationSelect.style.display = needsLocation ? '' : 'none';
-        }
+        var needsLocation = (actionSelect.value === 'given' || actionSelect.value === 'repair');
+        bulkLocationSelect.style.display = needsLocation ? '' : 'none';
     });
 
     bulkSubmit.addEventListener('click', function(e) {

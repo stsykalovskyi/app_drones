@@ -22,7 +22,7 @@ from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     OtherComponentType, Location, UAVMovement,
-    Manufacturer, DroneModel,
+    Manufacturer, DroneModel, UAVPhoto,
 )
 
 def _list_url(tab="drones"):
@@ -56,6 +56,7 @@ def equipment_list(request):
     category_filter = request.GET.get("category", "")
     type_filter = request.GET.get("type", "")
     kit_filter = request.GET.get("kit", "")
+    purpose_filter = request.GET.get("purpose", "")
     _location_raw = request.GET.get("location", "")
     location_filter = int(_location_raw) if _location_raw.isdigit() else None
     date_from = request.GET.get("date_from", "")
@@ -115,21 +116,50 @@ def equipment_list(request):
         filtered_ids = [u.pk for u in uavs if u.get_kit_status() == kit_filter]
         uavs = uavs.filter(pk__in=filtered_ids)
 
+    # Purpose filter: Ударні (optical), День (FPV no thermal), Ніч (FPV thermal)
+    if purpose_filter in ('ударні', 'день', 'ніч'):
+        _fpv_ct_f = ContentType.objects.get_for_model(FPVDroneType)
+        _opt_ct_f = ContentType.objects.get_for_model(OpticalDroneType)
+        if purpose_filter == 'ударні':
+            uavs = uavs.filter(content_type=_opt_ct_f)
+        elif purpose_filter == 'день':
+            _day_pks = FPVDroneType.objects.filter(has_thermal=False).values_list('pk', flat=True)
+            uavs = uavs.filter(content_type=_fpv_ct_f, object_id__in=_day_pks)
+        elif purpose_filter == 'ніч':
+            _night_pks = FPVDroneType.objects.filter(has_thermal=True).values_list('pk', flat=True)
+            uavs = uavs.filter(content_type=_fpv_ct_f, object_id__in=_night_pks)
+
     uavs_ordered = list(uavs.order_by("-created_at"))
 
-    # Badge groups: group by (drone type, creation date) for card view
+    # Pre-fetch FPV thermal flags for purpose computation (avoids N+1)
+    _fpv_ct_id = ContentType.objects.get_for_model(FPVDroneType).id
+    _fpv_thermal = dict(FPVDroneType.objects.values_list('pk', 'has_thermal'))
+
+    # Badge groups: group by (drone type, creation date, kit status)
     _badge_seen = {}
     badge_groups = []
     _status_display = dict(UAVInstance.STATUS_CHOICES)
     for _uav in uavs_ordered:
-        _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date())
+        _kit = _uav.get_kit_status()
+        _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date(), _kit)
         if _key not in _badge_seen:
+            if _uav.content_type_id == _fpv_ct_id:
+                _is_thermal = _fpv_thermal.get(_uav.object_id, False)
+                _purpose = 'ніч' if _is_thermal else 'день'
+                _purpose_label = 'Ніч' if _is_thermal else 'День'
+            else:
+                _purpose = 'ударні'
+                _purpose_label = 'Ударні'
             _g = {
                 'type_label': str(_uav.uav_type),
                 'category': _uav.get_category(),
+                'purpose': _purpose,
+                'purpose_label': _purpose_label,
                 'date': _uav.created_at.date(),
                 'type_key': f"{_uav.content_type_id}-{_uav.object_id}",
                 'date_str': _uav.created_at.date().isoformat(),
+                'kit_status': _kit,
+                'kit_label': UAVInstance.KIT_LABELS[_kit],
                 'total': 0,
                 'status_counts': {},
                 'uavs': [],
@@ -244,6 +274,7 @@ def equipment_list(request):
         "type_filter": type_filter,
         "kit_filter": kit_filter,
         "kit_choices": list(UAVInstance.KIT_LABELS.items()),
+        "purpose_filter": purpose_filter,
         "location_filter": location_filter,
         "date_from": date_from,
         "date_to": date_to,
@@ -792,13 +823,46 @@ def uav_detail(request, pk):
     ).order_by('-created_at')
 
     kit_status = uav.get_kit_status()
+    photos = uav.photos.all()
     return render(request, 'equipment_accounting/uav_detail.html', {
         'uav': uav,
         'assigned_components': assigned_components,
         'free_components': free_components,
         'kit_status': kit_status,
         'movements': movements,
+        'photos': photos,
     })
+
+
+@master_required
+def uav_photo_upload(request, uav_pk):
+    uav = get_object_or_404(UAVInstance, pk=uav_pk)
+    if request.method == 'POST':
+        files = request.FILES.getlist('photos')
+        for f in files:
+            UAVPhoto.objects.create(uav=uav, image=f)
+    return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
+
+
+@master_required
+def uav_photo_delete(request, photo_pk):
+    photo = get_object_or_404(UAVPhoto, pk=photo_pk)
+    uav_pk = photo.uav_id
+    if request.method == 'POST':
+        photo.image.delete(save=False)
+        photo.delete()
+    return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
+
+
+@master_required
+def uav_photo_edit(request, photo_pk):
+    photo = get_object_or_404(UAVPhoto, pk=photo_pk)
+    uav_pk = photo.uav_id
+    if request.method == 'POST':
+        caption = request.POST.get('caption', '').strip()
+        photo.caption = caption
+        photo.save(update_fields=['caption'])
+    return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
 
 
 @master_required
