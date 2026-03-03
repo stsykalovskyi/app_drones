@@ -20,6 +20,8 @@ urlpatterns = [
     path('uav/<int:pk>/', views.uav_detail, name='uav_detail'),
     path('uav/<int:pk>/edit/', views.uav_edit, name='uav_edit'),
     path('uav/<int:pk>/toggle-given/', views.uav_toggle_given, name='uav_toggle_given'),
+    path('uav/<int:pk>/move/', views.uav_move, name='uav_move'),
+    path('uav/movement/<int:movement_pk>/confirm/', views.uav_confirm_arrival, name='uav_confirm_arrival'),
     path('uav/<int:pk>/delete/', views.uav_delete, name='uav_delete'),
     path('uav/<int:uav_pk>/attach/<int:component_pk>/', views.uav_attach_component, name='uav_attach_component'),
     path('uav/<int:uav_pk>/detach/<int:component_pk>/', views.uav_detach_component, name='uav_detach_component'),
@@ -28,6 +30,11 @@ urlpatterns = [
     path('uav/<int:uav_pk>/photos/upload/', views.uav_photo_upload, name='uav_photo_upload'),
     path('uav/photos/<int:photo_pk>/delete/', views.uav_photo_delete, name='uav_photo_delete'),
     path('uav/photos/<int:photo_pk>/edit/', views.uav_photo_edit, name='uav_photo_edit'),
+
+    # Locations
+    path('location/add/', views.location_create, name='location_create'),
+    path('location/<int:pk>/edit/', views.location_edit, name='location_edit'),
+    path('location/<int:pk>/delete/', views.location_delete, name='location_delete'),
 
     # Manufacturers
     path('manufacturer/add/', views.manufacturer_create, name='manufacturer_create'),

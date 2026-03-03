@@ -392,12 +392,13 @@ class UAVInstance(models.Model):
         ('inspection', 'На перевірці'),
         ('repair', 'Ремонт'),
         ('deferred', 'Відкладено'),
+        ('transit', 'В дорозі'),
         ('given', 'Віддано'),
         ('deleted', 'Видалено'),
     ]
 
     # Statuses visible in the list (excludes soft-deleted)
-    ACTIVE_STATUSES = ['ready', 'inspection', 'repair', 'deferred']
+    ACTIVE_STATUSES = ['ready', 'inspection', 'repair', 'deferred', 'transit']
 
     # Полиморфне посилання на тип БПЛА
     content_type = models.ForeignKey(
@@ -420,6 +421,13 @@ class UAVInstance(models.Model):
         on_delete=models.SET_NULL,
         related_name='current_uavs',
         verbose_name="Поточна локація",
+    )
+    pending_to_location = models.ForeignKey(
+        'Location',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='pending_arrivals',
+        verbose_name="Очікувана локація",
     )
     role = models.ForeignKey(
         DroneRole,
@@ -533,6 +541,17 @@ class UAVMovement(models.Model):
     )
     notes = models.TextField(blank=True, verbose_name="Примітки")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
+    pre_transit_status = models.CharField(
+        max_length=20, blank=True, verbose_name="Статус до переміщення"
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="Підтверджено")
+    confirmed_by = models.ForeignKey(
+        User,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='confirmed_uav_movements',
+        verbose_name="Підтвердив",
+    )
 
     class Meta:
         verbose_name = "Переміщення БПЛА"

@@ -16,7 +16,7 @@ from .forms import _get_available_uavs_for_kind
 from .forms import (
     UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm,
     FPVDroneTypeForm, OpticalDroneTypeForm,
-    ManufacturerForm, DroneModelForm,
+    ManufacturerForm, DroneModelForm, LocationForm,
 )
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
@@ -67,14 +67,13 @@ def equipment_list(request):
         "content_type", "created_by", "created_by__profile", "current_location", "role"
     ).prefetch_related("components")
 
-    # Include given drones only when explicitly filtering by location or by given status
-    if location_filter or status_filter == 'given':
-        uavs = base_qs.exclude(status='deleted')
-    else:
-        uavs = base_qs.filter(status__in=UAVInstance.ACTIVE_STATUSES)
+    uavs = base_qs.exclude(status='deleted')
 
     if location_filter:
-        uavs = uavs.filter(current_location_id=location_filter)
+        uavs = uavs.filter(
+            Q(current_location_id=location_filter) |
+            Q(status='transit', pending_to_location_id=location_filter)
+        )
 
     if status_filter:
         uavs = uavs.filter(status=status_filter)
@@ -179,6 +178,7 @@ def equipment_list(request):
         _g['cnt_inspection'] = _g['status_counts'].get('inspection', 0)
         _g['cnt_repair']     = _g['status_counts'].get('repair', 0)
         _g['cnt_deferred']   = _g['status_counts'].get('deferred', 0)
+        _g['cnt_transit']    = _g['status_counts'].get('transit', 0)
 
     paginator = Paginator(uavs_ordered, 20)
     page_number = request.GET.get("page")
@@ -193,12 +193,12 @@ def equipment_list(request):
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
 
-    # Summary counts — only statuses visible in the list (excludes deleted and given)
-    all_uavs = UAVInstance.objects.filter(status__in=UAVInstance.ACTIVE_STATUSES)
+    # Summary counts — all non-deleted drones
+    all_uavs = UAVInstance.objects.exclude(status='deleted')
     total_drones = all_uavs.count()
     status_counts = {}
     for code, label in UAVInstance.STATUS_CHOICES:
-        if code in ('deleted', 'given'):
+        if code == 'deleted':
             continue
         status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
 
@@ -296,6 +296,7 @@ def equipment_list(request):
         "manufacturers": manufacturers,
         "drone_models": drone_models,
         "locations": Location.objects.all(),
+        "locations_give": Location.objects.exclude(location_type='workshop'),
         "badge_groups": badge_groups,
     }
 
@@ -707,7 +708,7 @@ def uav_movements(request):
                 'reason_label': reason_labels.get(m.reason, m.reason),
                 'from_location_name': m.from_location.name if m.from_location else None,
                 'to_location_name': m.to_location.name,
-                'user_name': m.moved_by.profile.display_name if m.moved_by else '—',
+                'user_name': (m.moved_by.profile.display_name if hasattr(m.moved_by, 'profile') else m.moved_by.username) if m.moved_by else '—',
                 'uav_objs': [],
             }
             dg['_border'].append(bk)
@@ -824,12 +825,17 @@ def uav_detail(request, pk):
 
     kit_status = uav.get_kit_status()
     photos = uav.photos.all()
+    pending_movement = None
+    if uav.status == 'transit':
+        pending_movement = uav.movements.filter(confirmed_at__isnull=True).order_by('-created_at').first()
     return render(request, 'equipment_accounting/uav_detail.html', {
         'uav': uav,
         'assigned_components': assigned_components,
         'free_components': free_components,
         'kit_status': kit_status,
         'movements': movements,
+        'pending_movement': pending_movement,
+        'locations': Location.objects.all(),
         'photos': photos,
     })
 
@@ -863,6 +869,71 @@ def uav_photo_edit(request, photo_pk):
         photo.caption = caption
         photo.save(update_fields=['caption'])
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
+
+
+@master_required
+def uav_move(request, pk):
+    """Initiate transit: set UAV to 'transit' and record an unconfirmed movement."""
+    uav = get_object_or_404(UAVInstance, pk=pk)
+    if request.method != 'POST':
+        return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
+
+    if uav.status not in UAVInstance.ACTIVE_STATUSES or uav.status == 'transit':
+        messages.error(request, 'Неможливо перемістити дрон у поточному статусі.')
+        return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
+
+    to_location_id = request.POST.get('to_location_id')
+    to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
+    if not to_location:
+        messages.error(request, 'Оберіть локацію призначення.')
+        return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
+
+    if to_location == uav.current_location:
+        messages.error(request, 'Дрон вже знаходиться на цій локації.')
+        return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
+
+    notes = request.POST.get('notes', '').strip()
+    UAVMovement.objects.create(
+        uav=uav,
+        from_location=uav.current_location,
+        to_location=to_location,
+        moved_by=request.user,
+        reason='transferred',
+        notes=notes,
+        pre_transit_status=uav.status,
+    )
+    uav.status = 'transit'
+    uav.pending_to_location = to_location
+    uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+
+    messages.success(request, f'БПЛА відправлено до "{to_location.name}". Очікується підтвердження прибуття.')
+    return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
+
+
+@master_required
+def uav_confirm_arrival(request, movement_pk):
+    """Confirm arrival: update current_location and restore pre-transit status."""
+    from django.utils import timezone as tz
+    movement = get_object_or_404(UAVMovement, pk=movement_pk)
+    uav = movement.uav
+    if request.method != 'POST':
+        return redirect(reverse('equipment_accounting:uav_detail', args=[uav.pk]))
+
+    if movement.confirmed_at is not None:
+        messages.warning(request, 'Прибуття вже підтверджено.')
+        return redirect(reverse('equipment_accounting:uav_detail', args=[uav.pk]))
+
+    movement.confirmed_at = tz.now()
+    movement.confirmed_by = request.user
+    movement.save(update_fields=['confirmed_at', 'confirmed_by'])
+
+    uav.current_location = movement.to_location
+    uav.pending_to_location = None
+    uav.status = movement.pre_transit_status or 'inspection'
+    uav.save(update_fields=['current_location', 'pending_to_location', 'status', 'updated_at'])
+
+    messages.success(request, f'Прибуття БПЛА до "{movement.to_location.name}" підтверджено.')
+    return redirect(reverse('equipment_accounting:uav_detail', args=[uav.pk]))
 
 
 @master_required
@@ -929,22 +1000,25 @@ def uav_toggle_given(request, pk):
         )
     elif uav.status == 'ready':
         to_location_id = request.POST.get('to_location_id')
-        to_location = None
-        if to_location_id:
-            to_location = Location.objects.filter(pk=to_location_id).first()
+        to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
         prev_location = uav.current_location
-        uav.status = 'given'
-        uav.current_location = to_location
         uav.components.update(status='given', assigned_to_uav=None)
-        uav.save(update_fields=['status', 'current_location', 'updated_at'])
         if to_location:
+            # Send via transit; status becomes 'given' after arrival confirmation
             UAVMovement.objects.create(
                 uav=uav,
                 from_location=prev_location,
                 to_location=to_location,
                 moved_by=request.user,
                 reason='given',
+                pre_transit_status='given',
             )
+            uav.status = 'transit'
+            uav.pending_to_location = to_location
+            uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+        else:
+            uav.status = 'given'
+            uav.save(update_fields=['status', 'updated_at'])
     else:
         messages.error(request, 'Віддати можна лише готовий дрон.')
     return redirect(next_url)
@@ -974,13 +1048,11 @@ def uav_bulk_action(request):
         messages.success(request, f"Видалено {count} БПЛА.")
     elif action == "given":
         eligible = qs.filter(status='ready')
-        skipped = count - eligible.count()
+        given_count = eligible.count()
+        skipped = count - given_count
         for uav in eligible.select_related('current_location'):
             prev = uav.current_location
             Component.objects.filter(assigned_to_uav=uav).update(status='given', assigned_to_uav=None)
-            uav.status = 'given'
-            uav.current_location = to_location
-            uav.save(update_fields=['status', 'current_location', 'updated_at'])
             if to_location:
                 UAVMovement.objects.create(
                     uav=uav,
@@ -988,11 +1060,17 @@ def uav_bulk_action(request):
                     to_location=to_location,
                     moved_by=request.user,
                     reason='given',
+                    pre_transit_status='given',
                 )
-        given_count = eligible.count()
+                uav.status = 'transit'
+                uav.pending_to_location = to_location
+                uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+            else:
+                uav.status = 'given'
+                uav.save(update_fields=['status', 'updated_at'])
         msg = f"Віддано {given_count} БПЛА разом з комплектуючими."
         if skipped:
-            msg += f" Пропущено {count - given_count} (не готові)."
+            msg += f" Пропущено {skipped} (не готові)."
         messages.success(request, msg)
     elif action == 'repair':
         prev_statuses = {uav.pk: uav.current_location for uav in qs.select_related('current_location')}
@@ -1458,6 +1536,62 @@ def component_delete(request, pk):
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": component, "title": "Видалити комплектуючу",
         "cancel_url": _list_url("components"),
+    })
+
+
+# ── Location CRUD ───────────────────────────────────────────────────
+
+@master_required
+def location_create(request):
+    if request.method == "POST":
+        form = LocationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Локацію додано.")
+            return redirect(_list_url("types"))
+    else:
+        # Pre-select 'position' type when coming from the positions section
+        initial = {}
+        if request.GET.get("type") == "position":
+            initial["location_type"] = "position"
+        form = LocationForm(initial=initial)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати локацію", "tab_redirect": "types",
+    })
+
+
+@master_required
+def location_edit(request, pk):
+    location = get_object_or_404(Location, pk=pk)
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=location)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Локацію оновлено.")
+            return redirect(_list_url("types"))
+    else:
+        form = LocationForm(instance=location)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати локацію", "tab_redirect": "types",
+    })
+
+
+@master_required
+def location_delete(request, pk):
+    location = get_object_or_404(Location, pk=pk)
+    # Prevent deleting locations that have UAVs assigned
+    uav_count = location.current_uavs.exclude(status='deleted').count()
+    if request.method == "POST":
+        if uav_count:
+            messages.error(request, f"Неможливо видалити: {uav_count} БПЛА перебуває на цій локації.")
+            return redirect(_list_url("types"))
+        location.delete()
+        messages.success(request, "Локацію видалено.")
+        return redirect(_list_url("types"))
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": location, "title": "Видалити локацію",
+        "cancel_url": _list_url("types"),
+        "extra_warning": f"На локації є {uav_count} активних БПЛА." if uav_count else "",
     })
 
 

@@ -1,0 +1,38 @@
+[
+  {
+    "model": "equipment_accounting.location",
+    "pk": 1,
+    "fields": {
+      "name": "Майстерня",
+      "location_type": "workshop",
+      "notes": ""
+    }
+  },
+  {
+    "model": "equipment_accounting.location",
+    "pk": 2,
+    "fields": {
+      "name": "Виробник",
+      "location_type": "manufacturer",
+      "notes": ""
+    }
+  },
+  {
+    "model": "equipment_accounting.location",
+    "pk": 3,
+    "fields": {
+      "name": "Дюша",
+      "location_type": "dusha",
+      "notes": ""
+    }
+  },
+  {
+    "model": "equipment_accounting.location",
+    "pk": 4,
+    "fields": {
+      "name": "Позиція",
+      "location_type": "position",
+      "notes": ""
+    }
+  }
+]

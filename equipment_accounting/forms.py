@@ -157,10 +157,10 @@ class UAVInstanceForm(forms.ModelForm):
                 ).pk
             except Location.DoesNotExist:
                 pass
-        # Default призначення to "Ударні" when none is set
+        # Default призначення to "FPV" when none is set
         if not self.instance.role_id:
             try:
-                default_pk = DroneRole.objects.values_list('pk', flat=True).get(name='Ударні')
+                default_pk = DroneRole.objects.values_list('pk', flat=True).get(name='FPV')
                 self.initial['role'] = default_pk
             except DroneRole.DoesNotExist:
                 pass
@@ -391,3 +391,19 @@ class VideoTemplateForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class LocationForm(forms.ModelForm):
+    class Meta:
+        model = Location
+        fields = ("name", "location_type", "notes")
+        widgets = {
+            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Наприклад: Позиція Авдіївка"}),
+            "location_type": forms.Select(attrs=INPUT_CSS),
+            "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 2, "placeholder": "Додаткова інформація (необов'язково)"}),
+        }
+        labels = {
+            "name": "Назва",
+            "location_type": "Тип",
+            "notes": "Примітки",
+        }

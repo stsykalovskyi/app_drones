@@ -133,7 +133,8 @@
         border-radius: 999px; font-size: 0.75rem; font-weight: 600;
         background: var(--accent-dim); color: var(--accent);
     }
-    .status-badge.given { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .status-badge.given   { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .status-badge.transit { background: rgba(245,158,11,0.12);  color: #f59e0b; }
     .date-cell { white-space: nowrap; color: var(--text-secondary); }
     .kit-full { color: #22c55e; font-weight: 600; }
     .kit-partial { color: #f59e0b; font-weight: 600; }
@@ -573,7 +574,7 @@
                         </td>
                         <td data-label="Всього" style="text-align:center;font-weight:700;">{{ group.total }}</td>
                         <td data-label="" class="actions-cell">
-                            <button type="button" class="btn-icon expand-btn" data-target="grp-{{ forloop.counter0 }}" data-tooltip="Показати дрони">
+                            <button type="button" class="btn-icon expand-btn" data-target="grp-{{ forloop.counter0 }}" data-key="{{ group.type_key }}-{{ group.date_str }}-{{ group.kit_status }}" data-tooltip="Показати дрони">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                             </button>
                         </td>
@@ -598,10 +599,17 @@
                                         <tr class="group-uav-row">
                                             <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>
                                             <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
-                                            <td><span class="status-badge{% if uav.status == 'given' %} given{% endif %}">{{ uav.get_status_display }}</span></td>
+                                            <td><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
                                             <td>{{ uav.role.name|default:"—" }}</td>
                                             <td><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
-                                            <td>{{ uav.current_location.name|default:"—" }}</td>
+                                            <td>
+                                                {% if uav.status == 'transit' and uav.pending_to_location %}
+                                                    <span style="color:var(--text-muted);">{{ uav.current_location.name|default:"—" }}</span>
+                                                    <span style="color:#f59e0b;font-weight:600;"> → {{ uav.pending_to_location.name }}</span>
+                                                {% else %}
+                                                    {{ uav.current_location.name|default:"—" }}
+                                                {% endif %}
+                                            </td>
                                             <td class="actions-cell">
                                                 <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -668,7 +676,28 @@
     try { saved = localStorage.getItem(STORAGE_KEY) || 'table'; } catch (e) {}
     setView(saved);
 
-    // Expand / collapse group rows
+    // Expand / collapse group rows — persist open state in localStorage
+    var EXPAND_KEY = 'uav_groups_open';
+    function loadOpenKeys() {
+        try { return JSON.parse(localStorage.getItem(EXPAND_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function saveOpenKeys(keys) {
+        try { localStorage.setItem(EXPAND_KEY, JSON.stringify(keys)); } catch (e) {}
+    }
+
+    // Restore saved open state on load
+    var openKeys = loadOpenKeys();
+    document.querySelectorAll('.expand-btn').forEach(function (btn) {
+        if (openKeys.indexOf(btn.dataset.key) !== -1) {
+            var target = document.getElementById(btn.dataset.target);
+            if (target) {
+                target.style.display = '';
+                btn.classList.add('open');
+                btn.setAttribute('data-tooltip', 'Сховати дрони');
+            }
+        }
+    });
+
     document.querySelectorAll('.expand-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var target = document.getElementById(btn.dataset.target);
@@ -677,6 +706,15 @@
             target.style.display = open ? 'none' : '';
             btn.classList.toggle('open', !open);
             btn.setAttribute('data-tooltip', open ? 'Показати дрони' : 'Сховати дрони');
+            // Persist
+            var keys = loadOpenKeys();
+            var key = btn.dataset.key;
+            if (!open) {
+                if (keys.indexOf(key) === -1) keys.push(key);
+            } else {
+                keys = keys.filter(function(k) { return k !== key; });
+            }
+            saveOpenKeys(keys);
         });
     });
 })();
@@ -986,6 +1024,62 @@
         {% else %}
         <div class="empty-state"><p>Типів оптичних дронів ще немає.</p></div>
         {% endif %}
+    </div>
+
+    {# Locations #}
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="toolbar">
+            <h2>Локації</h2>
+            <a href="{% url 'equipment_accounting:location_create' %}" class="button">+ Додати</a>
+        </div>
+        {% if locations %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Тип</th>
+                    <th>Примітки</th>
+                    <th>БПЛА</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loc in locations %}
+                <tr>
+                    <td data-label="Назва">
+                        {{ loc.name }}
+                        {% if loc.location_type == 'position' %}
+                        <span style="font-size:0.72rem;color:var(--text-muted);margin-left:0.3rem;">(позиція)</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Тип">{{ loc.get_location_type_display }}</td>
+                    <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
+                    <td data-label="БПЛА">
+                        {% with cnt=loc.current_uavs.count %}
+                        {% if cnt %}<span style="font-weight:600;">{{ cnt }}</span>{% else %}—{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td data-label="" class="actions-cell">
+                        <a href="{% url 'equipment_accounting:location_edit' loc.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'equipment_accounting:location_delete' loc.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Локацій ще немає.</p></div>
+        {% endif %}
+
+        {# Quick-add position shortcut #}
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;">
+            <span style="font-size:0.82rem;color:var(--text-muted);">Додати нову позицію:</span>
+            <a href="{% url 'equipment_accounting:location_create' %}?type=position" class="button" style="font-size:0.8rem;padding:0.3rem 0.75rem;">+ Позиція</a>
+        </div>
     </div>
 </div>
 
@@ -1364,7 +1458,7 @@ function showModal(id, title, message, onConfirm) {
         <div style="margin-bottom: 1.25rem;">
             <select id="give-location-select" style="width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none;">
                 <option value="">— Не вказано —</option>
-                {% for loc in locations %}
+                {% for loc in locations_give %}
                 <option value="{{ loc.pk }}">{{ loc.name }}</option>
                 {% endfor %}
             </select>

@@ -196,6 +196,30 @@
     }
     .caption-input:focus { border-color: var(--accent); }
     .caption-modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+    /* Transit banner */
+    .transit-banner {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+        background: rgba(245,158,11,0.1); border: 1.5px solid rgba(245,158,11,0.4);
+        border-radius: var(--radius); padding: 0.85rem 1.1rem;
+        margin-bottom: 1.25rem;
+    }
+    .transit-banner-info { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+    .transit-banner-info svg { flex-shrink: 0; }
+    .transit-label { color: var(--text-muted); }
+    .transit-dest { color: #f59e0b; font-weight: 700; }
+
+    /* Move modal */
+    .move-modal-select {
+        width: 100%; box-sizing: border-box;
+        padding: 0.5rem 0.65rem; border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+        font-size: 0.88rem; outline: none; transition: border-color 0.15s;
+        margin-top: 0.3rem;
+    }
+    .move-modal-select:focus { border-color: var(--accent); }
+    .form-field { margin-bottom: 0.85rem; }
+    .form-field:last-of-type { margin-bottom: 0; }
 </style>
 {% endblock %}
 
@@ -217,11 +241,34 @@
     </div>
 </div>
 
+{% if uav.status == 'transit' %}
+<div class="transit-banner">
+    <div class="transit-banner-info">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+        <span class="transit-label">В дорозі до:</span>
+        <span class="transit-dest">{{ uav.pending_to_location.name|default:"невідома локація" }}</span>
+    </div>
+    {% if pending_movement %}
+    <form method="post" action="{% url 'equipment_accounting:uav_confirm_arrival' pending_movement.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-sm btn-success">&#10003; Підтвердити прибуття</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
 {# ── Info card ── #}
 <div class="card section-card">
     <div class="toolbar">
         <h2>Характеристики</h2>
-        <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-sm">Редагувати</a>
+        <div style="display:flex;gap:0.5rem;">
+            {% if uav.status != 'transit' and uav.status != 'given' and uav.status != 'deleted' %}
+            <button type="button" class="btn-sm" id="open-move-modal">&#8594; Перемістити</button>
+            {% endif %}
+            <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-sm">Редагувати</a>
+        </div>
     </div>
     {% with dt=uav.uav_type %}
     <div class="info-grid">
@@ -431,6 +478,35 @@
     </div>
 </div>
 
+{# Move modal #}
+<div class="caption-modal" id="move-modal">
+    <div class="caption-modal-box">
+        <h3>Перемістити БПЛА</h3>
+        <form method="post" action="{% url 'equipment_accounting:uav_move' uav.pk %}">
+            {% csrf_token %}
+            <div class="form-field">
+                <div class="info-label">Локація призначення</div>
+                <select name="to_location_id" class="move-modal-select" required>
+                    <option value="">— оберіть локацію —</option>
+                    {% for loc in locations %}
+                    {% if loc != uav.current_location %}
+                    <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <div class="info-label">Примітки</div>
+                <input type="text" name="notes" class="caption-input" style="margin-top:0.3rem;" placeholder="Причина переміщення (необов'язково)" maxlength="500">
+            </div>
+            <div class="caption-modal-actions">
+                <button type="button" class="btn-sm" id="move-modal-cancel">Скасувати</button>
+                <button type="submit" class="btn-sm btn-success">Відправити</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {# ── Movement history ── #}
 <div class="card section-card">
     <div class="toolbar">
@@ -445,6 +521,7 @@
                 <th>Звідки</th>
                 <th>Куди</th>
                 <th>Хто</th>
+                <th>Статус</th>
             </tr>
         </thead>
         <tbody>
@@ -455,6 +532,18 @@
                 <td>{{ m.from_location.name|default:"—" }}</td>
                 <td>{{ m.to_location.name }}</td>
                 <td>{% if m.moved_by %}{{ m.moved_by.profile.display_name }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if m.confirmed_at %}
+                        <span style="color:#22c55e;font-size:0.8rem;">&#10003; {{ m.confirmed_at|date:"d.m H:i" }}</span>
+                    {% elif m.pre_transit_status %}
+                        <form method="post" action="{% url 'equipment_accounting:uav_confirm_arrival' m.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-sm btn-success" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Підтвердити</button>
+                        </form>
+                    {% else %}
+                        <span style="color:var(--text-muted);font-size:0.8rem;">—</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -557,6 +646,23 @@
     });
     if (captionModal) captionModal.addEventListener('click', function (e) {
         if (e.target === captionModal) captionModal.classList.remove('open');
+    });
+
+    // ── Move modal ─────────────────────────────────────────────────
+    var moveModal  = document.getElementById('move-modal');
+    var openMoveBtn = document.getElementById('open-move-modal');
+    var moveCancel = document.getElementById('move-modal-cancel');
+
+    if (openMoveBtn && moveModal) {
+        openMoveBtn.addEventListener('click', function () {
+            moveModal.classList.add('open');
+        });
+    }
+    if (moveCancel) moveCancel.addEventListener('click', function () {
+        moveModal.classList.remove('open');
+    });
+    if (moveModal) moveModal.addEventListener('click', function (e) {
+        if (e.target === moveModal) moveModal.classList.remove('open');
     });
 })();
 </script>
