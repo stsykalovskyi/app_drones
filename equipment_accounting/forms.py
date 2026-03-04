@@ -6,7 +6,7 @@ from django.db.models.expressions import RawSQL
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
-    OtherComponentType, Location,
+    OtherComponentType, Location, Position,
     DroneModel, DronePurpose, DroneRole, Frequency, Manufacturer,
 )
 
@@ -404,4 +404,16 @@ class LocationForm(forms.ModelForm):
         labels = {
             "name": "Назва",
             "notes": "Примітки",
+        }
+
+
+class PositionForm(forms.ModelForm):
+    class Meta:
+        model = Position
+        fields = ("name",)
+        widgets = {
+            "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Наприклад: Авдіївка"}),
+        }
+        labels = {
+            "name": "Назва",
         }

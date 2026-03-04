@@ -449,6 +449,7 @@
     {% if can_tab_components %}<button class="tab-btn{% if tab == 'components' %} active{% endif %}" type="button" data-tab="components">Комплектуючі</button>{% endif %}
     {% if can_tab_types %}<button class="tab-btn{% if tab == 'types' %} active{% endif %}" type="button" data-tab="types">Типи БПЛА</button>{% endif %}
     {% if can_tab_templates %}<button class="tab-btn{% if tab == 'templates' %} active{% endif %}" type="button" data-tab="templates">Шаблони</button>{% endif %}
+    {% if can_tab_locations %}<button class="tab-btn{% if tab == 'locations' %} active{% endif %}" type="button" data-tab="locations">Локації</button>{% endif %}
 </div>
 
 {# ── Tab: Drones ── #}
@@ -823,7 +824,7 @@
     <div class="card">
         <div class="toolbar">
             <h2>Комплектуючі <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ comp_page_obj.paginator.count }}</span></h2>
-            <a href="{% url 'equipment_accounting:component_create' %}" class="button">+ Додати</a>
+            {% if can_add_component %}<a href="{% url 'equipment_accounting:component_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
 
         <form method="get" class="filter-bar" id="comp-filter-form">
@@ -863,15 +864,17 @@
         <form method="post" action="{% url 'equipment_accounting:component_bulk_action' %}" id="comp-bulk-form">
             {% csrf_token %}
 
+            {% if can_delete_component %}
             <div class="bulk-bar" id="comp-bulk-bar">
                 <span class="bulk-count">Обрано: <span id="comp-bulk-count-num">0</span></span>
                 <button type="submit" class="btn-sm btn-danger" id="comp-bulk-submit">Видалити</button>
             </div>
+            {% endif %}
 
         <table class="eq-table">
             <thead>
                 <tr>
-                    <th class="th-check"><input type="checkbox" class="check-all" id="comp-check-all"></th>
+                    {% if can_edit_component or can_delete_component %}<th class="th-check"><input type="checkbox" class="check-all" id="comp-check-all"></th>{% endif %}
                     <th>Тип</th>
                     <th>Статус</th>
                     <th>Закріплена за</th>
@@ -882,17 +885,16 @@
             <tbody>
                 {% for c in comp_page_obj %}
                 <tr>
-                    <td><input type="checkbox" name="selected" value="{{ c.pk }}" class="comp-row-check"></td>
+                    {% if can_edit_component or can_delete_component %}<td><input type="checkbox" name="selected" value="{{ c.pk }}" class="comp-row-check"></td>{% endif %}
                     <td data-label="Тип">{{ c }}</td>
                     <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
                     <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
                     <td data-label="Дата" class="date-cell">{{ c.created_at|date:"d.m.Y" }}</td>
                     <td data-label="" class="actions-cell">
-                        {# Edit #}
+                        {% if can_edit_component %}
                         <a href="{% url 'equipment_accounting:component_edit' c.pk %}" class="btn-icon" data-tooltip="Редагувати">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </a>
-                        {# Mark damaged — hidden if already damaged #}
                         {% if c.status != 'damaged' %}
                         <form method="post" action="{% url 'equipment_accounting:component_mark_damaged' c.pk %}" style="display:contents;">
                             {% csrf_token %}
@@ -902,7 +904,6 @@
                             </button>
                         </form>
                         {% endif %}
-                        {# Restore — shown when damaged or disassembled #}
                         {% if c.status != 'in_use' %}
                         <form method="post" action="{% url 'equipment_accounting:component_restore' c.pk %}" style="display:contents;">
                             {% csrf_token %}
@@ -912,10 +913,12 @@
                             </button>
                         </form>
                         {% endif %}
-                        {# Delete #}
+                        {% endif %}
+                        {% if can_delete_component %}
                         <a href="{% url 'equipment_accounting:component_delete' c.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -960,21 +963,21 @@
     <div class="card">
         <div class="toolbar">
             <h2>Виробники</h2>
-            <a href="{% url 'equipment_accounting:manufacturer_create' %}" class="button">+ Додати</a>
+            {% if can_add_manufacturer %}<a href="{% url 'equipment_accounting:manufacturer_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
         {% if manufacturers %}
         <div class="pill-list">
             {% for m in manufacturers %}
             <div class="item-pill">
                 <div class="pill-info"><span class="pill-label">{{ m.name }}</span></div>
-                <div class="pill-actions">
-                    <a href="{% url 'equipment_accounting:manufacturer_edit' m.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                {% if can_edit_manufacturer or can_delete_manufacturer %}<div class="pill-actions">
+                    {% if can_edit_manufacturer %}<a href="{% url 'equipment_accounting:manufacturer_edit' m.pk %}" class="btn-icon" data-tooltip="Редагувати">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </a>
-                    <a href="{% url 'equipment_accounting:manufacturer_delete' m.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                    </a>{% endif %}
+                    {% if can_delete_manufacturer %}<a href="{% url 'equipment_accounting:manufacturer_delete' m.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </a>
-                </div>
+                    </a>{% endif %}
+                </div>{% endif %}
             </div>
             {% endfor %}
         </div>
@@ -987,7 +990,7 @@
     <div class="card">
         <div class="toolbar">
             <h2>Моделі дронів</h2>
-            <a href="{% url 'equipment_accounting:drone_model_create' %}" class="button">+ Додати</a>
+            {% if can_add_dronemodel %}<a href="{% url 'equipment_accounting:drone_model_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
         {% if drone_models %}
         <div class="pill-list">
@@ -997,14 +1000,14 @@
                     <span class="pill-label">{{ dm.name }}</span>
                     <span class="pill-sub">{{ dm.manufacturer }}</span>
                 </div>
-                <div class="pill-actions">
-                    <a href="{% url 'equipment_accounting:drone_model_edit' dm.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                {% if can_edit_dronemodel or can_delete_dronemodel %}<div class="pill-actions">
+                    {% if can_edit_dronemodel %}<a href="{% url 'equipment_accounting:drone_model_edit' dm.pk %}" class="btn-icon" data-tooltip="Редагувати">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </a>
-                    <a href="{% url 'equipment_accounting:drone_model_delete' dm.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                    </a>{% endif %}
+                    {% if can_delete_dronemodel %}<a href="{% url 'equipment_accounting:drone_model_delete' dm.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </a>
-                </div>
+                    </a>{% endif %}
+                </div>{% endif %}
             </div>
             {% endfor %}
         </div>
@@ -1017,7 +1020,7 @@
     <div class="card">
         <div class="toolbar">
             <h2>Типи радіо дронів</h2>
-            <a href="{% url 'equipment_accounting:fpv_type_create' %}" class="button">+ Додати</a>
+            {% if can_add_fpvtype %}<a href="{% url 'equipment_accounting:fpv_type_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
 
         {% if fpv_drone_types %}
@@ -1026,14 +1029,14 @@
             <div class="type-card">
                 <div class="type-card-head">
                     <span class="type-card-title">{{ dt.model }}</span>
-                    <div class="pill-actions">
-                        <a href="{% url 'equipment_accounting:fpv_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                    {% if can_edit_fpvtype or can_delete_fpvtype %}<div class="pill-actions">
+                        {% if can_edit_fpvtype %}<a href="{% url 'equipment_accounting:fpv_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                        <a href="{% url 'equipment_accounting:fpv_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                        </a>{% endif %}
+                        {% if can_delete_fpvtype %}<a href="{% url 'equipment_accounting:fpv_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </a>
-                    </div>
+                        </a>{% endif %}
+                    </div>{% endif %}
                 </div>
                 <div class="type-card-body">
                     <div class="type-row"><span class="type-key">Призначення</span><span class="type-val">{{ dt.purpose|default:"—" }}</span></div>
@@ -1055,7 +1058,7 @@
     <div class="card">
         <div class="toolbar">
             <h2>Типи оптичних дронів</h2>
-            <a href="{% url 'equipment_accounting:optical_type_create' %}" class="button">+ Додати</a>
+            {% if can_add_opticaltype %}<a href="{% url 'equipment_accounting:optical_type_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
 
         {% if optical_drone_types %}
@@ -1064,14 +1067,14 @@
             <div class="type-card">
                 <div class="type-card-head">
                     <span class="type-card-title">{{ dt.model }}</span>
-                    <div class="pill-actions">
-                        <a href="{% url 'equipment_accounting:optical_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                    {% if can_edit_opticaltype or can_delete_opticaltype %}<div class="pill-actions">
+                        {% if can_edit_opticaltype %}<a href="{% url 'equipment_accounting:optical_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                        <a href="{% url 'equipment_accounting:optical_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                        </a>{% endif %}
+                        {% if can_delete_opticaltype %}<a href="{% url 'equipment_accounting:optical_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </a>
-                    </div>
+                        </a>{% endif %}
+                    </div>{% endif %}
                 </div>
                 <div class="type-card-body">
                     <div class="type-row"><span class="type-key">Призначення</span><span class="type-val">{{ dt.purpose|default:"—" }}</span></div>
@@ -1089,61 +1092,13 @@
         {% endif %}
     </div>
 
-    {# Locations #}
-    <div class="card" style="margin-top:1.5rem;">
-        <div class="toolbar">
-            <h2>Локації</h2>
-            <a href="{% url 'equipment_accounting:location_create' %}" class="button">+ Додати</a>
-        </div>
-        {% if locations %}
-        <table class="eq-table">
-            <thead>
-                <tr>
-                    <th>Назва</th>
-                    <th>Примітки</th>
-                    <th>БПЛА</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for loc in locations %}
-                <tr>
-                    <td data-label="Назва">{{ loc.name }}</td>
-                    <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
-                    <td data-label="БПЛА">
-                        {% with cnt=loc.current_uavs.count %}
-                        {% if cnt %}<span style="font-weight:600;">{{ cnt }}</span>{% else %}—{% endif %}
-                        {% endwith %}
-                    </td>
-                    <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:location_edit' loc.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                        <a href="{% url 'equipment_accounting:location_delete' loc.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state"><p>Локацій ще немає.</p></div>
-        {% endif %}
-
-        {# Quick-add position shortcut #}
-        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;">
-            <span style="font-size:0.82rem;color:var(--text-muted);">Додати нову позицію:</span>
-            <a href="{% url 'equipment_accounting:location_create' %}?type=position" class="button" style="font-size:0.8rem;padding:0.3rem 0.75rem;">+ Позиція</a>
-        </div>
-    </div>
 </div>
 
 {# ── Tab: Templates ── #}
 <div class="tab-panel{% if tab == 'templates' %} active{% endif %}" id="tab-templates">
 
     {# Power templates #}
-    <div class="card">
+    {% if can_see_powertemplate %}<div class="card">
         <div class="toolbar">
             <h2>Шаблони живлення</h2>
             <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -1153,7 +1108,7 @@
                 <button type="button" class="btn-icon" id="pt-block-btn" data-tooltip="Блоки">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </button>
-                <a href="{% url 'equipment_accounting:power_template_create' %}" class="button">+ Додати</a>
+                {% if can_add_powertemplate %}<a href="{% url 'equipment_accounting:power_template_create' %}" class="button">+ Додати</a>{% endif %}
             </div>
         </div>
 
@@ -1177,7 +1132,8 @@
                     <td data-label="Конфігурація">{{ pt.get_configuration_display }}</td>
                     <td data-label="Ємність">{{ pt.capacity }} mAh</td>
                     <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-sm">Редагувати</a>
+                        {% if can_edit_powertemplate %}<a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-sm">Редагувати</a>{% endif %}
+                        {% if can_delete_powertemplate %}<a href="{% url 'equipment_accounting:power_template_delete' pt.pk %}" class="btn-sm btn-danger">Видалити</a>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -1189,11 +1145,14 @@
             <div class="type-card">
                 <div class="type-card-head">
                     <span class="type-card-title">{{ pt.name }}</span>
-                    <div class="pill-actions">
-                        <a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                    {% if can_edit_powertemplate or can_delete_powertemplate %}<div class="pill-actions">
+                        {% if can_edit_powertemplate %}<a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-icon" data-tooltip="Редагувати">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                    </div>
+                        </a>{% endif %}
+                        {% if can_delete_powertemplate %}<a href="{% url 'equipment_accounting:power_template_delete' pt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>{% endif %}
+                    </div>{% endif %}
                 </div>
                 <div class="type-card-body">
                     <div class="type-row"><span class="type-key">Конектор</span><span class="type-val">{{ pt.get_connector_display }}</span></div>
@@ -1206,10 +1165,10 @@
         {% else %}
         <div class="empty-state"><p>Шаблонів живлення немає.</p></div>
         {% endif %}
-    </div>
+    </div>{% endif %}
 
     {# Video templates #}
-    <div class="card">
+    {% if can_see_videotemplate %}<div class="card">
         <div class="toolbar">
             <h2>Шаблони відео</h2>
             <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -1219,7 +1178,7 @@
                 <button type="button" class="btn-icon" id="vt-block-btn" data-tooltip="Блоки">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </button>
-                <a href="{% url 'equipment_accounting:video_template_create' %}" class="button">+ Додати</a>
+                {% if can_add_videotemplate %}<a href="{% url 'equipment_accounting:video_template_create' %}" class="button">+ Додати</a>{% endif %}
             </div>
         </div>
 
@@ -1243,7 +1202,8 @@
                     <td data-label="Сигнал">{% if vt.is_analog %}Аналоговий{% else %}Цифровий{% endif %}</td>
                     <td data-label="Дальність">{{ vt.max_distance }} км</td>
                     <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-sm">Редагувати</a>
+                        {% if can_edit_videotemplate %}<a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-sm">Редагувати</a>{% endif %}
+                        {% if can_delete_videotemplate %}<a href="{% url 'equipment_accounting:video_template_delete' vt.pk %}" class="btn-sm btn-danger">Видалити</a>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -1255,11 +1215,14 @@
             <div class="type-card">
                 <div class="type-card-head">
                     <span class="type-card-title">{{ vt.name }}</span>
-                    <div class="pill-actions">
-                        <a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                    {% if can_edit_videotemplate or can_delete_videotemplate %}<div class="pill-actions">
+                        {% if can_edit_videotemplate %}<a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-icon" data-tooltip="Редагувати">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                    </div>
+                        </a>{% endif %}
+                        {% if can_delete_videotemplate %}<a href="{% url 'equipment_accounting:video_template_delete' vt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>{% endif %}
+                    </div>{% endif %}
                 </div>
                 <div class="type-card-body">
                     <div class="type-row"><span class="type-key">Тип дрона</span><span class="type-val">{{ vt.drone_model|default:"—" }}</span></div>
@@ -1271,6 +1234,93 @@
         </div>
         {% else %}
         <div class="empty-state"><p>Шаблонів відео немає.</p></div>
+        {% endif %}
+    </div>{% endif %}
+</div>
+
+{# ── Tab: Locations ── #}
+<div class="tab-panel{% if tab == 'locations' %} active{% endif %}" id="tab-locations">
+    <div class="card">
+        <div class="toolbar">
+            <h2>Локації</h2>
+            {% if can_add_location %}<a href="{% url 'equipment_accounting:location_create' %}" class="button">+ Додати</a>{% endif %}
+        </div>
+        {% if locations %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Примітки</th>
+                    <th>БПЛА</th>
+                    {% if can_edit_location or can_delete_location %}<th></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for loc in locations %}
+                <tr>
+                    <td data-label="Назва">{{ loc.name }}</td>
+                    <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
+                    <td data-label="БПЛА">
+                        {% with cnt=loc.current_uavs.count %}
+                        {% if cnt %}<span style="font-weight:600;">{{ cnt }}</span>{% else %}—{% endif %}
+                        {% endwith %}
+                    </td>
+                    {% if can_edit_location or can_delete_location %}
+                    <td data-label="" class="actions-cell">
+                        {% if can_edit_location %}<a href="{% url 'equipment_accounting:location_edit' loc.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>{% endif %}
+                        {% if can_delete_location %}<a href="{% url 'equipment_accounting:location_delete' loc.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>{% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Локацій ще немає.</p></div>
+        {% endif %}
+
+    </div>
+
+    {# Positions #}
+    <div class="card">
+        <div class="toolbar">
+            <h2>Позиції</h2>
+            {% if can_add_position %}<a href="{% url 'equipment_accounting:position_create' %}" class="button">+ Додати</a>{% endif %}
+        </div>
+        {% if all_positions %}
+        <table class="eq-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>БПЛА</th>
+                    {% if can_edit_position or can_delete_position %}<th></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for pos in all_positions %}
+                <tr>
+                    <td data-label="Назва">{{ pos.name }}</td>
+                    <td data-label="БПЛА">{% if pos.uav_count %}<span style="font-weight:600;">{{ pos.uav_count }}</span>{% else %}—{% endif %}</td>
+                    {% if can_edit_position or can_delete_position %}
+                    <td data-label="" class="actions-cell">
+                        {% if can_edit_position %}<a href="{% url 'equipment_accounting:position_edit' pos.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>{% endif %}
+                        {% if can_delete_position %}<a href="{% url 'equipment_accounting:position_delete' pos.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </a>{% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>Позицій ще немає.</p></div>
         {% endif %}
     </div>
 </div>

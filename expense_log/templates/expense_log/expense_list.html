@@ -276,7 +276,7 @@
     <p>Фінансові витрати на потреби підрозділу</p>
 </div>
 
-{% if is_commander %}
+{% if can_view %}
 <div class="tab-bar">
     <button class="tab-btn active" type="button" data-tab="own">Власні витрати</button>
     <button class="tab-btn" type="button" data-tab="unit">Витрати по підрозділу</button>
@@ -366,7 +366,7 @@
 
 </div>{# /tab-own #}
 
-{% if is_commander %}
+{% if can_view %}
 {# ── Tab 2: unit expenses ── #}
 <div class="tab-panel" id="tab-unit">
 

@@ -8,6 +8,7 @@ urlpatterns = [
     path('stats/', views.component_stats, name='component_stats'),
     path('stats/drones/', views.drone_location_stats, name='drone_location_stats'),
     path('stats/movements/', views.uav_movements, name='uav_movements'),
+    path('stats/movements/delete/', views.movement_batch_delete, name='movement_batch_delete'),
 
     # UAV export
     path('uav/export/excel/', views.uav_export_excel, name='uav_export_excel'),
@@ -35,6 +36,11 @@ urlpatterns = [
     path('location/add/', views.location_create, name='location_create'),
     path('location/<int:pk>/edit/', views.location_edit, name='location_edit'),
     path('location/<int:pk>/delete/', views.location_delete, name='location_delete'),
+
+    # Positions
+    path('position/add/', views.position_create, name='position_create'),
+    path('position/<int:pk>/edit/', views.position_edit, name='position_edit'),
+    path('position/<int:pk>/delete/', views.position_delete, name='position_delete'),
 
     # Manufacturers
     path('manufacturer/add/', views.manufacturer_create, name='manufacturer_create'),

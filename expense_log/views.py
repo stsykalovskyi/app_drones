@@ -1,5 +1,4 @@
 from decimal import Decimal
-from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,29 +11,22 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .models import Expense
 from .forms import ExpenseForm
 
-GROUP_NAME = "майстер"
-COMMANDER_GROUP = "командир майстерні"
+PERM_VIEW   = 'expense_log.view_expense'
+PERM_ADD    = 'expense_log.add_expense'
+PERM_CHANGE = 'expense_log.change_expense'
+PERM_DELETE = 'expense_log.delete_expense'
 
 
-def master_required(view_func):
-    """Allow access only to superusers or members of the 'майстер' group."""
-    @wraps(view_func)
-    @login_required
-    def _wrapped(request, *args, **kwargs):
-        if request.user.is_superuser or request.user.groups.filter(
-            name__in=[GROUP_NAME, COMMANDER_GROUP]
-        ).exists():
-            return view_func(request, *args, **kwargs)
-        raise PermissionDenied
-    return _wrapped
-
-
-@master_required
+@login_required
 def expense_list(request):
+    can_view = request.user.has_perm(PERM_VIEW)
+    can_add  = request.user.has_perm(PERM_ADD)
+
+    if not (can_view or can_add):
+        raise PermissionDenied
+
     expenses = Expense.objects.select_related("category").filter(created_by=request.user)
-
     total = expenses.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-
     monthly = (
         expenses.annotate(month=TruncMonth("date"))
         .values("month")
@@ -42,22 +34,19 @@ def expense_list(request):
         .order_by("-month")
     )
 
-    is_commander = request.user.is_superuser or request.user.groups.filter(
-        name=COMMANDER_GROUP
-    ).exists()
-
     ctx = {
         "expenses": expenses,
         "total": total,
         "monthly": monthly,
-        "is_commander": is_commander,
+        "can_view": can_view,
+        "can_add": can_add,
+        "can_change": request.user.has_perm(PERM_CHANGE),
+        "can_delete": request.user.has_perm(PERM_DELETE),
     }
 
-    if is_commander:
+    if can_view:
         all_expenses = Expense.objects.select_related("created_by", "category")
-        ctx["global_total"] = (
-            all_expenses.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
-        )
+        ctx["global_total"] = all_expenses.aggregate(t=Sum("amount"))["t"] or Decimal("0.00")
         ctx["global_count"] = all_expenses.count()
         ctx["global_monthly"] = (
             all_expenses.annotate(month=TruncMonth("date"))
@@ -65,8 +54,6 @@ def expense_list(request):
             .annotate(total=Sum("amount"))
             .order_by("-month")
         )
-
-        # Per-user breakdown for the unit tab.
         users_with_expenses = (
             User.objects.filter(expenses__isnull=False)
             .select_related("profile")
@@ -88,8 +75,11 @@ def expense_list(request):
     return render(request, "expense_log/expense_list.html", ctx)
 
 
-@master_required
+@login_required
 def expense_create(request):
+    if not request.user.has_perm(PERM_ADD):
+        raise PermissionDenied
+
     if request.method == "POST":
         form = ExpenseForm(request.POST, request.FILES)
         if form.is_valid():
@@ -107,26 +97,33 @@ def expense_create(request):
     })
 
 
-@master_required
+@login_required
 def expense_detail(request, pk):
-    is_commander = request.user.is_superuser or request.user.groups.filter(
-        name=COMMANDER_GROUP
-    ).exists()
-    if is_commander:
+    can_view = request.user.has_perm(PERM_VIEW)
+    if can_view:
         expense = get_object_or_404(Expense.objects.select_related("category", "created_by"), pk=pk)
     else:
         expense = get_object_or_404(Expense.objects.select_related("category", "created_by"), pk=pk, created_by=request.user)
 
+    can_edit = expense.created_by == request.user or request.user.has_perm(PERM_CHANGE)
+
     return render(request, "expense_log/expense_detail.html", {
         "expense": expense,
-        "is_commander": is_commander,
-        "can_edit": expense.created_by == request.user or is_commander,
+        "can_view": can_view,
+        "can_edit": can_edit,
     })
 
 
-@master_required
+@login_required
 def expense_edit(request, pk):
-    expense = get_object_or_404(Expense, pk=pk, created_by=request.user)
+    can_change = request.user.has_perm(PERM_CHANGE)
+    if can_change:
+        expense = get_object_or_404(Expense, pk=pk)
+    else:
+        expense = get_object_or_404(Expense, pk=pk, created_by=request.user)
+
+    if not (expense.created_by == request.user or can_change):
+        raise PermissionDenied
 
     if request.method == "POST":
         form = ExpenseForm(request.POST, request.FILES, instance=expense)

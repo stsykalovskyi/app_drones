@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
+from django.db.models.deletion import ProtectedError
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
@@ -16,7 +17,7 @@ from .forms import _get_available_uavs_for_kind
 from .forms import (
     UAVInstanceForm, ComponentForm, PowerTemplateForm, VideoTemplateForm,
     FPVDroneTypeForm, OpticalDroneTypeForm,
-    ManufacturerForm, DroneModelForm, LocationForm,
+    ManufacturerForm, DroneModelForm, LocationForm, PositionForm,
 )
 from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
@@ -36,6 +37,42 @@ COMMANDER_GROUP = "командир майстерні"
 PERM_ADD_UAV    = 'equipment_accounting.add_uavinstance'
 PERM_CHANGE_UAV = 'equipment_accounting.change_uavinstance'
 PERM_DELETE_UAV = 'equipment_accounting.delete_uavinstance'
+
+PERM_ADD_COMPONENT    = 'equipment_accounting.add_component'
+PERM_CHANGE_COMPONENT = 'equipment_accounting.change_component'
+PERM_DELETE_COMPONENT = 'equipment_accounting.delete_component'
+
+PERM_ADD_MANUFACTURER    = 'equipment_accounting.add_manufacturer'
+PERM_CHANGE_MANUFACTURER = 'equipment_accounting.change_manufacturer'
+PERM_DELETE_MANUFACTURER = 'equipment_accounting.delete_manufacturer'
+
+PERM_ADD_DRONEMODEL    = 'equipment_accounting.add_dronemodel'
+PERM_CHANGE_DRONEMODEL = 'equipment_accounting.change_dronemodel'
+PERM_DELETE_DRONEMODEL = 'equipment_accounting.delete_dronemodel'
+
+PERM_ADD_FPVTYPE    = 'equipment_accounting.add_fpvdronetype'
+PERM_CHANGE_FPVTYPE = 'equipment_accounting.change_fpvdronetype'
+PERM_DELETE_FPVTYPE = 'equipment_accounting.delete_fpvdronetype'
+
+PERM_ADD_OPTICALTYPE    = 'equipment_accounting.add_opticaldronetype'
+PERM_CHANGE_OPTICALTYPE = 'equipment_accounting.change_opticaldronetype'
+PERM_DELETE_OPTICALTYPE = 'equipment_accounting.delete_opticaldronetype'
+
+PERM_ADD_POWERTEMPLATE    = 'equipment_accounting.add_powertemplate'
+PERM_CHANGE_POWERTEMPLATE = 'equipment_accounting.change_powertemplate'
+PERM_DELETE_POWERTEMPLATE = 'equipment_accounting.delete_powertemplate'
+
+PERM_ADD_VIDEOTEMPLATE    = 'equipment_accounting.add_videotemplate'
+PERM_CHANGE_VIDEOTEMPLATE = 'equipment_accounting.change_videotemplate'
+PERM_DELETE_VIDEOTEMPLATE = 'equipment_accounting.delete_videotemplate'
+
+PERM_ADD_LOCATION    = 'equipment_accounting.add_location'
+PERM_CHANGE_LOCATION = 'equipment_accounting.change_location'
+PERM_DELETE_LOCATION = 'equipment_accounting.delete_location'
+
+PERM_ADD_POSITION    = 'equipment_accounting.add_position'
+PERM_CHANGE_POSITION = 'equipment_accounting.change_position'
+PERM_DELETE_POSITION = 'equipment_accounting.delete_position'
 
 
 def _is_master(user):
@@ -328,12 +365,46 @@ def equipment_list(request):
         "drone_models": drone_models,
         "locations": Location.objects.all(),
         "locations_give": Location.objects.all(),
+        "all_positions": Position.objects.annotate(uav_count=Count('uavs')),
         "badge_groups": badge_groups,
         "position_location_ids": position_location_ids,
         "can_add_uav":    _can(request.user, PERM_ADD_UAV),
         "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
         "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
         "positions": Position.objects.all(),
+        "can_add_component":    _is_master(request.user) or request.user.has_perm('equipment_accounting.add_component'),
+        "can_edit_component":   _is_master(request.user) or request.user.has_perm('equipment_accounting.change_component'),
+        "can_delete_component": _is_master(request.user) or request.user.has_perm('equipment_accounting.delete_component'),
+        "can_add_manufacturer":    _can(request.user, PERM_ADD_MANUFACTURER),
+        "can_edit_manufacturer":   _can(request.user, PERM_CHANGE_MANUFACTURER),
+        "can_delete_manufacturer": _can(request.user, PERM_DELETE_MANUFACTURER),
+        "can_add_dronemodel":    _can(request.user, PERM_ADD_DRONEMODEL),
+        "can_edit_dronemodel":   _can(request.user, PERM_CHANGE_DRONEMODEL),
+        "can_delete_dronemodel": _can(request.user, PERM_DELETE_DRONEMODEL),
+        "can_add_fpvtype":    _can(request.user, PERM_ADD_FPVTYPE),
+        "can_edit_fpvtype":   _can(request.user, PERM_CHANGE_FPVTYPE),
+        "can_delete_fpvtype": _can(request.user, PERM_DELETE_FPVTYPE),
+        "can_add_opticaltype":    _can(request.user, PERM_ADD_OPTICALTYPE),
+        "can_edit_opticaltype":   _can(request.user, PERM_CHANGE_OPTICALTYPE),
+        "can_delete_opticaltype": _can(request.user, PERM_DELETE_OPTICALTYPE),
+        "can_add_powertemplate":    _can(request.user, PERM_ADD_POWERTEMPLATE),
+        "can_edit_powertemplate":   _can(request.user, PERM_CHANGE_POWERTEMPLATE),
+        "can_delete_powertemplate": _can(request.user, PERM_DELETE_POWERTEMPLATE),
+        "can_see_powertemplate": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.view_powertemplate', 'equipment_accounting.add_powertemplate',
+                'equipment_accounting.change_powertemplate', 'equipment_accounting.delete_powertemplate',
+            ]
+        ),
+        "can_add_videotemplate":    _can(request.user, PERM_ADD_VIDEOTEMPLATE),
+        "can_edit_videotemplate":   _can(request.user, PERM_CHANGE_VIDEOTEMPLATE),
+        "can_delete_videotemplate": _can(request.user, PERM_DELETE_VIDEOTEMPLATE),
+        "can_see_videotemplate": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.view_videotemplate', 'equipment_accounting.add_videotemplate',
+                'equipment_accounting.change_videotemplate', 'equipment_accounting.delete_videotemplate',
+            ]
+        ),
         "can_tab_components": _is_master(request.user) or any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.add_component',
@@ -343,15 +414,30 @@ def equipment_list(request):
         ),
         "can_tab_types": _is_master(request.user) or any(
             request.user.has_perm(p) for p in [
-                'equipment_accounting.add_dronemodel',    'equipment_accounting.change_dronemodel',    'equipment_accounting.delete_dronemodel',
-                'equipment_accounting.add_fpvdronetype',  'equipment_accounting.change_fpvdronetype',  'equipment_accounting.delete_fpvdronetype',
-                'equipment_accounting.add_opticaldronetype', 'equipment_accounting.change_opticaldronetype', 'equipment_accounting.delete_opticaldronetype',
+                'equipment_accounting.view_manufacturer',  'equipment_accounting.add_manufacturer',    'equipment_accounting.change_manufacturer',    'equipment_accounting.delete_manufacturer',
+                'equipment_accounting.view_dronemodel',   'equipment_accounting.add_dronemodel',       'equipment_accounting.change_dronemodel',      'equipment_accounting.delete_dronemodel',
+                'equipment_accounting.view_fpvdronetype', 'equipment_accounting.add_fpvdronetype',     'equipment_accounting.change_fpvdronetype',    'equipment_accounting.delete_fpvdronetype',
+                'equipment_accounting.view_opticaldronetype', 'equipment_accounting.add_opticaldronetype', 'equipment_accounting.change_opticaldronetype', 'equipment_accounting.delete_opticaldronetype',
             ]
         ),
         "can_tab_templates": _is_master(request.user) or any(
             request.user.has_perm(p) for p in [
-                'equipment_accounting.add_powertemplate',  'equipment_accounting.change_powertemplate',  'equipment_accounting.delete_powertemplate',
-                'equipment_accounting.add_videotemplate',  'equipment_accounting.change_videotemplate',  'equipment_accounting.delete_videotemplate',
+                'equipment_accounting.view_powertemplate', 'equipment_accounting.add_powertemplate',  'equipment_accounting.change_powertemplate',  'equipment_accounting.delete_powertemplate',
+                'equipment_accounting.view_videotemplate', 'equipment_accounting.add_videotemplate',  'equipment_accounting.change_videotemplate',  'equipment_accounting.delete_videotemplate',
+            ]
+        ),
+        "can_add_location":    _can(request.user, PERM_ADD_LOCATION),
+        "can_edit_location":   _can(request.user, PERM_CHANGE_LOCATION),
+        "can_delete_location": _can(request.user, PERM_DELETE_LOCATION),
+        "can_add_position":    _can(request.user, PERM_ADD_POSITION),
+        "can_edit_position":   _can(request.user, PERM_CHANGE_POSITION),
+        "can_delete_position": _can(request.user, PERM_DELETE_POSITION),
+        "can_tab_locations": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.view_location',  'equipment_accounting.add_location',
+                'equipment_accounting.change_location', 'equipment_accounting.delete_location',
+                'equipment_accounting.view_position',  'equipment_accounting.add_position',
+                'equipment_accounting.change_position', 'equipment_accounting.delete_position',
             ]
         ),
     }
@@ -814,9 +900,11 @@ def uav_movements(request):
                 'to_location_name': m.to_location.name,
                 'user_name': (m.moved_by.profile.display_name if hasattr(m.moved_by, 'profile') else m.moved_by.username) if m.moved_by else '—',
                 'uav_objs': [],
+                'movement_ids': [],
             }
             dg['_border'].append(bk)
         dg['_bseen'][bk]['uav_objs'].append(m.uav)
+        dg['_bseen'][bk]['movement_ids'].append(m.pk)
 
     date_groups = []
     for d in date_order:
@@ -943,6 +1031,17 @@ def uav_detail(request, pk):
         'photos': photos,
         'can_edit_uav': _can(request.user, PERM_CHANGE_UAV),
     })
+
+
+@login_required
+def movement_batch_delete(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    if request.method == 'POST':
+        ids = request.POST.getlist('movement_ids')
+        deleted, _ = UAVMovement.objects.filter(pk__in=ids).delete()
+        messages.success(request, f'Видалено {deleted} переміщень.')
+    return redirect('equipment_accounting:uav_movements')
 
 
 @uav_perm_required(PERM_CHANGE_UAV)
@@ -1362,7 +1461,7 @@ def uav_delete(request, pk):
 
 # ── Manufacturer CRUD ───────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_MANUFACTURER)
 def manufacturer_create(request):
     if request.method == "POST":
         form = ManufacturerForm(request.POST)
@@ -1377,7 +1476,7 @@ def manufacturer_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_MANUFACTURER)
 def manufacturer_edit(request, pk):
     manufacturer = get_object_or_404(Manufacturer, pk=pk)
     if request.method == "POST":
@@ -1393,7 +1492,7 @@ def manufacturer_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_MANUFACTURER)
 def manufacturer_delete(request, pk):
     manufacturer = get_object_or_404(Manufacturer, pk=pk)
     if request.method == "POST":
@@ -1408,7 +1507,7 @@ def manufacturer_delete(request, pk):
 
 # ── DroneModel CRUD ─────────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_DRONEMODEL)
 def drone_model_create(request):
     if request.method == "POST":
         form = DroneModelForm(request.POST)
@@ -1423,7 +1522,7 @@ def drone_model_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_DRONEMODEL)
 def drone_model_edit(request, pk):
     drone_model = get_object_or_404(DroneModel, pk=pk)
     if request.method == "POST":
@@ -1439,7 +1538,7 @@ def drone_model_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_DRONEMODEL)
 def drone_model_delete(request, pk):
     drone_model = get_object_or_404(DroneModel, pk=pk)
     if request.method == "POST":
@@ -1454,7 +1553,7 @@ def drone_model_delete(request, pk):
 
 # ── FPV Drone Type CRUD ─────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_FPVTYPE)
 def fpv_type_create(request):
     if request.method == "POST":
         form = FPVDroneTypeForm(request.POST)
@@ -1469,7 +1568,7 @@ def fpv_type_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_FPVTYPE)
 def fpv_type_edit(request, pk):
     drone_type = get_object_or_404(FPVDroneType, pk=pk)
     if request.method == "POST":
@@ -1485,7 +1584,7 @@ def fpv_type_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_FPVTYPE)
 def fpv_type_delete(request, pk):
     drone_type = get_object_or_404(FPVDroneType, pk=pk)
     if request.method == "POST":
@@ -1500,7 +1599,7 @@ def fpv_type_delete(request, pk):
 
 # ── Optical Drone Type CRUD ────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_OPTICALTYPE)
 def optical_type_create(request):
     if request.method == "POST":
         form = OpticalDroneTypeForm(request.POST)
@@ -1515,7 +1614,7 @@ def optical_type_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_OPTICALTYPE)
 def optical_type_edit(request, pk):
     drone_type = get_object_or_404(OpticalDroneType, pk=pk)
     if request.method == "POST":
@@ -1531,7 +1630,7 @@ def optical_type_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_OPTICALTYPE)
 def optical_type_delete(request, pk):
     drone_type = get_object_or_404(OpticalDroneType, pk=pk)
     if request.method == "POST":
@@ -1573,7 +1672,7 @@ def component_available_uavs(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_COMPONENT)
 def component_bulk_action(request):
     """Handle bulk delete for selected components."""
     if request.method != "POST":
@@ -1591,7 +1690,7 @@ def component_bulk_action(request):
     return redirect(f"{reverse('equipment_accounting:equipment_list')}?tab=components")
 
 
-@master_required
+@uav_perm_required(PERM_ADD_COMPONENT)
 def component_create(request):
     if request.method == "POST":
         form = ComponentForm(request.POST)
@@ -1607,7 +1706,7 @@ def component_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_COMPONENT)
 def component_edit(request, pk):
     component = get_object_or_404(Component, pk=pk)
     if request.method == "POST":
@@ -1624,7 +1723,7 @@ def component_edit(request, pk):
     })
 
 
-@uav_perm_required(PERM_CHANGE_UAV)
+@uav_perm_required(PERM_CHANGE_COMPONENT)
 def component_mark_damaged(request, pk):
     """Mark a component as damaged and detach it from any UAV."""
     if request.method != "POST":
@@ -1638,7 +1737,7 @@ def component_mark_damaged(request, pk):
     return redirect(next_url)
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_COMPONENT)
 def component_restore(request, pk):
     """Restore a damaged or disassembled component to in_use status."""
     if request.method != "POST":
@@ -1651,7 +1750,7 @@ def component_restore(request, pk):
     return redirect(next_url)
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_COMPONENT)
 def component_delete(request, pk):
     component = get_object_or_404(Component, pk=pk)
     if request.method == "POST":
@@ -1666,22 +1765,22 @@ def component_delete(request, pk):
 
 # ── Location CRUD ───────────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_LOCATION)
 def location_create(request):
     if request.method == "POST":
         form = LocationForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, "Локацію додано.")
-            return redirect(_list_url("types"))
+            return redirect(_list_url("locations"))
     else:
         form = LocationForm()
     return render(request, "equipment_accounting/equipment_form.html", {
-        "form": form, "title": "Додати локацію", "tab_redirect": "types",
+        "form": form, "title": "Додати локацію", "tab_redirect": "locations",
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_LOCATION)
 def location_edit(request, pk):
     location = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
@@ -1689,15 +1788,15 @@ def location_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, "Локацію оновлено.")
-            return redirect(_list_url("types"))
+            return redirect(_list_url("locations"))
     else:
         form = LocationForm(instance=location)
     return render(request, "equipment_accounting/equipment_form.html", {
-        "form": form, "title": "Редагувати локацію", "tab_redirect": "types",
+        "form": form, "title": "Редагувати локацію", "tab_redirect": "locations",
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_LOCATION)
 def location_delete(request, pk):
     location = get_object_or_404(Location, pk=pk)
     # Prevent deleting locations that have UAVs assigned
@@ -1705,20 +1804,74 @@ def location_delete(request, pk):
     if request.method == "POST":
         if uav_count:
             messages.error(request, f"Неможливо видалити: {uav_count} БПЛА перебуває на цій локації.")
-            return redirect(_list_url("types"))
-        location.delete()
-        messages.success(request, "Локацію видалено.")
-        return redirect(_list_url("types"))
+            return redirect(_list_url("locations"))
+        try:
+            location.delete()
+            messages.success(request, "Локацію видалено.")
+        except ProtectedError:
+            messages.error(request, "Неможливо видалити: локація має пов'язані переміщення БПЛА.")
+        return redirect(_list_url("locations"))
     return render(request, "equipment_accounting/equipment_confirm_delete.html", {
         "object": location, "title": "Видалити локацію",
-        "cancel_url": _list_url("types"),
+        "cancel_url": _list_url("locations"),
         "extra_warning": f"На локації є {uav_count} активних БПЛА." if uav_count else "",
+    })
+
+
+# ── Position CRUD ───────────────────────────────────────────────────
+
+@uav_perm_required(PERM_ADD_POSITION)
+def position_create(request):
+    if request.method == "POST":
+        form = PositionForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Позицію додано.")
+            return redirect(_list_url("locations"))
+    else:
+        form = PositionForm()
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Додати позицію", "tab_redirect": "locations",
+    })
+
+
+@uav_perm_required(PERM_CHANGE_POSITION)
+def position_edit(request, pk):
+    position = get_object_or_404(Position, pk=pk)
+    if request.method == "POST":
+        form = PositionForm(request.POST, instance=position)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Позицію оновлено.")
+            return redirect(_list_url("locations"))
+    else:
+        form = PositionForm(instance=position)
+    return render(request, "equipment_accounting/equipment_form.html", {
+        "form": form, "title": "Редагувати позицію", "tab_redirect": "locations",
+    })
+
+
+@uav_perm_required(PERM_DELETE_POSITION)
+def position_delete(request, pk):
+    position = get_object_or_404(Position, pk=pk)
+    uav_count = position.uavs.count()
+    if request.method == "POST":
+        if uav_count:
+            messages.error(request, f"Неможливо видалити: {uav_count} БПЛА має цю позицію.")
+            return redirect(_list_url("locations"))
+        position.delete()
+        messages.success(request, "Позицію видалено.")
+        return redirect(_list_url("locations"))
+    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
+        "object": position, "title": "Видалити позицію",
+        "cancel_url": _list_url("locations"),
+        "extra_warning": f"На позиції є {uav_count} активних БПЛА." if uav_count else "",
     })
 
 
 # ── PowerTemplate CRUD ──────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_POWERTEMPLATE)
 def power_template_create(request):
     if request.method == "POST":
         form = PowerTemplateForm(request.POST)
@@ -1733,7 +1886,7 @@ def power_template_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_POWERTEMPLATE)
 def power_template_edit(request, pk):
     template = get_object_or_404(PowerTemplate, pk=pk, is_deleted=False)
     if request.method == "POST":
@@ -1749,7 +1902,7 @@ def power_template_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_POWERTEMPLATE)
 def power_template_delete(request, pk):
     messages.error(request, "Видалення шаблонів живлення заборонено.")
     return redirect(_list_url("templates"))
@@ -1757,7 +1910,7 @@ def power_template_delete(request, pk):
 
 # ── VideoTemplate CRUD ──────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_ADD_VIDEOTEMPLATE)
 def video_template_create(request):
     if request.method == "POST":
         form = VideoTemplateForm(request.POST)
@@ -1772,7 +1925,7 @@ def video_template_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_VIDEOTEMPLATE)
 def video_template_edit(request, pk):
     template = get_object_or_404(VideoTemplate, pk=pk, is_deleted=False)
     if request.method == "POST":
@@ -1788,7 +1941,7 @@ def video_template_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_VIDEOTEMPLATE)
 def video_template_delete(request, pk):
     messages.error(request, "Видалення шаблонів відео заборонено.")
     return redirect(_list_url("templates"))

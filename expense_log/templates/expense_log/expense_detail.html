@@ -190,7 +190,7 @@
                 {{ expense.category.name|default:"—" }}
             </span>
         </div>
-        {% if is_commander %}
+        {% if can_view %}
         <div class="field-row">
             <span class="field-label">Хто додав</span>
             <span class="field-value">

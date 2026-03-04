@@ -160,6 +160,15 @@
     .day-label   { color: #f59e0b; }
     .night-label { color: #818cf8; }
 
+    .btn-delete-batch {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: var(--radius-sm);
+        border: 1px solid rgba(239,68,68,0.3); background: transparent;
+        color: #ef4444; cursor: pointer; flex-shrink: 0;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-delete-batch:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 
     .pagination {
@@ -260,6 +269,15 @@
                     <div class="tl-meta">
                         <span class="tl-user">{{ batch.user_name }}</span>
                         <span class="tl-cnt">{{ batch.uav_objs|length }}</span>
+                        {% if user.is_superuser %}
+                        <form method="post" action="{% url 'equipment_accounting:movement_batch_delete' %}" onsubmit="return confirm('Видалити ці переміщення?');" style="display:contents;">
+                            {% csrf_token %}
+                            {% for mid in batch.movement_ids %}<input type="hidden" name="movement_ids" value="{{ mid }}">{% endfor %}
+                            <button type="submit" class="btn-delete-batch" title="Видалити">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
 
