@@ -575,7 +575,7 @@
                         <th></th>
                     </tr>
                     <tr class="filter-row">
-                        <th class="th-filter"></th>
+                        {% if can_edit_uav or can_delete_uav %}<th class="th-filter"></th>{% endif %}
                         <th class="th-filter">
                             <select name="type" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
                                 <option value="">Всі типи</option>
@@ -658,7 +658,7 @@
                                 <table class="eq-table" style="margin:0;">
                                     <thead>
                                         <tr>
-                                            <th class="th-check"></th>
+                                            {% if can_edit_uav or can_delete_uav %}<th class="th-check"></th>{% endif %}
                                             <th style="width:40px;">#</th>
                                             <th>Статус</th>
                                             <th>Призначення</th>
