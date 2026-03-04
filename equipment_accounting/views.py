@@ -32,18 +32,49 @@ def _list_url(tab="drones"):
 GROUP_NAME = "майстер"
 COMMANDER_GROUP = "командир майстерні"
 
+# UAV permission codenames
+PERM_ADD_UAV    = 'equipment_accounting.add_uavinstance'
+PERM_CHANGE_UAV = 'equipment_accounting.change_uavinstance'
+PERM_DELETE_UAV = 'equipment_accounting.delete_uavinstance'
+
+
+def _is_master(user):
+    """True for superusers and legacy master/commander group members."""
+    return user.is_superuser or user.groups.filter(
+        name__in=[GROUP_NAME, COMMANDER_GROUP]
+    ).exists()
+
+
+def _can(user, perm):
+    """Check a specific permission, granting full access to master/commander users."""
+    return _is_master(user) or user.has_perm(perm)
+
 
 def master_required(view_func):
-    """Allow access only to superusers or members of the master/commander groups."""
+    """Allow access to superusers, master/commander groups, or any UAV-permission holder."""
     @wraps(view_func)
     @login_required
     def _wrapped(request, *args, **kwargs):
-        if request.user.is_superuser or request.user.groups.filter(
-            name__in=[GROUP_NAME, COMMANDER_GROUP]
-        ).exists():
+        if (_is_master(request.user)
+                or request.user.has_perm(PERM_ADD_UAV)
+                or request.user.has_perm(PERM_CHANGE_UAV)
+                or request.user.has_perm(PERM_DELETE_UAV)):
             return view_func(request, *args, **kwargs)
         raise PermissionDenied
     return _wrapped
+
+
+def uav_perm_required(perm):
+    """Decorator: require a specific UAV permission (or master group membership)."""
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def _wrapped(request, *args, **kwargs):
+            if _can(request.user, perm):
+                return view_func(request, *args, **kwargs)
+            raise PermissionDenied
+        return _wrapped
+    return decorator
 
 
 # ── Main list view ──────────────────────────────────────────────────
@@ -260,7 +291,7 @@ def equipment_list(request):
     drone_models = DroneModel.objects.select_related("manufacturer").all()
 
     position_location_ids = list(
-        Location.objects.filter(location_type='position').values_list('pk', flat=True)
+        Location.objects.filter(name='Позиція').values_list('pk', flat=True)
     )
 
     ctx = {
@@ -298,6 +329,9 @@ def equipment_list(request):
         "locations_give": Location.objects.all(),
         "badge_groups": badge_groups,
         "position_location_ids": position_location_ids,
+        "can_add_uav":    _can(request.user, PERM_ADD_UAV),
+        "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
+        "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
         "positions": Position.objects.all(),
     }
 
@@ -373,7 +407,7 @@ def drone_location_stats(request):
         cnt_repair=Count('current_uavs', filter=Q(current_uavs__status='repair')),
         cnt_deferred=Count('current_uavs', filter=Q(current_uavs__status='deferred')),
         cnt_given=Count('current_uavs', filter=Q(current_uavs__status='given')),
-    ).order_by('location_type', 'name')
+    ).order_by('name')
 
     total_all = UAVInstance.objects.exclude(status='deleted').count()
     transit_total = UAVInstance.objects.filter(status='transit').count()
@@ -385,7 +419,7 @@ def drone_location_stats(request):
     for item in (
         UAVInstance.objects
         .exclude(status__in=['deleted', 'transit'])
-        .filter(current_location__location_type='position')
+        .filter(current_location__name='Позиція')
         .values('current_location_id', 'position__name')
         .annotate(n=Count('pk'))
     ):
@@ -398,7 +432,7 @@ def drone_location_stats(request):
         UAVInstance.objects
         .filter(status='transit',
                 pending_to_location__isnull=False,
-                pending_to_location__location_type='position')
+                pending_to_location__name='Позиція')
         .values('pending_to_location_id', 'position__name')
         .annotate(n=Count('pk'))
     ):
@@ -418,7 +452,7 @@ def drone_location_stats(request):
     locations_with_pos = [
         {
             'loc': loc,
-            'pos_rows': pos_sub_rows.get(loc.pk, []) if loc.location_type == 'position' else [],
+            'pos_rows': pos_sub_rows.get(loc.pk, []),
         }
         for loc in locations
     ]
@@ -920,7 +954,7 @@ def uav_photo_edit(request, photo_pk):
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_move(request, pk):
     """Initiate transit: set UAV to 'transit' and record an unconfirmed movement."""
     uav = get_object_or_404(UAVInstance, pk=pk)
@@ -959,7 +993,7 @@ def uav_move(request, pk):
     return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_confirm_arrival(request, movement_pk):
     """Confirm arrival: update current_location and restore pre-transit status."""
     from django.utils import timezone as tz
@@ -985,7 +1019,7 @@ def uav_confirm_arrival(request, movement_pk):
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav.pk]))
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_attach_component(request, uav_pk, component_pk):
     if request.method != 'POST':
         return redirect('equipment_accounting:uav_detail', pk=uav_pk)
@@ -1007,7 +1041,7 @@ def uav_attach_component(request, uav_pk, component_pk):
     return redirect('equipment_accounting:uav_detail', pk=uav_pk)
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_detach_component(request, uav_pk, component_pk):
     if request.method != 'POST':
         return redirect('equipment_accounting:uav_detail', pk=uav_pk)
@@ -1025,13 +1059,13 @@ def uav_detach_component(request, uav_pk, component_pk):
 
 # ── Bulk actions ────────────────────────────────────────────────────
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_toggle_given(request, pk):
     """Give away a ready UAV or return a given UAV to the workshop."""
     if request.method != "POST":
         return redirect(_list_url("drones"))
     uav = get_object_or_404(UAVInstance, pk=pk)
-    workshop = Location.objects.filter(location_type='workshop').first()
+    workshop = Location.objects.filter(name='Майстерня').first()
     next_url = request.POST.get('next') or _list_url("drones")
 
     if uav.status == 'given':
@@ -1053,7 +1087,7 @@ def uav_toggle_given(request, pk):
         to_location_id = request.POST.get('to_location_id')
         to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
         position = None
-        if to_location and to_location.location_type == 'position':
+        if to_location and to_location.name == 'Позиція':
             position_id = request.POST.get('position_id')
             position_name_new = request.POST.get('position_name_new', '').strip()
             if position_id:
@@ -1083,7 +1117,7 @@ def uav_toggle_given(request, pk):
     return redirect(next_url)
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_bulk_action(request):
     """Handle bulk status change or bulk delete for selected UAVs."""
     if request.method != "POST":
@@ -1102,7 +1136,7 @@ def uav_bulk_action(request):
     to_location_id = request.POST.get('to_location_id')
     to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
     position = None
-    if to_location and to_location.location_type == 'position':
+    if to_location and to_location.name == 'Позиція':
         position_id = request.POST.get('position_id')
         position_name_new = request.POST.get('position_name_new', '').strip()
         if position_id:
@@ -1207,9 +1241,9 @@ def _build_drone_types_kit_data():
     return json.dumps(data)
 
 
-@master_required
+@uav_perm_required(PERM_ADD_UAV)
 def uav_create(request):
-    workshop = Location.objects.filter(location_type='workshop').first()
+    workshop = Location.objects.filter(name='Майстерня').first()
 
     if request.method == "POST":
         form = UAVInstanceForm(request.POST)
@@ -1262,7 +1296,7 @@ def uav_create(request):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_edit(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
     if request.method == "POST":
@@ -1278,7 +1312,7 @@ def uav_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_DELETE_UAV)
 def uav_delete(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
     components = list(uav.components.select_related('content_type').all())
@@ -1617,11 +1651,7 @@ def location_create(request):
             messages.success(request, "Локацію додано.")
             return redirect(_list_url("types"))
     else:
-        # Pre-select 'position' type when coming from the positions section
-        initial = {}
-        if request.GET.get("type") == "position":
-            initial["location_type"] = "position"
-        form = LocationForm(initial=initial)
+        form = LocationForm()
     return render(request, "equipment_accounting/equipment_form.html", {
         "form": form, "title": "Додати локацію", "tab_redirect": "types",
     })

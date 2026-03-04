@@ -1,11 +1,20 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin as BaseGroupAdmin
+from django.contrib.auth.models import User, Group
 from unfold.admin import ModelAdmin, StackedInline
 
 from .models import Profile
 
 admin.site.unregister(User)
+admin.site.unregister(Group)
+
+
+@admin.register(Group)
+class GroupAdmin(ModelAdmin, BaseGroupAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields['permissions'].widget.attrs['size'] = 20
+        return form
 
 
 class ProfileInline(StackedInline):

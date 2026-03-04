@@ -22,18 +22,7 @@ class Position(models.Model):
 class Location(models.Model):
     """Physical location a UAV or component can be at."""
 
-    TYPE_CHOICES = [
-        ('workshop', 'Майстерня'),
-        ('manufacturer', 'Виробник'),
-        ('brigade', 'Бригада'),
-        ('dusha', 'Дюша'),
-        ('position', 'Позиція'),
-    ]
-
     name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
-    location_type = models.CharField(
-        max_length=20, choices=TYPE_CHOICES, verbose_name="Тип"
-    )
     notes = models.TextField(blank=True, verbose_name="Примітки")
 
     class Meta:

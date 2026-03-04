@@ -96,7 +96,7 @@ class UAVInstanceForm(forms.ModelForm):
     )
     from_location = forms.ModelChoiceField(
         label="Звідки надходять",
-        queryset=Location.objects.exclude(location_type='workshop'),
+        queryset=Location.objects.exclude(name='Майстерня'),
         required=False,
         empty_label="— Оберіть локацію —",
         widget=forms.Select(attrs=INPUT_CSS),
@@ -153,7 +153,7 @@ class UAVInstanceForm(forms.ModelForm):
             # Default from_location to "Виробник"
             try:
                 self.fields["from_location"].initial = Location.objects.get(
-                    location_type='manufacturer'
+                    name='Виробник'
                 ).pk
             except Location.DoesNotExist:
                 pass
@@ -396,14 +396,12 @@ class VideoTemplateForm(forms.ModelForm):
 class LocationForm(forms.ModelForm):
     class Meta:
         model = Location
-        fields = ("name", "location_type", "notes")
+        fields = ("name", "notes")
         widgets = {
             "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Наприклад: Позиція Авдіївка"}),
-            "location_type": forms.Select(attrs=INPUT_CSS),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 2, "placeholder": "Додаткова інформація (необов'язково)"}),
         }
         labels = {
             "name": "Назва",
-            "location_type": "Тип",
             "notes": "Примітки",
         }

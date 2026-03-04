@@ -113,7 +113,6 @@
         <thead>
             <tr>
                 <th>Локація</th>
-                <th>Тип</th>
                 <th style="text-align:right">Всього</th>
                 <th style="text-align:right">Готових</th>
                 <th style="text-align:right">На перевірці</th>
@@ -129,7 +128,6 @@
                     <a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones&location={{ item.loc.pk }}"
                        class="loc-link">{{ item.loc.name }}</a>
                 </td>
-                <td><span class="loc-type-badge">{{ item.loc.get_location_type_display }}</span></td>
                 <td class="num total-col">{{ item.loc.total }}</td>
                 <td class="num {% if item.loc.cnt_ready %}cnt-ready{% else %}cnt-zero{% endif %}">{{ item.loc.cnt_ready }}</td>
                 <td class="num {% if not item.loc.cnt_inspection %}cnt-zero{% endif %}">{{ item.loc.cnt_inspection }}</td>
@@ -140,7 +138,6 @@
             {% for pos in item.pos_rows %}
             <tr class="pos-sub-row">
                 <td>└ {{ pos.name }}</td>
-                <td></td>
                 <td class="num pos-total">{{ pos.total }}</td>
                 <td colspan="5"></td>
             </tr>

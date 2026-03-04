@@ -236,6 +236,11 @@ UNFOLD = {
                         "icon": "people",
                         "link": reverse_lazy("admin:auth_user_changelist"),
                     },
+                    {
+                        "title": "Групи",
+                        "icon": "group",
+                        "link": reverse_lazy("admin:auth_group_changelist"),
+                    },
                 ],
             },
             {

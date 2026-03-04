@@ -12,7 +12,7 @@
     .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
 
     .filter-bar {
-        display: flex; gap: 0.75rem; margin-bottom: 1rem;
+        display: flex; gap: 0.75rem; margin-bottom: 1.25rem;
         flex-wrap: wrap; align-items: center;
     }
     .filter-bar select, .filter-bar input {
@@ -24,7 +24,6 @@
     .filter-bar select:focus, .filter-bar input:focus {
         border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
     }
-    .filter-bar input[type="date"] { width: auto; }
     .date-field { display: flex; flex-direction: column; gap: 0.15rem; }
     .date-label {
         font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
@@ -34,7 +33,7 @@
         padding: 0.55rem 0.75rem; font-size: 0.82rem; font-weight: 600;
         color: var(--text-muted); text-decoration: none; white-space: nowrap;
         border: 1px solid var(--border); border-radius: var(--radius-sm);
-        transition: color 0.15s ease, border-color 0.15s ease;
+        transition: color 0.15s, border-color 0.15s;
     }
     .btn-reset-filter:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); }
 
@@ -44,66 +43,46 @@
     }
     .toolbar h2 { font-size: 1rem; font-weight: 700; margin: 0; }
 
-    /* Main table */
-    .eq-table { width: 100%; border-collapse: collapse; }
-    .eq-table th {
-        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+    /* ── Timeline ─────────────────────────────── */
+    .timeline { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .tl-date-section { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .tl-date-row {
+        display: flex; align-items: center; gap: 0.75rem;
+    }
+    .tl-date-badge {
+        font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.06em; color: var(--text-muted);
-        padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+        white-space: nowrap;
     }
-    .eq-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
-
-    .group-row { cursor: pointer; transition: background 0.12s ease; }
-    .group-row:hover td { background: var(--accent-dim); }
-    .group-row.expanded td { background: var(--accent-dim); }
-
-    .expand-cell { width: 36px; text-align: center; }
-    .expand-icon {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 22px; height: 22px; border-radius: 4px;
-        font-size: 0.7rem; color: var(--text-muted);
-        border: 1px solid var(--border);
-        transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-        user-select: none;
+    .tl-date-line {
+        flex: 1; height: 1px; background: var(--border);
     }
-    .group-row.expanded .expand-icon {
-        transform: rotate(90deg); color: var(--accent); border-color: var(--accent);
+    .tl-date-count {
+        font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;
     }
 
-    .detail-row { display: none; }
-    .detail-row.visible { display: table-row; }
-    .detail-row td {
-        padding: 0; border-bottom: 2px solid var(--border-active);
+    /* Batch card */
+    .tl-card {
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); overflow: hidden;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .tl-card:hover { border-color: var(--border-active); box-shadow: var(--shadow); }
+
+    .tl-card-head {
+        display: flex; align-items: center; flex-wrap: wrap;
+        gap: 0.6rem 1rem; padding: 0.7rem 1rem;
+        border-bottom: 1px solid var(--border);
         background: var(--bg-sub);
     }
 
-    /* Nested detail table */
-    .detail-inner { padding: 0.75rem 1rem 1rem 2.5rem; }
-    .detail-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
-    .detail-table th {
-        font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.05em; color: var(--text-muted);
-        padding: 0.4rem 0.6rem; text-align: left;
-        border-bottom: 1px solid var(--border);
-    }
-    .detail-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); }
-    .detail-table tr:last-child td { border-bottom: none; }
-    .detail-table tr:hover td { background: rgba(255,255,255,0.03); }
-
-    .uav-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .uav-link:hover { text-decoration: underline; }
-
-    .cat-badge {
-        display: inline-block; padding: 0.1rem 0.45rem;
-        border-radius: 999px; font-size: 0.7rem; font-weight: 600;
-        background: var(--accent-dim); color: var(--text-muted);
-    }
-
-    .date-cell { white-space: nowrap; color: var(--text-secondary); }
-
+    /* Reason badge */
     .reason-badge {
-        display: inline-block; padding: 0.2rem 0.6rem;
-        border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.2rem 0.65rem; border-radius: 999px;
+        font-size: 0.75rem; font-weight: 700; white-space: nowrap;
         background: var(--accent-dim); color: var(--accent);
     }
     .reason-badge.given    { background: rgba(148,163,184,0.15); color: #94a3b8; }
@@ -111,32 +90,75 @@
     .reason-badge.repair   { background: rgba(245,158,11,0.12);  color: #f59e0b; }
     .reason-badge.created  { background: rgba(56,189,248,0.12);  color: #38bdf8; }
 
-    .arrow { color: var(--text-muted); margin: 0 0.25rem; }
+    /* Route: А → Б */
+    .tl-route {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        font-size: 0.88rem; font-weight: 600; flex: 1; min-width: 0;
+    }
+    .tl-loc {
+        max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        color: var(--text);
+    }
+    .tl-loc.muted { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    .tl-arrow {
+        flex-shrink: 0; color: var(--text-muted);
+        display: inline-flex; align-items: center;
+    }
 
-    .cnt-value { font-weight: 700; color: var(--accent); }
+    /* Meta: user + count */
+    .tl-meta {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin-left: auto; flex-shrink: 0;
+    }
+    .tl-user { font-size: 0.8rem; color: var(--text-secondary); }
+    .tl-cnt {
+        font-size: 0.75rem; font-weight: 700;
+        background: var(--accent-dim); color: var(--accent);
+        padding: 0.15rem 0.55rem; border-radius: 999px;
+        white-space: nowrap;
+    }
 
-    .role-hdr-row td {
-        padding: 0.45rem 0.6rem 0.2rem;
+    /* UAV list inside the card */
+    .tl-uavs {
+        display: flex; flex-direction: column;
+        padding: 0.5rem 1rem 0.6rem;
+        gap: 0.3rem;
+    }
+    .tl-uav-row {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.85rem; color: var(--text);
+    }
+    .cat-chip {
+        display: inline-flex; align-items: center;
+        padding: 0.1rem 0.45rem; border-radius: 999px;
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.04em; flex-shrink: 0;
+        background: var(--accent-dim); color: var(--text-muted);
+    }
+    .cat-chip-radio   { background: rgba(59,130,246,.15); color: #3b82f6; }
+    .cat-chip-optical { background: rgba(34,197,94,.15);  color: #22c55e; }
+    .tl-type-name { flex: 1; }
+    .tl-uav-cnt {
+        font-size: 0.8rem; font-weight: 700; color: var(--accent);
+        white-space: nowrap;
+    }
+
+    /* Role / sub-group labels */
+    .tl-role-label {
+        display: flex; align-items: center; gap: 0.4rem;
+        padding: 0.35rem 1rem 0.1rem;
         font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.07em; color: var(--text-muted);
-        border-bottom: none; background: none;
+        border-top: 1px solid var(--border);
     }
-    .sub-hdr-row td {
-        padding: 0.2rem 0.6rem 0.2rem 1rem;
+    .tl-role-label:first-child { border-top: none; }
+    .tl-sub-label {
+        padding: 0.25rem 1rem 0.05rem 1.5rem;
         font-size: 0.72rem; font-weight: 600;
-        color: var(--text-secondary); border-bottom: none; background: none;
+        color: var(--text-secondary);
     }
-    .sub-hdr-row .day-label  { color: #f59e0b; }
-    .sub-hdr-row .night-label { color: #818cf8; }
-
-    .batch-hdr-row td {
-        padding: 0.55rem 0.6rem 0.3rem;
-        border-top: 1px solid var(--border); border-bottom: none;
-        font-size: 0.8rem; background: none;
-    }
-    .batch-hdr-row:first-child td { border-top: none; }
-    .batch-route { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.5rem; }
-    .batch-user  { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.5rem; }
+    .day-label   { color: #f59e0b; }
+    .night-label { color: #818cf8; }
 
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 
@@ -195,92 +217,92 @@
     </form>
 
     {% if page_obj.object_list %}
-    <table class="eq-table">
-        <thead>
-            <tr>
-                <th class="expand-cell"></th>
-                <th>Дата</th>
-                <th style="text-align:right">Дронів</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for g in page_obj %}
-            {# Date summary row #}
-            <tr class="group-row" onclick="toggleGroup({{ forloop.counter }})">
-                <td class="expand-cell">
-                    <span class="expand-icon" id="expand-{{ forloop.counter }}">&#9654;</span>
-                </td>
-                <td class="date-cell">{{ g.date|date:"d.m.Y" }}</td>
-                <td style="text-align:right"><span class="cnt-value">{{ g.count }}</span></td>
-            </tr>
-            {# Expandable detail row #}
-            <tr class="detail-row" id="detail-{{ forloop.counter }}">
-                <td colspan="3">
-                    <div class="detail-inner">
-                        <table class="detail-table">
-                            <tbody>
-                                {% for batch in g.batches %}
-                                <tr class="batch-hdr-row">
-                                    <td colspan="2">
-                                        <span class="reason-badge {{ batch.reason }}">{{ batch.reason_label }}</span>
-                                        <span class="batch-route">
-                                            {% if batch.from_location_name %}{{ batch.from_location_name }}{% else %}—{% endif %}
-                                            <span class="arrow">→</span>
-                                            {{ batch.to_location_name }}
-                                        </span>
-                                        <span class="batch-user">{{ batch.user_name }}</span>
-                                    </td>
-                                </tr>
-                                {% for rg in batch.role_groups %}
-                                {% if rg.role_name == "Ударні" %}
-                                    {# Ударні: skip role header, show День/Ніч directly #}
-                                    {% for sg in rg.sub_groups %}
-                                    <tr class="sub-hdr-row">
-                                        <td colspan="2">
-                                            {% if sg.sub_label == "День" %}
-                                            <span class="day-label">☀ {{ sg.sub_label }}</span>
-                                            {% else %}
-                                            <span class="night-label">🌙 {{ sg.sub_label }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% for t in sg.types %}
-                                    <tr>
-                                        <td>
-                                            <span class="cat-badge" style="margin-right:0.35rem">{{ t.category }}</span>
-                                            {{ t.type_label }}
-                                        </td>
-                                        <td style="text-align:right"><span class="cnt-value">{{ t.count }}</span></td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% endfor %}
-                                {% else %}
-                                    {# Other roles: show role name then drones #}
-                                    <tr class="role-hdr-row">
-                                        <td colspan="2">{{ rg.role_name }}</td>
-                                    </tr>
-                                    {% for sg in rg.sub_groups %}
-                                    {% for t in sg.types %}
-                                    <tr>
-                                        <td>
-                                            <span class="cat-badge" style="margin-right:0.35rem">{{ t.category }}</span>
-                                            {{ t.type_label }}
-                                        </td>
-                                        <td style="text-align:right"><span class="cnt-value">{{ t.count }}</span></td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% endfor %}
-                                {% endif %}
-                                {% endfor %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
+    <div class="timeline">
+        {% for g in page_obj %}
+        <div class="tl-date-section">
+
+            {# Date separator #}
+            <div class="tl-date-row">
+                <span class="tl-date-badge">{{ g.date|date:"d E Y"|lower }}</span>
+                <span class="tl-date-line"></span>
+                <span class="tl-date-count">{{ g.count }} дрон{{ g.count|pluralize:",,ів" }}</span>
+            </div>
+
+            {# Batch cards #}
+            {% for batch in g.batches %}
+            <div class="tl-card">
+                <div class="tl-card-head">
+                    <span class="reason-badge {{ batch.reason }}">
+                        {% if batch.reason == 'given' %}
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        {% elif batch.reason == 'returned' %}
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        {% elif batch.reason == 'repair' %}
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        {% elif batch.reason == 'created' %}
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        {% endif %}
+                        {{ batch.reason_label }}
+                    </span>
+
+                    <span class="tl-route">
+                        {% if batch.from_location_name %}
+                        <span class="tl-loc">{{ batch.from_location_name }}</span>
+                        {% else %}
+                        <span class="tl-loc muted">—</span>
+                        {% endif %}
+                        <span class="tl-arrow">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+                        </span>
+                        <span class="tl-loc">{{ batch.to_location_name }}</span>
+                    </span>
+
+                    <div class="tl-meta">
+                        <span class="tl-user">{{ batch.user_name }}</span>
+                        <span class="tl-cnt">{{ batch.uav_objs|length }}</span>
                     </div>
-                </td>
-            </tr>
+                </div>
+
+                {# UAV list grouped by role/sub #}
+                <div class="tl-uavs">
+                    {% for rg in batch.role_groups %}
+                    {% if rg.role_name == "Ударні" %}
+                        {% for sg in rg.sub_groups %}
+                        <div class="tl-sub-label">
+                            {% if sg.sub_label == "День" %}
+                            <span class="day-label">☀ {{ sg.sub_label }}</span>
+                            {% else %}
+                            <span class="night-label">🌙 {{ sg.sub_label }}</span>
+                            {% endif %}
+                        </div>
+                        {% for t in sg.types %}
+                        <div class="tl-uav-row">
+                            <span class="cat-chip {% if t.category == 'Радіо' %}cat-chip-radio{% elif t.category == 'Оптика' %}cat-chip-optical{% endif %}">{{ t.category }}</span>
+                            <span class="tl-type-name">{{ t.type_label }}</span>
+                            {% if t.count > 1 %}<span class="tl-uav-cnt">×{{ t.count }}</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="tl-role-label">{{ rg.role_name }}</div>
+                        {% for sg in rg.sub_groups %}
+                        {% for t in sg.types %}
+                        <div class="tl-uav-row">
+                            <span class="cat-chip {% if t.category == 'Радіо' %}cat-chip-radio{% elif t.category == 'Оптика' %}cat-chip-optical{% endif %}">{{ t.category }}</span>
+                            <span class="tl-type-name">{{ t.type_label }}</span>
+                            {% if t.count > 1 %}<span class="tl-uav-cnt">×{{ t.count }}</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endfor %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+
+        </div>
+        {% endfor %}
+    </div>
 
     {% if page_obj.paginator.num_pages > 1 %}
     <div class="pagination">
@@ -312,13 +334,6 @@
 </div>
 
 <script>
-function toggleGroup(id) {
-    var row = document.getElementById('detail-' + id);
-    var groupRow = row.previousElementSibling;
-    var expanded = row.classList.toggle('visible');
-    groupRow.classList.toggle('expanded', expanded);
-}
-
 document.querySelectorAll('.filter-bar select').forEach(function(el) {
     el.addEventListener('change', function() { el.closest('form').submit(); });
 });

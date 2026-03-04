@@ -292,6 +292,50 @@
         background: var(--accent-dim); color: var(--accent); border-color: var(--accent);
     }
 
+    /* Drone-type cards */
+    .type-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.5rem; padding: 0.25rem 0;
+    }
+    .type-card {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); padding: 0.65rem 0.85rem;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .type-card:hover { border-color: var(--border-active); box-shadow: var(--shadow); }
+    .type-card-head {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 0.4rem; margin-bottom: 0.5rem;
+    }
+    .type-card-title { font-size: 0.875rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .type-card-body { display: flex; flex-direction: column; gap: 0.2rem; }
+    .type-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; font-size: 0.76rem; }
+    .type-key { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .type-val { color: var(--text); font-weight: 500; text-align: right; }
+
+    /* Manufacturer / drone-model badge pills */
+    .pill-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.5rem; padding: 0.25rem 0;
+    }
+    .item-pill {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+        min-height: 2.6rem;
+        border: 1px solid var(--border); border-radius: 999px;
+        background: var(--surface);
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .item-pill:hover { border-color: var(--border-active); box-shadow: var(--shadow); }
+    .pill-info { display: flex; flex-direction: column; line-height: 1.25; flex: 1; min-width: 0; }
+    .pill-label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+    .pill-sub   { font-size: 0.72rem; color: var(--text-muted); }
+    .pill-actions { display: flex; gap: 0.15rem; }
+    .pill-actions .btn-icon { width: 24px; height: 24px; }
+
     /* Modal */
     .modal-overlay {
         position: fixed; inset: 0;
@@ -449,7 +493,7 @@
                         <button type="button" class="btn-export-dl" id="export-dl-btn">Завантажити</button>
                     </div>
                 </div>
-                <a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>
+                {% if can_add_uav %}<a href="{% url 'equipment_accounting:uav_create' %}" class="button">+ Додати</a>{% endif %}
             </div>
         </div>
 
@@ -488,6 +532,7 @@
         <form method="post" action="{% url 'equipment_accounting:uav_bulk_action' %}" id="uav-bulk-form">
         {% csrf_token %}
 
+        {% if can_edit_uav or can_delete_uav %}
         <div class="bulk-bar" id="bulk-bar">
             <span class="bulk-count">Обрано: <span id="bulk-count-num">0</span></span>
             <select id="bulk-action-select" name="bulk_action">
@@ -502,7 +547,7 @@
             <select name="to_location_id" id="bulk-location-select" style="display:none;">
                 <option value="">— Локація —</option>
                 {% for loc in locations %}
-                <option value="{{ loc.pk }}" data-type="{{ loc.location_type }}">{{ loc.name }}</option>
+                <option value="{{ loc.pk }}"{% if loc.pk in position_location_ids %} data-is-position="1"{% endif %}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
             <select name="position_id" id="bulk-position-select" style="display:none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.8rem; font-family: inherit;">
@@ -515,12 +560,13 @@
             <input type="text" name="position_name_new" id="bulk-position-new" placeholder="Нова позиція..." maxlength="100" style="display:none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.8rem; font-family: inherit; width: 130px;">
             <button type="submit" id="bulk-submit" class="btn-sm btn-danger">Застосувати</button>
         </div>
+        {% endif %}
 
         <div id="uav-table-view">
             <table class="eq-table">
                 <thead>
                     <tr>
-                        <th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>
+                        {% if can_edit_uav or can_delete_uav %}<th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>{% endif %}
                         <th>Тип БПЛА</th>
                         <th>Призначення</th>
                         <th>Дата партії</th>
@@ -588,9 +634,11 @@
                 <tbody>
                     {% for group in badge_groups %}
                     <tr class="group-row">
+                        {% if can_edit_uav or can_delete_uav %}
                         <td class="th-check">
                             <input type="checkbox" class="group-check check-all" data-group="{{ forloop.counter0 }}" title="Вибрати групу">
                         </td>
+                        {% endif %}
                         <td data-label="Тип БПЛА">{{ group.type_label }}</td>
                         <td data-label="Призначення">{{ group.role_name }}</td>
                         <td data-label="Дата партії" class="date-cell">{{ group.date|date:"d.m.Y" }}</td>
@@ -623,7 +671,7 @@
                                     <tbody>
                                         {% for uav in group.uavs %}
                                         <tr class="group-uav-row">
-                                            <td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>
+                                            {% if can_edit_uav or can_delete_uav %}<td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>{% endif %}
                                             <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
                                             <td><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
                                             <td>{{ uav.role.name|default:"—" }}</td>
@@ -638,26 +686,30 @@
                                                     <span style="color:var(--text-muted);">{{ uav.current_location.name|default:"—" }}</span>
                                                     <span style="color:#f59e0b;font-weight:600;"> → {{ uav.pending_to_location.name }}{% if uav.position %} «{{ uav.position.name }}»{% endif %}</span>
                                                 {% elif uav.current_location %}
-                                                    {{ uav.current_location.name }}{% if uav.position and uav.current_location.location_type == 'position' %} «{{ uav.position.name }}»{% endif %}
+                                                    {{ uav.current_location.name }}{% if uav.position %} «{{ uav.position.name }}»{% endif %}
                                                 {% else %}—{% endif %}
                                             </td>
                                             <td class="actions-cell">
                                                 <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                                 </a>
-                                                {% if uav.status == 'ready' %}
+                                                {% if can_edit_uav and uav.status == 'ready' %}
                                                 <button type="button" class="btn-icon btn-icon-success" data-tooltip="Віддати"
                                                     data-give-url="{% url 'equipment_accounting:uav_toggle_given' uav.pk %}"
                                                     onclick="openGiveModal(this.dataset.giveUrl)">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                                                 </button>
                                                 {% endif %}
+                                                {% if can_edit_uav %}
                                                 <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-icon" data-tooltip="Редагувати">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                                 </a>
+                                                {% endif %}
+                                                {% if can_delete_uav %}
                                                 <a href="{% url 'equipment_accounting:uav_delete' uav.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                                 </a>
+                                                {% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -911,29 +963,21 @@
             <a href="{% url 'equipment_accounting:manufacturer_create' %}" class="button">+ Додати</a>
         </div>
         {% if manufacturers %}
-        <table class="eq-table">
-            <thead>
-                <tr>
-                    <th>Назва</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in manufacturers %}
-                <tr>
-                    <td data-label="Назва">{{ m.name }}</td>
-                    <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:manufacturer_edit' m.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                        <a href="{% url 'equipment_accounting:manufacturer_delete' m.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="pill-list">
+            {% for m in manufacturers %}
+            <div class="item-pill">
+                <div class="pill-info"><span class="pill-label">{{ m.name }}</span></div>
+                <div class="pill-actions">
+                    <a href="{% url 'equipment_accounting:manufacturer_edit' m.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </a>
+                    <a href="{% url 'equipment_accounting:manufacturer_delete' m.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Виробників ще немає.</p></div>
         {% endif %}
@@ -946,31 +990,24 @@
             <a href="{% url 'equipment_accounting:drone_model_create' %}" class="button">+ Додати</a>
         </div>
         {% if drone_models %}
-        <table class="eq-table">
-            <thead>
-                <tr>
-                    <th>Назва</th>
-                    <th>Виробник</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dm in drone_models %}
-                <tr>
-                    <td data-label="Назва">{{ dm.name }}</td>
-                    <td data-label="Виробник">{{ dm.manufacturer }}</td>
-                    <td data-label="" class="actions-cell">
-                        <a href="{% url 'equipment_accounting:drone_model_edit' dm.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </a>
-                        <a href="{% url 'equipment_accounting:drone_model_delete' dm.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="pill-list">
+            {% for dm in drone_models %}
+            <div class="item-pill">
+                <div class="pill-info">
+                    <span class="pill-label">{{ dm.name }}</span>
+                    <span class="pill-sub">{{ dm.manufacturer }}</span>
+                </div>
+                <div class="pill-actions">
+                    <a href="{% url 'equipment_accounting:drone_model_edit' dm.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </a>
+                    <a href="{% url 'equipment_accounting:drone_model_delete' dm.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Моделей дронів ще немає.</p></div>
         {% endif %}
@@ -984,41 +1021,31 @@
         </div>
 
         {% if fpv_drone_types %}
-        <table class="eq-table">
-            <thead>
-                <tr>
-                    <th>Модель</th>
-                    <th>Призначення</th>
-                    <th>Пропелери</th>
-                    <th>Частота керування</th>
-                    <th>Частота відео</th>
-                    <th>Живлення</th>
-                    <th>Термал</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dt in fpv_drone_types %}
-                <tr>
-                    <td data-label="Модель">{{ dt.model }}</td>
-                    <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
-                    <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
-                    <td data-label="Частота керування">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
-                    <td data-label="Частота відео">{{ dt.video_frequency }}</td>
-                    <td data-label="Живлення">{{ dt.power_template }}</td>
-                    <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>
-                    <td data-label="" class="actions-cell">
+        <div class="type-card-grid">
+            {% for dt in fpv_drone_types %}
+            <div class="type-card">
+                <div class="type-card-head">
+                    <span class="type-card-title">{{ dt.model }}</span>
+                    <div class="pill-actions">
                         <a href="{% url 'equipment_accounting:fpv_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </a>
                         <a href="{% url 'equipment_accounting:fpv_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+                <div class="type-card-body">
+                    <div class="type-row"><span class="type-key">Призначення</span><span class="type-val">{{ dt.purpose|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Пропелери</span><span class="type-val">{{ dt.get_prop_size_display }}</span></div>
+                    <div class="type-row"><span class="type-key">Управління</span><span class="type-val">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</span></div>
+                    <div class="type-row"><span class="type-key">Відео</span><span class="type-val">{{ dt.video_frequency|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Живлення</span><span class="type-val">{{ dt.power_template|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Термал</span><span class="type-val">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Типів радіо дронів ще немає.</p></div>
         {% endif %}
@@ -1032,41 +1059,31 @@
         </div>
 
         {% if optical_drone_types %}
-        <table class="eq-table">
-            <thead>
-                <tr>
-                    <th>Модель</th>
-                    <th>Призначення</th>
-                    <th>Пропелери</th>
-                    <th>Частота керування</th>
-                    <th>Шаблон відео</th>
-                    <th>Живлення</th>
-                    <th>Термал</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dt in optical_drone_types %}
-                <tr>
-                    <td data-label="Модель">{{ dt.model }}</td>
-                    <td data-label="Призначення">{{ dt.purpose|default:"—" }}</td>
-                    <td data-label="Пропелери">{{ dt.get_prop_size_display }}</td>
-                    <td data-label="Частота керування">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
-                    <td data-label="Шаблон відео">{{ dt.video_template }}</td>
-                    <td data-label="Живлення">{{ dt.power_template }}</td>
-                    <td data-label="Термал">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</td>
-                    <td data-label="" class="actions-cell">
+        <div class="type-card-grid">
+            {% for dt in optical_drone_types %}
+            <div class="type-card">
+                <div class="type-card-head">
+                    <span class="type-card-title">{{ dt.model }}</span>
+                    <div class="pill-actions">
                         <a href="{% url 'equipment_accounting:optical_type_edit' dt.pk %}" class="btn-icon" data-tooltip="Редагувати">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </a>
                         <a href="{% url 'equipment_accounting:optical_type_delete' dt.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+                <div class="type-card-body">
+                    <div class="type-row"><span class="type-key">Призначення</span><span class="type-val">{{ dt.purpose|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Пропелери</span><span class="type-val">{{ dt.get_prop_size_display }}</span></div>
+                    <div class="type-row"><span class="type-key">Управління</span><span class="type-val">{% for f in dt.control_frequencies.all %}{{ f }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</span></div>
+                    <div class="type-row"><span class="type-key">Шаблон відео</span><span class="type-val">{{ dt.video_template|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Живлення</span><span class="type-val">{{ dt.power_template|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Термал</span><span class="type-val">{% if dt.has_thermal %}<span class="bool-yes">&#10003;</span>{% else %}<span class="bool-no">&#10007;</span>{% endif %}</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Типів оптичних дронів ще немає.</p></div>
         {% endif %}
@@ -1083,7 +1100,6 @@
             <thead>
                 <tr>
                     <th>Назва</th>
-                    <th>Тип</th>
                     <th>Примітки</th>
                     <th>БПЛА</th>
                     <th></th>
@@ -1092,13 +1108,7 @@
             <tbody>
                 {% for loc in locations %}
                 <tr>
-                    <td data-label="Назва">
-                        {{ loc.name }}
-                        {% if loc.location_type == 'position' %}
-                        <span style="font-size:0.72rem;color:var(--text-muted);margin-left:0.3rem;">(позиція)</span>
-                        {% endif %}
-                    </td>
-                    <td data-label="Тип">{{ loc.get_location_type_display }}</td>
+                    <td data-label="Назва">{{ loc.name }}</td>
                     <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
                     <td data-label="БПЛА">
                         {% with cnt=loc.current_uavs.count %}
@@ -1136,10 +1146,19 @@
     <div class="card">
         <div class="toolbar">
             <h2>Шаблони живлення</h2>
-            <a href="{% url 'equipment_accounting:power_template_create' %}" class="button">+ Додати</a>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button type="button" class="btn-icon" id="pt-list-btn" data-tooltip="Список">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+                <button type="button" class="btn-icon" id="pt-block-btn" data-tooltip="Блоки">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
+                <a href="{% url 'equipment_accounting:power_template_create' %}" class="button">+ Додати</a>
+            </div>
         </div>
 
         {% if power_templates %}
+        <div id="pt-list-view">
         <table class="eq-table">
             <thead>
                 <tr>
@@ -1164,6 +1183,26 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+        <div id="pt-block-view" class="type-card-grid" style="display:none;">
+            {% for pt in power_templates %}
+            <div class="type-card">
+                <div class="type-card-head">
+                    <span class="type-card-title">{{ pt.name }}</span>
+                    <div class="pill-actions">
+                        <a href="{% url 'equipment_accounting:power_template_edit' pt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="type-card-body">
+                    <div class="type-row"><span class="type-key">Конектор</span><span class="type-val">{{ pt.get_connector_display }}</span></div>
+                    <div class="type-row"><span class="type-key">Конфігурація</span><span class="type-val">{{ pt.get_configuration_display }}</span></div>
+                    <div class="type-row"><span class="type-key">Ємність</span><span class="type-val">{{ pt.capacity }} mAh</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Шаблонів живлення немає.</p></div>
         {% endif %}
@@ -1173,10 +1212,19 @@
     <div class="card">
         <div class="toolbar">
             <h2>Шаблони відео</h2>
-            <a href="{% url 'equipment_accounting:video_template_create' %}" class="button">+ Додати</a>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button type="button" class="btn-icon" id="vt-list-btn" data-tooltip="Список">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+                <button type="button" class="btn-icon" id="vt-block-btn" data-tooltip="Блоки">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
+                <a href="{% url 'equipment_accounting:video_template_create' %}" class="button">+ Додати</a>
+            </div>
         </div>
 
         {% if video_templates %}
+        <div id="vt-list-view">
         <table class="eq-table">
             <thead>
                 <tr>
@@ -1201,6 +1249,26 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+        <div id="vt-block-view" class="type-card-grid" style="display:none;">
+            {% for vt in video_templates %}
+            <div class="type-card">
+                <div class="type-card-head">
+                    <span class="type-card-title">{{ vt.name }}</span>
+                    <div class="pill-actions">
+                        <a href="{% url 'equipment_accounting:video_template_edit' vt.pk %}" class="btn-icon" data-tooltip="Редагувати">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="type-card-body">
+                    <div class="type-row"><span class="type-key">Тип дрона</span><span class="type-val">{{ vt.drone_model|default:"—" }}</span></div>
+                    <div class="type-row"><span class="type-key">Сигнал</span><span class="type-val">{% if vt.is_analog %}Аналоговий{% else %}Цифровий{% endif %}</span></div>
+                    <div class="type-row"><span class="type-key">Дальність</span><span class="type-val">{{ vt.max_distance }} км</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="empty-state"><p>Шаблонів відео немає.</p></div>
         {% endif %}
@@ -1314,7 +1382,7 @@
 
     function updateBulkPositionVisibility() {
         var opt = bulkLocationSelect.options[bulkLocationSelect.selectedIndex];
-        var isPosition = opt && opt.dataset.type === 'position' && actionSelect.value === 'given';
+        var isPosition = opt && opt.dataset.isPosition === '1' && actionSelect.value === 'given';
         if (bulkPositionSelect) bulkPositionSelect.style.display = isPosition ? '' : 'none';
         if (!isPosition && bulkPositionSelect) { bulkPositionSelect.value = ''; }
         if (!isPosition && bulkPositionNew) { bulkPositionNew.style.display = 'none'; bulkPositionNew.value = ''; }
@@ -1417,7 +1485,7 @@ function openGiveModal(url) {
 
     function onLocationChange() {
         var opt = locationSelect.options[locationSelect.selectedIndex];
-        var isPosition = opt && opt.dataset.type === 'position';
+        var isPosition = opt && opt.dataset.isPosition === '1';
         positionWrap.style.display = isPosition ? '' : 'none';
         if (!isPosition) { positionSelect.value = ''; positionNewInput.value = ''; positionNewInput.style.display = 'none'; }
     }
@@ -1517,6 +1585,36 @@ function showModal(id, title, message, onConfirm) {
         panel.classList.remove('open');
     });
 })();
+
+// Templates view toggle — each section is independent
+(function () {
+    function initTplToggle(listBtnId, blockBtnId, listViewId, blockViewId, storageKey) {
+        var listBtn   = document.getElementById(listBtnId);
+        var blockBtn  = document.getElementById(blockBtnId);
+        var listView  = document.getElementById(listViewId);
+        var blockView = document.getElementById(blockViewId);
+        if (!listBtn || !blockBtn) return;
+
+        function setView(mode) {
+            var isBlock = mode === 'block';
+            listView.style.display  = isBlock ? 'none' : '';
+            blockView.style.display = isBlock ? '' : 'none';
+            listBtn.classList.toggle('view-active', !isBlock);
+            blockBtn.classList.toggle('view-active',  isBlock);
+            try { localStorage.setItem(storageKey, mode); } catch (e) {}
+        }
+
+        listBtn.addEventListener('click',  function () { setView('list'); });
+        blockBtn.addEventListener('click', function () { setView('block'); });
+
+        var saved = 'list';
+        try { saved = localStorage.getItem(storageKey) || 'list'; } catch (e) {}
+        setView(saved);
+    }
+
+    initTplToggle('pt-list-btn', 'pt-block-btn', 'pt-list-view', 'pt-block-view', 'tpl_power_view');
+    initTplToggle('vt-list-btn', 'vt-block-btn', 'vt-list-view', 'vt-block-view', 'tpl_video_view');
+})();
 </script>
 
 {# Warning modal (single button) #}
@@ -1551,7 +1649,7 @@ function showModal(id, title, message, onConfirm) {
             <select id="give-location-select" style="width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none;">
                 <option value="">— Не вказано —</option>
                 {% for loc in locations_give %}
-                <option value="{{ loc.pk }}" data-type="{{ loc.location_type }}">{{ loc.name }}</option>
+                <option value="{{ loc.pk }}"{% if loc.pk in position_location_ids %} data-is-position="1"{% endif %}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
         </div>
