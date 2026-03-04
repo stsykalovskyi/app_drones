@@ -66,6 +66,12 @@
     .cnt-repair { color: #f59e0b; }
     .cnt-ready { color: #22c55e; }
 
+    /* Position sub-rows */
+    .pos-sub-row td { background: var(--bg); border-bottom: 1px solid var(--border); padding: 0.45rem 0.75rem; }
+    .pos-sub-row td:first-child { padding-left: 2rem; color: var(--text-secondary); font-style: italic; font-size: 0.82rem; }
+    .pos-sub-row .pos-total { font-weight: 700; font-size: 0.85rem; }
+    .pos-sub-row:last-of-type td { border-bottom: 2px solid var(--border); }
+
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 </style>
 {% endblock %}
@@ -81,6 +87,12 @@
         <div class="summary-label">Всього БПЛА</div>
         <div class="summary-value">{{ total_all }}</div>
     </div>
+    {% if transit_total %}
+    <div class="summary-card">
+        <div class="summary-label">В дорозі</div>
+        <div class="summary-value">{{ transit_total }}</div>
+    </div>
+    {% endif %}
     {% for loc in locations %}
     {% if loc.total > 0 %}
     <div class="summary-card">
@@ -96,7 +108,7 @@
         <h2>Деталізація по локаціях</h2>
     </div>
 
-    {% if locations %}
+    {% if locations_with_pos %}
     <table class="eq-table">
         <thead>
             <tr>
@@ -111,20 +123,28 @@
             </tr>
         </thead>
         <tbody>
-            {% for loc in locations %}
+            {% for item in locations_with_pos %}
             <tr>
                 <td>
-                    <a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones&location={{ loc.pk }}"
-                       class="loc-link">{{ loc.name }}</a>
+                    <a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones&location={{ item.loc.pk }}"
+                       class="loc-link">{{ item.loc.name }}</a>
                 </td>
-                <td><span class="loc-type-badge">{{ loc.get_location_type_display }}</span></td>
-                <td class="num total-col">{{ loc.total }}</td>
-                <td class="num {% if loc.cnt_ready %}cnt-ready{% else %}cnt-zero{% endif %}">{{ loc.cnt_ready }}</td>
-                <td class="num {% if not loc.cnt_inspection %}cnt-zero{% endif %}">{{ loc.cnt_inspection }}</td>
-                <td class="num {% if loc.cnt_repair %}cnt-repair{% else %}cnt-zero{% endif %}">{{ loc.cnt_repair }}</td>
-                <td class="num {% if not loc.cnt_deferred %}cnt-zero{% endif %}">{{ loc.cnt_deferred }}</td>
-                <td class="num {% if loc.cnt_given %}cnt-given{% else %}cnt-zero{% endif %}">{{ loc.cnt_given }}</td>
+                <td><span class="loc-type-badge">{{ item.loc.get_location_type_display }}</span></td>
+                <td class="num total-col">{{ item.loc.total }}</td>
+                <td class="num {% if item.loc.cnt_ready %}cnt-ready{% else %}cnt-zero{% endif %}">{{ item.loc.cnt_ready }}</td>
+                <td class="num {% if not item.loc.cnt_inspection %}cnt-zero{% endif %}">{{ item.loc.cnt_inspection }}</td>
+                <td class="num {% if item.loc.cnt_repair %}cnt-repair{% else %}cnt-zero{% endif %}">{{ item.loc.cnt_repair }}</td>
+                <td class="num {% if not item.loc.cnt_deferred %}cnt-zero{% endif %}">{{ item.loc.cnt_deferred }}</td>
+                <td class="num {% if item.loc.cnt_given %}cnt-given{% else %}cnt-zero{% endif %}">{{ item.loc.cnt_given }}</td>
             </tr>
+            {% for pos in item.pos_rows %}
+            <tr class="pos-sub-row">
+                <td>└ {{ pos.name }}</td>
+                <td></td>
+                <td class="num pos-total">{{ pos.total }}</td>
+                <td colspan="5"></td>
+            </tr>
+            {% endfor %}
             {% endfor %}
         </tbody>
     </table>

@@ -22,7 +22,7 @@ from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     OtherComponentType, Location, UAVMovement,
-    Manufacturer, DroneModel, UAVPhoto,
+    Manufacturer, DroneModel, UAVPhoto, DroneRole, Position,
 )
 
 def _list_url(tab="drones"):
@@ -57,6 +57,7 @@ def equipment_list(request):
     type_filter = request.GET.get("type", "")
     kit_filter = request.GET.get("kit", "")
     purpose_filter = request.GET.get("purpose", "")
+    role_filter = request.GET.get("role", "")
     _location_raw = request.GET.get("location", "")
     location_filter = int(_location_raw) if _location_raw.isdigit() else None
     date_from = request.GET.get("date_from", "")
@@ -64,7 +65,7 @@ def equipment_list(request):
     search_q = request.GET.get("q", "")
 
     base_qs = UAVInstance.objects.select_related(
-        "content_type", "created_by", "created_by__profile", "current_location", "role"
+        "content_type", "created_by", "created_by__profile", "current_location", "role", "position"
     ).prefetch_related("components")
 
     uavs = base_qs.exclude(status='deleted')
@@ -115,18 +116,9 @@ def equipment_list(request):
         filtered_ids = [u.pk for u in uavs if u.get_kit_status() == kit_filter]
         uavs = uavs.filter(pk__in=filtered_ids)
 
-    # Purpose filter: Ударні (optical), День (FPV no thermal), Ніч (FPV thermal)
-    if purpose_filter in ('ударні', 'день', 'ніч'):
-        _fpv_ct_f = ContentType.objects.get_for_model(FPVDroneType)
-        _opt_ct_f = ContentType.objects.get_for_model(OpticalDroneType)
-        if purpose_filter == 'ударні':
-            uavs = uavs.filter(content_type=_opt_ct_f)
-        elif purpose_filter == 'день':
-            _day_pks = FPVDroneType.objects.filter(has_thermal=False).values_list('pk', flat=True)
-            uavs = uavs.filter(content_type=_fpv_ct_f, object_id__in=_day_pks)
-        elif purpose_filter == 'ніч':
-            _night_pks = FPVDroneType.objects.filter(has_thermal=True).values_list('pk', flat=True)
-            uavs = uavs.filter(content_type=_fpv_ct_f, object_id__in=_night_pks)
+    # Role filter: filter by DroneRole pk
+    if role_filter.isdigit():
+        uavs = uavs.filter(role_id=int(role_filter))
 
     uavs_ordered = list(uavs.order_by("-created_at"))
 
@@ -154,6 +146,7 @@ def equipment_list(request):
                 'category': _uav.get_category(),
                 'purpose': _purpose,
                 'purpose_label': _purpose_label,
+                'role_name': _uav.role.name if _uav.role_id else '—',
                 'date': _uav.created_at.date(),
                 'type_key': f"{_uav.content_type_id}-{_uav.object_id}",
                 'date_str': _uav.created_at.date().isoformat(),
@@ -266,6 +259,10 @@ def equipment_list(request):
     manufacturers = Manufacturer.objects.all()
     drone_models = DroneModel.objects.select_related("manufacturer").all()
 
+    position_location_ids = list(
+        Location.objects.filter(location_type='position').values_list('pk', flat=True)
+    )
+
     ctx = {
         "tab": tab,
         "page_obj": page_obj,
@@ -275,6 +272,8 @@ def equipment_list(request):
         "kit_filter": kit_filter,
         "kit_choices": list(UAVInstance.KIT_LABELS.items()),
         "purpose_filter": purpose_filter,
+        "role_filter": role_filter,
+        "drone_roles": DroneRole.objects.all(),
         "location_filter": location_filter,
         "date_from": date_from,
         "date_to": date_to,
@@ -296,8 +295,10 @@ def equipment_list(request):
         "manufacturers": manufacturers,
         "drone_models": drone_models,
         "locations": Location.objects.all(),
-        "locations_give": Location.objects.exclude(location_type='workshop'),
+        "locations_give": Location.objects.all(),
         "badge_groups": badge_groups,
+        "position_location_ids": position_location_ids,
+        "positions": Position.objects.all(),
     }
 
     return render(request, "equipment_accounting/equipment_list.html", ctx)
@@ -375,10 +376,58 @@ def drone_location_stats(request):
     ).order_by('location_type', 'name')
 
     total_all = UAVInstance.objects.exclude(status='deleted').count()
+    transit_total = UAVInstance.objects.filter(status='transit').count()
+
+    # Per-position-name breakdown for position-type locations
+    # (includes both confirmed drones and transit drones en route)
+    _pos_sub = {}  # loc_id -> {position_name -> count}
+
+    for item in (
+        UAVInstance.objects
+        .exclude(status__in=['deleted', 'transit'])
+        .filter(current_location__location_type='position')
+        .values('current_location_id', 'position__name')
+        .annotate(n=Count('pk'))
+    ):
+        lid = item['current_location_id']
+        pname = item['position__name'] or ''
+        _pos_sub.setdefault(lid, {})
+        _pos_sub[lid][pname] = _pos_sub[lid].get(pname, 0) + item['n']
+
+    for item in (
+        UAVInstance.objects
+        .filter(status='transit',
+                pending_to_location__isnull=False,
+                pending_to_location__location_type='position')
+        .values('pending_to_location_id', 'position__name')
+        .annotate(n=Count('pk'))
+    ):
+        lid = item['pending_to_location_id']
+        pname = item['position__name'] or ''
+        _pos_sub.setdefault(lid, {})
+        _pos_sub[lid][pname] = _pos_sub[lid].get(pname, 0) + item['n']
+
+    pos_sub_rows = {
+        lid: sorted(
+            [{'name': k or '— без назви —', 'total': v} for k, v in d.items()],
+            key=lambda x: x['name']
+        )
+        for lid, d in _pos_sub.items()
+    }
+
+    locations_with_pos = [
+        {
+            'loc': loc,
+            'pos_rows': pos_sub_rows.get(loc.pk, []) if loc.location_type == 'position' else [],
+        }
+        for loc in locations
+    ]
 
     return render(request, 'equipment_accounting/drone_location_stats.html', {
         'locations': locations,
+        'locations_with_pos': locations_with_pos,
         'total_all': total_all,
+        'transit_total': transit_total,
     })
 
 
@@ -986,23 +1035,32 @@ def uav_toggle_given(request, pk):
     next_url = request.POST.get('next') or _list_url("drones")
 
     if uav.status == 'given':
-        # Return: move back to workshop
+        # Return via transit to workshop
         prev_location = uav.current_location
-        uav.status = 'inspection'
-        uav.current_location = workshop
-        uav.save(update_fields=['status', 'current_location', 'updated_at'])
         UAVMovement.objects.create(
             uav=uav,
             from_location=prev_location,
             to_location=workshop,
             moved_by=request.user,
             reason='returned',
+            pre_transit_status='inspection',
         )
+        uav.status = 'transit'
+        uav.pending_to_location = workshop
+        uav.position = None
+        uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
     elif uav.status == 'ready':
         to_location_id = request.POST.get('to_location_id')
         to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
+        position = None
+        if to_location and to_location.location_type == 'position':
+            position_id = request.POST.get('position_id')
+            position_name_new = request.POST.get('position_name_new', '').strip()
+            if position_id:
+                position = Position.objects.filter(pk=position_id).first()
+            elif position_name_new:
+                position, _ = Position.objects.get_or_create(name=position_name_new)
         prev_location = uav.current_location
-        uav.components.update(status='given', assigned_to_uav=None)
         if to_location:
             # Send via transit; status becomes 'given' after arrival confirmation
             UAVMovement.objects.create(
@@ -1015,7 +1073,8 @@ def uav_toggle_given(request, pk):
             )
             uav.status = 'transit'
             uav.pending_to_location = to_location
-            uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+            uav.position = position
+            uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
         else:
             uav.status = 'given'
             uav.save(update_fields=['status', 'updated_at'])
@@ -1042,6 +1101,14 @@ def uav_bulk_action(request):
 
     to_location_id = request.POST.get('to_location_id')
     to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
+    position = None
+    if to_location and to_location.location_type == 'position':
+        position_id = request.POST.get('position_id')
+        position_name_new = request.POST.get('position_name_new', '').strip()
+        if position_id:
+            position = Position.objects.filter(pk=position_id).first()
+        elif position_name_new:
+            position, _ = Position.objects.get_or_create(name=position_name_new)
 
     if action == "delete":
         qs.update(status='deleted')
@@ -1052,7 +1119,6 @@ def uav_bulk_action(request):
         skipped = count - given_count
         for uav in eligible.select_related('current_location'):
             prev = uav.current_location
-            Component.objects.filter(assigned_to_uav=uav).update(status='given', assigned_to_uav=None)
             if to_location:
                 UAVMovement.objects.create(
                     uav=uav,
@@ -1064,7 +1130,8 @@ def uav_bulk_action(request):
                 )
                 uav.status = 'transit'
                 uav.pending_to_location = to_location
-                uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+                uav.position = position
+                uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
             else:
                 uav.status = 'given'
                 uav.save(update_fields=['status', 'updated_at'])

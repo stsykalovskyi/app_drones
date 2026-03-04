@@ -355,6 +355,21 @@
         box-shadow: 0 0 0 2.5px var(--accent-dim);
     }
     .th-filter-date-pair { display: flex; flex-direction: column; gap: 0.25rem; }
+    .date-ph-wrap { position: relative; }
+    .date-ph-wrap::before {
+        content: attr(data-ph);
+        position: absolute; inset: 0;
+        display: flex; align-items: center;
+        padding: 0 0.45rem;
+        font-size: 0.72rem; color: var(--text-muted);
+        pointer-events: none;
+        z-index: 1;
+    }
+    .date-ph-wrap.filled::before,
+    .date-ph-wrap.focused::before { display: none; }
+    /* Hide browser's native date format hint (e.g. мм.дд.рррр) when empty */
+    .date-ph-wrap:not(.filled):not(.focused) input[type="date"]::-webkit-datetime-edit { color: transparent; }
+    .date-ph-wrap:not(.filled):not(.focused) input[type="date"] { color: transparent; }
     .th-filter-extra { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: flex-start; }
     .th-filter-reset {
         display: inline-flex; align-items: center;
@@ -487,9 +502,17 @@
             <select name="to_location_id" id="bulk-location-select" style="display:none;">
                 <option value="">— Локація —</option>
                 {% for loc in locations %}
-                <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                <option value="{{ loc.pk }}" data-type="{{ loc.location_type }}">{{ loc.name }}</option>
                 {% endfor %}
             </select>
+            <select name="position_id" id="bulk-position-select" style="display:none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.8rem; font-family: inherit;">
+                <option value="">— Позиція —</option>
+                {% for pos in positions %}
+                <option value="{{ pos.pk }}">{{ pos.name }}</option>
+                {% endfor %}
+                <option value="__new__">+ Нова...</option>
+            </select>
+            <input type="text" name="position_name_new" id="bulk-position-new" placeholder="Нова позиція..." maxlength="100" style="display:none; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.8rem; font-family: inherit; width: 130px;">
             <button type="submit" id="bulk-submit" class="btn-sm btn-danger">Застосувати</button>
         </div>
 
@@ -516,17 +539,21 @@
                             </select>
                         </th>
                         <th class="th-filter">
-                            <select name="purpose" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
+                            <select name="role" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
                                 <option value="">Всі</option>
-                                <option value="ударні"{% if purpose_filter == 'ударні' %} selected{% endif %}>Ударні</option>
-                                <option value="день"{% if purpose_filter == 'день' %} selected{% endif %}>День</option>
-                                <option value="ніч"{% if purpose_filter == 'ніч' %} selected{% endif %}>Ніч</option>
+                                {% for r in drone_roles %}
+                                <option value="{{ r.pk }}"{% if role_filter == r.pk|stringformat:"s" %} selected{% endif %}>{{ r.name }}</option>
+                                {% endfor %}
                             </select>
                         </th>
                         <th class="th-filter">
                             <div class="th-filter-date-pair">
-                                <input type="date" name="date_from" value="{{ date_from }}" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата від">
-                                <input type="date" name="date_to"   value="{{ date_to }}"   class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата до">
+                                <div class="date-ph-wrap{% if date_from %} filled{% endif %}" data-ph="Дата від">
+                                    <input type="date" name="date_from" value="{{ date_from }}" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата від">
+                                </div>
+                                <div class="date-ph-wrap{% if date_to %} filled{% endif %}" data-ph="Дата до">
+                                    <input type="date" name="date_to"   value="{{ date_to }}"   class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()" title="Дата до">
+                                </div>
                             </div>
                         </th>
                         <th class="th-filter">
@@ -551,7 +578,7 @@
                                     <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
                                     {% endfor %}
                                 </select>
-                                {% if status_filter or purpose_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
+                                {% if status_filter or role_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
                                 <a href="?tab=drones" class="th-filter-reset">&#10005; Скинути</a>
                                 {% endif %}
                             </div>
@@ -565,9 +592,7 @@
                             <input type="checkbox" class="group-check check-all" data-group="{{ forloop.counter0 }}" title="Вибрати групу">
                         </td>
                         <td data-label="Тип БПЛА">{{ group.type_label }}</td>
-                        <td data-label="Призначення">
-                            <span class="purpose-badge purpose-{{ group.purpose }}">{{ group.purpose_label }}</span>
-                        </td>
+                        <td data-label="Призначення">{{ group.role_name }}</td>
                         <td data-label="Дата партії" class="date-cell">{{ group.date|date:"d.m.Y" }}</td>
                         <td data-label="Комплект">
                             <span class="kit-{{ group.kit_status }}">{{ group.kit_label }}</span>
@@ -589,6 +614,7 @@
                                             <th style="width:40px;">#</th>
                                             <th>Статус</th>
                                             <th>Призначення</th>
+                                            <th>Режим</th>
                                             <th>Комплект</th>
                                             <th>Локація</th>
                                             <th></th>
@@ -601,14 +627,19 @@
                                             <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
                                             <td><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
                                             <td>{{ uav.role.name|default:"—" }}</td>
+                                            <td style="color:var(--text-muted);font-size:0.82rem;">
+                                                {% if uav.get_category == 'Радіо' %}
+                                                    {% if uav.uav_type.has_thermal %}Ніч{% else %}День{% endif %}
+                                                {% endif %}
+                                            </td>
                                             <td><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
                                             <td>
                                                 {% if uav.status == 'transit' and uav.pending_to_location %}
                                                     <span style="color:var(--text-muted);">{{ uav.current_location.name|default:"—" }}</span>
-                                                    <span style="color:#f59e0b;font-weight:600;"> → {{ uav.pending_to_location.name }}</span>
-                                                {% else %}
-                                                    {{ uav.current_location.name|default:"—" }}
-                                                {% endif %}
+                                                    <span style="color:#f59e0b;font-weight:600;"> → {{ uav.pending_to_location.name }}{% if uav.position %} «{{ uav.position.name }}»{% endif %}</span>
+                                                {% elif uav.current_location %}
+                                                    {{ uav.current_location.name }}{% if uav.position and uav.current_location.location_type == 'position' %} «{{ uav.position.name }}»{% endif %}
+                                                {% else %}—{% endif %}
                                             </td>
                                             <td class="actions-cell">
                                                 <a href="{% url 'equipment_accounting:uav_detail' uav.pk %}" class="btn-icon" data-tooltip="Деталі">
@@ -716,6 +747,21 @@
             }
             saveOpenKeys(keys);
         });
+    });
+})();
+
+// Date-input placeholder visibility
+(function () {
+    document.querySelectorAll('.date-ph-wrap').forEach(function (wrap) {
+        var inp = wrap.querySelector('input[type="date"]');
+        if (!inp) return;
+        function update() {
+            wrap.classList.toggle('filled', !!inp.value);
+        }
+        inp.addEventListener('focus',  function () { wrap.classList.add('focused'); });
+        inp.addEventListener('blur',   function () { wrap.classList.remove('focused'); update(); });
+        inp.addEventListener('change', update);
+        update();
     });
 })();
 </script>
@@ -1263,11 +1309,32 @@
         cb.addEventListener('change', updateBulkBar);
     });
 
+    var bulkPositionSelect = document.getElementById('bulk-position-select');
+    var bulkPositionNew = document.getElementById('bulk-position-new');
+
+    function updateBulkPositionVisibility() {
+        var opt = bulkLocationSelect.options[bulkLocationSelect.selectedIndex];
+        var isPosition = opt && opt.dataset.type === 'position' && actionSelect.value === 'given';
+        if (bulkPositionSelect) bulkPositionSelect.style.display = isPosition ? '' : 'none';
+        if (!isPosition && bulkPositionSelect) { bulkPositionSelect.value = ''; }
+        if (!isPosition && bulkPositionNew) { bulkPositionNew.style.display = 'none'; bulkPositionNew.value = ''; }
+    }
+    function updateBulkPositionNew() {
+        if (!bulkPositionSelect || !bulkPositionNew) return;
+        var isNew = bulkPositionSelect.value === '__new__';
+        bulkPositionNew.style.display = isNew ? '' : 'none';
+        if (!isNew) bulkPositionNew.value = '';
+    }
+
     // Show/hide location selector based on chosen action
     actionSelect.addEventListener('change', function() {
         var needsLocation = (actionSelect.value === 'given' || actionSelect.value === 'repair');
         bulkLocationSelect.style.display = needsLocation ? '' : 'none';
+        if (!needsLocation) { updateBulkPositionVisibility(); }
+        else updateBulkPositionVisibility();
     });
+    bulkLocationSelect.addEventListener('change', updateBulkPositionVisibility);
+    if (bulkPositionSelect) bulkPositionSelect.addEventListener('change', updateBulkPositionNew);
 
     bulkSubmit.addEventListener('click', function(e) {
         var action = actionSelect.value;
@@ -1335,16 +1402,39 @@
 function openGiveModal(url) {
     var overlay = document.getElementById('give-modal');
     var locationSelect = document.getElementById('give-location-select');
+    var positionWrap = document.getElementById('give-position-wrap');
+    var positionSelect = document.getElementById('give-position-select');
+    var positionNewInput = document.getElementById('give-position-new-input');
     var confirmBtn = document.getElementById('give-confirm-btn');
     var cancelBtn = overlay.querySelector('.btn-cancel');
 
-    // Reset location selection
-    if (locationSelect) locationSelect.value = '';
+    // Reset fields
+    locationSelect.value = '';
+    positionSelect.value = '';
+    positionNewInput.value = '';
+    positionNewInput.style.display = 'none';
+    positionWrap.style.display = 'none';
+
+    function onLocationChange() {
+        var opt = locationSelect.options[locationSelect.selectedIndex];
+        var isPosition = opt && opt.dataset.type === 'position';
+        positionWrap.style.display = isPosition ? '' : 'none';
+        if (!isPosition) { positionSelect.value = ''; positionNewInput.value = ''; positionNewInput.style.display = 'none'; }
+    }
+    function onPositionChange() {
+        var isNew = positionSelect.value === '__new__';
+        positionNewInput.style.display = isNew ? '' : 'none';
+        if (!isNew) positionNewInput.value = '';
+    }
+    locationSelect.addEventListener('change', onLocationChange);
+    positionSelect.addEventListener('change', onPositionChange);
 
     overlay.classList.add('visible');
 
     function close() {
         overlay.classList.remove('visible');
+        locationSelect.removeEventListener('change', onLocationChange);
+        positionSelect.removeEventListener('change', onPositionChange);
         confirmBtn.removeEventListener('click', onConfirm);
         cancelBtn.removeEventListener('click', close);
         document.removeEventListener('keydown', onKey);
@@ -1353,9 +1443,11 @@ function openGiveModal(url) {
 
     function onConfirm() {
         var form = document.getElementById('give-action-form');
-        var locationInput = document.getElementById('give-action-location');
+        document.getElementById('give-action-location').value = locationSelect.value;
+        var isNew = positionSelect.value === '__new__';
+        document.getElementById('give-action-position-id').value = isNew ? '' : positionSelect.value;
+        document.getElementById('give-action-position-new').value = isNew ? positionNewInput.value.trim() : '';
         form.action = url;
-        locationInput.value = locationSelect ? locationSelect.value : '';
         close();
         form.submit();
     }
@@ -1455,13 +1547,24 @@ function showModal(id, title, message, onConfirm) {
     <div class="modal-box">
         <h3>Віддати БПЛА</h3>
         <p>Куди переміщується дрон? (необов'язково)</p>
-        <div style="margin-bottom: 1.25rem;">
+        <div style="margin-bottom: 0.75rem;">
             <select id="give-location-select" style="width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none;">
                 <option value="">— Не вказано —</option>
                 {% for loc in locations_give %}
-                <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                <option value="{{ loc.pk }}" data-type="{{ loc.location_type }}">{{ loc.name }}</option>
                 {% endfor %}
             </select>
+        </div>
+        <div id="give-position-wrap" style="display:none; margin-bottom: 1.25rem;">
+            <select id="give-position-select" style="width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none;">
+                <option value="">— Оберіть позицію —</option>
+                {% for pos in positions %}
+                <option value="{{ pos.pk }}">{{ pos.name }}</option>
+                {% endfor %}
+                <option value="__new__">+ Нова позиція...</option>
+            </select>
+            <input type="text" id="give-position-new-input" placeholder="Назва нової позиції..." maxlength="100"
+                style="display:none; margin-top:0.5rem; width:100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; outline: none; box-sizing: border-box;">
         </div>
         <div class="modal-actions">
             <button type="button" class="btn-cancel">Скасувати</button>
@@ -1474,5 +1577,7 @@ function showModal(id, title, message, onConfirm) {
 <form method="post" id="give-action-form" action="" style="display:none;">
     {% csrf_token %}
     <input type="hidden" name="to_location_id" id="give-action-location" value="">
+    <input type="hidden" name="position_id" id="give-action-position-id" value="">
+    <input type="hidden" name="position_name_new" id="give-action-position-new" value="">
 </form>
 {% endblock %}

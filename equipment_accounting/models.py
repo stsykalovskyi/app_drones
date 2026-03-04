@@ -6,6 +6,19 @@ from django.contrib.contenttypes.models import ContentType
 
 # ============== ЛОКАЦІЇ ==============
 
+class Position(models.Model):
+    """Named sub-position within a position-type location (e.g. 'Авдіївка')."""
+    name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
+
+    class Meta:
+        verbose_name = "Позиція"
+        verbose_name_plural = "Позиції"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Location(models.Model):
     """Physical location a UAV or component can be at."""
 
@@ -444,6 +457,13 @@ class UAVInstance(models.Model):
         verbose_name="Додав"
     )
     notes = models.TextField(blank=True, verbose_name="Примітки")
+    position = models.ForeignKey(
+        'Position',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='uavs',
+        verbose_name="Позиція",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
