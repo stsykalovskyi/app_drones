@@ -56,6 +56,7 @@ def master_required(view_func):
     @login_required
     def _wrapped(request, *args, **kwargs):
         if (_is_master(request.user)
+                or request.user.has_perm('equipment_accounting.view_uavinstance')
                 or request.user.has_perm(PERM_ADD_UAV)
                 or request.user.has_perm(PERM_CHANGE_UAV)
                 or request.user.has_perm(PERM_DELETE_UAV)):
@@ -333,6 +334,26 @@ def equipment_list(request):
         "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
         "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
         "positions": Position.objects.all(),
+        "can_tab_components": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.add_component',
+                'equipment_accounting.change_component',
+                'equipment_accounting.delete_component',
+            ]
+        ),
+        "can_tab_types": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.add_dronemodel',    'equipment_accounting.change_dronemodel',    'equipment_accounting.delete_dronemodel',
+                'equipment_accounting.add_fpvdronetype',  'equipment_accounting.change_fpvdronetype',  'equipment_accounting.delete_fpvdronetype',
+                'equipment_accounting.add_opticaldronetype', 'equipment_accounting.change_opticaldronetype', 'equipment_accounting.delete_opticaldronetype',
+            ]
+        ),
+        "can_tab_templates": _is_master(request.user) or any(
+            request.user.has_perm(p) for p in [
+                'equipment_accounting.add_powertemplate',  'equipment_accounting.change_powertemplate',  'equipment_accounting.delete_powertemplate',
+                'equipment_accounting.add_videotemplate',  'equipment_accounting.change_videotemplate',  'equipment_accounting.delete_videotemplate',
+            ]
+        ),
     }
 
     return render(request, "equipment_accounting/equipment_list.html", ctx)
@@ -920,10 +941,11 @@ def uav_detail(request, pk):
         'pending_movement': pending_movement,
         'locations': Location.objects.all(),
         'photos': photos,
+        'can_edit_uav': _can(request.user, PERM_CHANGE_UAV),
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_photo_upload(request, uav_pk):
     uav = get_object_or_404(UAVInstance, pk=uav_pk)
     if request.method == 'POST':
@@ -933,7 +955,7 @@ def uav_photo_upload(request, uav_pk):
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_photo_delete(request, photo_pk):
     photo = get_object_or_404(UAVPhoto, pk=photo_pk)
     uav_pk = photo.uav_id
@@ -943,7 +965,7 @@ def uav_photo_delete(request, photo_pk):
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav_pk]))
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def uav_photo_edit(request, photo_pk):
     photo = get_object_or_404(UAVPhoto, pk=photo_pk)
     uav_pk = photo.uav_id
@@ -1145,6 +1167,8 @@ def uav_bulk_action(request):
             position, _ = Position.objects.get_or_create(name=position_name_new)
 
     if action == "delete":
+        if not _can(request.user, PERM_DELETE_UAV):
+            raise PermissionDenied
         qs.update(status='deleted')
         messages.success(request, f"Видалено {count} БПЛА.")
     elif action == "given":
@@ -1600,7 +1624,7 @@ def component_edit(request, pk):
     })
 
 
-@master_required
+@uav_perm_required(PERM_CHANGE_UAV)
 def component_mark_damaged(request, pk):
     """Mark a component as damaged and detach it from any UAV."""
     if request.method != "POST":

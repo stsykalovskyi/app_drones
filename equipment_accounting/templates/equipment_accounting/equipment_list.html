@@ -446,9 +446,9 @@
 
 <div class="tab-bar">
     <button class="tab-btn{% if tab == 'drones' %} active{% endif %}" type="button" data-tab="drones">БПЛА</button>
-    <button class="tab-btn{% if tab == 'components' %} active{% endif %}" type="button" data-tab="components">Комплектуючі</button>
-    <button class="tab-btn{% if tab == 'types' %} active{% endif %}" type="button" data-tab="types">Типи БПЛА</button>
-    <button class="tab-btn{% if tab == 'templates' %} active{% endif %}" type="button" data-tab="templates">Шаблони</button>
+    {% if can_tab_components %}<button class="tab-btn{% if tab == 'components' %} active{% endif %}" type="button" data-tab="components">Комплектуючі</button>{% endif %}
+    {% if can_tab_types %}<button class="tab-btn{% if tab == 'types' %} active{% endif %}" type="button" data-tab="types">Типи БПЛА</button>{% endif %}
+    {% if can_tab_templates %}<button class="tab-btn{% if tab == 'templates' %} active{% endif %}" type="button" data-tab="templates">Шаблони</button>{% endif %}
 </div>
 
 {# ── Tab: Drones ── #}
@@ -542,7 +542,7 @@
                 <option value="repair">Ремонт</option>
                 <option value="deferred">Відкладено</option>
                 <option value="given">Віддати</option>
-                <option value="delete">Видалити</option>
+                {% if can_delete_uav %}<option value="delete">Видалити</option>{% endif %}
             </select>
             <select name="to_location_id" id="bulk-location-select" style="display:none;">
                 <option value="">— Локація —</option>

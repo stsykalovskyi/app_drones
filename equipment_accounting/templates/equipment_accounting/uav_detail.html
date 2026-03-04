@@ -250,7 +250,7 @@
         <span class="transit-label">В дорозі до:</span>
         <span class="transit-dest">{{ uav.pending_to_location.name|default:"невідома локація" }}</span>
     </div>
-    {% if pending_movement %}
+    {% if pending_movement and can_edit_uav %}
     <form method="post" action="{% url 'equipment_accounting:uav_confirm_arrival' pending_movement.pk %}">
         {% csrf_token %}
         <button type="submit" class="btn-sm btn-success">&#10003; Підтвердити прибуття</button>
@@ -267,7 +267,7 @@
             {% if uav.status != 'transit' and uav.status != 'given' and uav.status != 'deleted' %}
             <button type="button" class="btn-sm" id="open-move-modal">&#8594; Перемістити</button>
             {% endif %}
-            <a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-sm">Редагувати</a>
+            {% if can_edit_uav %}<a href="{% url 'equipment_accounting:uav_edit' uav.pk %}" class="btn-sm">Редагувати</a>{% endif %}
         </div>
     </div>
     {% with dt=uav.uav_type %}
@@ -316,7 +316,9 @@
         {% endif %}
         <div class="info-row">
             <span class="info-label">Поточна локація</span>
-            <span class="info-value">{{ uav.current_location.name|default:"—" }}</span>
+            <span class="info-value">
+                {{ uav.current_location.name|default:"—" }}{% if uav.position %} · {{ uav.position.name }}{% endif %}
+            </span>
         </div>
         <div class="info-row">
             <span class="info-label">Призначення</span>
@@ -351,7 +353,7 @@
             <tr>
                 <th>Тип комплектуючої</th>
                 <th>Статус</th>
-                <th></th>
+                {% if can_edit_uav %}<th></th>{% endif %}
             </tr>
         </thead>
         <tbody>
@@ -359,6 +361,7 @@
             <tr>
                 <td>{{ comp.type_display }}</td>
                 <td><span class="status-badge">{{ comp.get_status_display }}</span></td>
+                {% if can_edit_uav %}
                 <td class="actions-cell">
                     <form method="post" action="{% url 'equipment_accounting:component_mark_damaged' comp.pk %}" style="display:inline;">
                         {% csrf_token %}
@@ -370,6 +373,7 @@
                         <button type="submit" class="btn-sm btn-danger">Відкріпити</button>
                     </form>
                 </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
@@ -379,8 +383,8 @@
     {% endif %}
 </div>
 
-{# ── Free components (hidden when UAV is fully kitted) ── #}
-{% if kit_status != 'full' %}
+{# ── Free components (hidden when UAV is fully kitted or user cannot edit) ── #}
+{% if can_edit_uav and kit_status != 'full' %}
 <div class="card section-card">
     <div class="toolbar">
         <h2>Вільні комплектуючі</h2>
@@ -416,30 +420,33 @@
 {% endif %}
 
 {# ── Photos ── #}
-{# Upload form lives outside the grid to avoid nesting inside <label> #}
+{% if can_edit_uav %}
 <form method="post" action="{% url 'equipment_accounting:uav_photo_upload' uav.pk %}" enctype="multipart/form-data" id="photo-upload-form">
     {% csrf_token %}
     <input type="file" name="photos" id="photo-file-input" multiple accept="image/*" style="display:none;">
 </form>
+{% endif %}
 
 <div class="card section-card">
     <div class="toolbar">
         <h2>Фото {% if photos %}<span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ photos|length }}</span>{% endif %}</h2>
     </div>
     <div class="photo-grid">
-        {# Upload tile — label[for] natively opens the file picker #}
+        {% if can_edit_uav %}
         <label for="photo-file-input" class="photo-upload-tile" title="Додати фото">
             <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             <span>Додати фото</span>
         </label>
+        {% endif %}
 
         {# Photo tiles #}
         {% for photo in photos %}
         <div class="photo-item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption }}">
             <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'Фото БПЛА' }}" loading="lazy">
             {% if photo.caption %}<div class="photo-caption">{{ photo.caption }}</div>{% endif %}
+            {% if can_edit_uav %}
             <div class="photo-item-actions">
                 <button type="button" class="photo-action-btn edit" data-photo-pk="{{ photo.pk }}" data-caption="{{ photo.caption }}" title="Редагувати підпис">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -449,6 +456,7 @@
                     <button type="submit" class="photo-action-btn delete" title="Видалити">✕</button>
                 </form>
             </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -535,7 +543,7 @@
                 <td>
                     {% if m.confirmed_at %}
                         <span style="color:#22c55e;font-size:0.8rem;">&#10003; {{ m.confirmed_at|date:"d.m H:i" }}</span>
-                    {% elif m.pre_transit_status %}
+                    {% elif m.pre_transit_status and can_edit_uav %}
                         <form method="post" action="{% url 'equipment_accounting:uav_confirm_arrival' m.pk %}">
                             {% csrf_token %}
                             <button type="submit" class="btn-sm btn-success" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Підтвердити</button>
