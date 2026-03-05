@@ -477,6 +477,16 @@
                 <button type="button" class="btn-icon" id="view-badge-btn" data-tooltip="Картки">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </button>
+                <div style="position:relative;display:flex;align-items:center;">
+                    <input type="search" id="uav-search-input" value="{{ search_q }}" placeholder="Пошук…"
+                        style="padding:0.3rem 2rem 0.3rem 0.6rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:0.85rem;width:160px;">
+                    <button type="button" id="uav-search-go" style="position:absolute;right:4px;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;" data-tooltip="Шукати">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </button>
+                </div>
+                <button type="button" class="btn-icon" id="collapse-all-btn" data-tooltip="Згорнути все">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>
+                </button>
                 <div class="export-wrap">
                     <button type="button" class="button ghost" id="export-toggle-btn">Excel ↓</button>
                     <div class="export-panel" id="export-panel">
@@ -527,6 +537,7 @@
         {# GET form for filters — inputs use form="uav-filter-form" attribute #}
         <form method="get" id="uav-filter-form">
             <input type="hidden" name="tab" value="drones">
+            <input type="hidden" name="q" id="uav-search-hidden" value="{{ search_q }}">
         </form>
 
         {# POST form for bulk actions — wraps the table #}
@@ -577,13 +588,24 @@
                     </tr>
                     <tr class="filter-row">
                         {% if can_edit_uav or can_delete_uav %}<th class="th-filter"></th>{% endif %}
-                        <th class="th-filter">
-                            <select name="type" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
-                                <option value="">Всі типи</option>
-                                {% for val, label in type_choices %}
-                                <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                        <th class="th-filter" style="position:relative;">
+                            <input type="hidden" name="type" id="type-filter-val" value="{{ type_filter }}" form="uav-filter-form">
+                            <input type="text" id="type-filter-display" class="th-filter-input" placeholder="Всі типи"
+                                autocomplete="off" readonly
+                                value="{% for val, label in type_choices %}{% if type_filter == val %}{{ label }}{% endif %}{% endfor %}"
+                                style="cursor:pointer;">
+                            <div id="type-filter-dropdown" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:220px;padding:0.4rem 0;">
+                                <div style="padding:0.3rem 0.5rem;">
+                                    <input type="text" id="type-filter-search" placeholder="Пошук…" autocomplete="off"
+                                        style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:0.82rem;box-sizing:border-box;">
+                                </div>
+                                <ul id="type-filter-list" style="list-style:none;margin:0;padding:0;max-height:220px;overflow-y:auto;">
+                                    <li data-val="" style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.85rem;">Всі типи</li>
+                                    {% for val, label in type_choices %}
+                                    <li data-val="{{ val }}" style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.85rem;">{{ label }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         </th>
                         <th class="th-filter">
                             <select name="role" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
@@ -625,7 +647,7 @@
                                     <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
                                     {% endfor %}
                                 </select>
-                                {% if status_filter or role_filter or type_filter or kit_filter or location_filter or date_from or date_to %}
+                                {% if status_filter or role_filter or type_filter or kit_filter or location_filter or date_from or date_to or search_q %}
                                 <a href="?tab=drones" class="th-filter-reset">&#10005; Скинути</a>
                                 {% endif %}
                             </div>
@@ -646,7 +668,12 @@
                         <td data-label="Комплект">
                             <span class="kit-{{ group.kit_status }}">{{ group.kit_label }}</span>
                         </td>
-                        <td data-label="Всього" style="text-align:center;font-weight:700;">{{ group.total }}</td>
+                        <td data-label="Всього">
+                            <span style="font-weight:700;margin-right:0.4rem;">{{ group.total }}</span>
+                            {% for status, label, count in group.status_items %}
+                            <span class="st-pill st-{{ status }}">{{ count }} {{ label }}</span>
+                            {% endfor %}
+                        </td>
                         <td data-label="" class="actions-cell">
                             <button type="button" class="btn-icon expand-btn" data-target="grp-{{ forloop.counter0 }}" data-key="{{ group.type_key }}-{{ group.date_str }}-{{ group.kit_status }}" data-tooltip="Показати дрони">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -802,6 +829,82 @@
         });
     });
 })();
+
+// UAV search
+(function () {
+    var input  = document.getElementById('uav-search-input');
+    var hidden = document.getElementById('uav-search-hidden');
+    var form   = document.getElementById('uav-filter-form');
+    function submit() {
+        hidden.value = input.value;
+        form.submit();
+    }
+    document.getElementById('uav-search-go').addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+    input.addEventListener('search',  function ()  { if (!input.value) submit(); });
+})();
+
+// Type filter searchable dropdown
+(function () {
+    var display  = document.getElementById('type-filter-display');
+    var hidden   = document.getElementById('type-filter-val');
+    var dropdown = document.getElementById('type-filter-dropdown');
+    var search   = document.getElementById('type-filter-search');
+    var list     = document.getElementById('type-filter-list');
+    if (!display) return;
+
+    function open() {
+        dropdown.style.display = '';
+        search.value = '';
+        filterList('');
+        search.focus();
+    }
+    function close() { dropdown.style.display = 'none'; }
+
+    function filterList(q) {
+        var lq = q.toLowerCase();
+        Array.prototype.forEach.call(list.querySelectorAll('li'), function (li) {
+            li.style.display = li.textContent.toLowerCase().indexOf(lq) !== -1 ? '' : 'none';
+        });
+    }
+
+    display.addEventListener('click', function (e) {
+        e.stopPropagation();
+        dropdown.style.display === 'none' ? open() : close();
+    });
+    search.addEventListener('input', function () { filterList(search.value); });
+    search.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    list.addEventListener('click', function (e) {
+        var li = e.target.closest('li');
+        if (!li) return;
+        hidden.value  = li.dataset.val;
+        display.value = li.dataset.val ? li.textContent.trim() : '';
+        close();
+        document.getElementById('uav-filter-form').submit();
+    });
+
+    list.querySelectorAll('li').forEach(function (li) {
+        li.addEventListener('mouseenter', function () { li.style.background = 'var(--accent-dim)'; });
+        li.addEventListener('mouseleave', function () { li.style.background = ''; });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!dropdown.contains(e.target) && e.target !== display) close();
+    });
+})();
+
+// Collapse all groups
+document.getElementById('collapse-all-btn').addEventListener('click', function () {
+    document.querySelectorAll('.group-detail-row').forEach(function (row) {
+        row.style.display = 'none';
+    });
+    document.querySelectorAll('.expand-btn').forEach(function (btn) {
+        btn.classList.remove('open');
+        btn.setAttribute('data-tooltip', 'Показати дрони');
+    });
+    saveOpenKeys([]);
+});
 
 // Date-input placeholder visibility
 (function () {

@@ -248,6 +248,7 @@ class FPVDroneType(BaseDroneType):
         Frequency,
         on_delete=models.PROTECT,
         related_name='fpv_video',
+        null=True, blank=True,
         verbose_name="Частота відео"
     )
 

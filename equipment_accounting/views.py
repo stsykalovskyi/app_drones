@@ -178,7 +178,19 @@ def equipment_list(request):
             pass
 
     if search_q:
-        uavs = uavs.filter(Q(notes__icontains=search_q))
+        fpv_ids  = FPVDroneType.objects.filter(
+            Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
+        ).values_list('pk', flat=True)
+        opt_ids  = OpticalDroneType.objects.filter(
+            Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
+        ).values_list('pk', flat=True)
+        ct_fpv = ContentType.objects.get_for_model(FPVDroneType)
+        ct_opt = ContentType.objects.get_for_model(OpticalDroneType)
+        uavs = uavs.filter(
+            Q(notes__icontains=search_q) |
+            Q(content_type=ct_fpv, object_id__in=fpv_ids) |
+            Q(content_type=ct_opt, object_id__in=opt_ids)
+        )
 
     # Kit filter requires Python-level evaluation per object
     if kit_filter in (UAVInstance.KIT_FULL, UAVInstance.KIT_PARTIAL, UAVInstance.KIT_NONE):
