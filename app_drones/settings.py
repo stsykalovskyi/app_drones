@@ -339,7 +339,7 @@ UNFOLD = {
                         ),
                     },
                     {
-                        "title": "Шаблони відео",
+                        "title": "Шаблони котушок",
                         "icon": "videocam",
                         "link": reverse_lazy(
                             "admin:equipment_accounting_videotemplate_changelist"
