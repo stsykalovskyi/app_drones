@@ -135,7 +135,9 @@ def equipment_list(request):
 
     base_qs = UAVInstance.objects.select_related(
         "content_type", "created_by", "created_by__profile", "current_location", "role", "position"
-    ).prefetch_related("components")
+    ).prefetch_related(
+        Prefetch("components", queryset=Component.objects.only("kind", "assigned_to_uav_id"))
+    )
 
     uavs = base_qs.exclude(status='deleted')
 
@@ -203,9 +205,29 @@ def equipment_list(request):
 
     uavs_ordered = list(uavs.order_by("-created_at"))
 
-    # Pre-fetch FPV thermal flags for purpose computation (avoids N+1)
+    # Pre-fetch all drone types into dicts — avoids N+1 GenericFK access
     _fpv_ct_id = ContentType.objects.get_for_model(FPVDroneType).id
-    _fpv_thermal = dict(FPVDroneType.objects.values_list('pk', 'has_thermal'))
+    _opt_ct_id = ContentType.objects.get_for_model(OpticalDroneType).id
+    _fpv_types = {dt.pk: dt for dt in FPVDroneType.objects.select_related("model").only(
+        "id", "prop_size", "has_thermal", "model__name"
+    )}
+    _opt_types = {dt.pk: dt for dt in OpticalDroneType.objects.select_related("model").only(
+        "id", "prop_size", "has_thermal", "model__name"
+    )}
+
+    def _type_label(uav):
+        dt = _fpv_types.get(uav.object_id) if uav.content_type_id == _fpv_ct_id else _opt_types.get(uav.object_id)
+        return str(dt) if dt else "—"
+
+    def _is_optical(uav):
+        return uav.content_type_id == _opt_ct_id
+
+    def _thermal(uav):
+        if uav.content_type_id == _fpv_ct_id:
+            dt = _fpv_types.get(uav.object_id)
+            return dt.has_thermal if dt else False
+        dt = _opt_types.get(uav.object_id)
+        return dt.has_thermal if dt else False
 
     # Badge groups: group by (drone type, creation date, kit status)
     _badge_seen = {}
@@ -215,16 +237,16 @@ def equipment_list(request):
         _kit = _uav.get_kit_status()
         _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date(), _kit)
         if _key not in _badge_seen:
-            if _uav.content_type_id == _fpv_ct_id:
-                _is_thermal = _fpv_thermal.get(_uav.object_id, False)
-                _purpose = 'ніч' if _is_thermal else 'день'
-                _purpose_label = 'Ніч' if _is_thermal else 'День'
+            if not _is_optical(_uav):
+                _is_th = _thermal(_uav)
+                _purpose = 'ніч' if _is_th else 'день'
+                _purpose_label = 'Ніч' if _is_th else 'День'
             else:
                 _purpose = 'ударні'
                 _purpose_label = 'Ударні'
             _g = {
-                'type_label': str(_uav.uav_type),
-                'category': _uav.get_category(),
+                'type_label': _type_label(_uav),
+                'category': 'Оптика' if _is_optical(_uav) else 'Радіо',
                 'purpose': _purpose,
                 'purpose_label': _purpose_label,
                 'role_name': _uav.role.name if _uav.role_id else '—',
@@ -267,14 +289,14 @@ def equipment_list(request):
     for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
         type_choices.append((f"{opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
 
-    # Summary counts — all non-deleted drones
+    # Summary counts — single aggregated query
     all_uavs = UAVInstance.objects.exclude(status='deleted')
     total_drones = all_uavs.count()
-    status_counts = {}
-    for code, label in UAVInstance.STATUS_CHOICES:
-        if code == 'deleted':
-            continue
-        status_counts[code] = {"label": label, "count": all_uavs.filter(status=code).count()}
+    _status_agg = {row['status']: row['cnt'] for row in all_uavs.values('status').annotate(cnt=Count('pk'))}
+    status_counts = {
+        code: {"label": label, "count": _status_agg.get(code, 0)}
+        for code, label in UAVInstance.STATUS_CHOICES if code != 'deleted'
+    }
 
     # Components with filters
     comp_status_filter     = request.GET.get("comp_status", "")

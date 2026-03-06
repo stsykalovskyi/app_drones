@@ -462,6 +462,12 @@ class UAVInstance(models.Model):
         verbose_name = "БПЛА (екземпляр)"
         verbose_name_plural = "БПЛА (екземпляри)"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status'], name='uav_status_idx'),
+            models.Index(fields=['created_at'], name='uav_created_at_idx'),
+            models.Index(fields=['content_type', 'object_id'], name='uav_gfk_idx'),
+            models.Index(fields=['status', 'content_type', 'object_id'], name='uav_status_gfk_idx'),
+        ]
 
     def __str__(self):
         return f"БПЛА #{self.pk} - {self.uav_type}"
@@ -485,18 +491,17 @@ class UAVInstance(models.Model):
     def get_kit_status(self):
         """Compute kit completeness based on assigned components.
 
-        Expected per drone type:
-        - FPV: 1 battery
-        - Optical: 1 battery + 1 spool
+        Uses prefetch cache (list iteration) — no extra DB queries.
+        Expected: FPV → 1 battery; Optical → 1 battery + 1 spool.
         """
-        assigned = self.components.all()
-        if not assigned.exists():
+        assigned = list(self.components.all())
+        if not assigned:
             return self.KIT_NONE
 
-        has_battery = assigned.filter(kind='battery').exists()
+        has_battery = any(c.kind == 'battery' for c in assigned)
 
         if self.content_type.model == 'opticaldronetype':
-            has_spool = assigned.filter(kind='spool').exists()
+            has_spool = any(c.kind == 'spool' for c in assigned)
             if has_battery and has_spool:
                 return self.KIT_FULL
             return self.KIT_PARTIAL
