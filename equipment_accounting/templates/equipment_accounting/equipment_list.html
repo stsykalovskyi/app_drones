@@ -18,11 +18,16 @@
         display: flex; gap: 0.25rem;
         margin-bottom: 1.5rem;
         border-bottom: 1px solid var(--border);
+        overflow-x: auto; overflow-y: hidden;
+        scrollbar-width: none; -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
     }
+    .tab-bar::-webkit-scrollbar { display: none; }
     .tab-btn {
         padding: 0.65rem 1.2rem; border: none; background: none;
         color: var(--text-muted); font-size: 0.85rem; font-weight: 600;
         cursor: pointer; position: relative; transition: color 0.15s ease;
+        white-space: nowrap; flex-shrink: 0;
     }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.active { color: var(--accent); }
