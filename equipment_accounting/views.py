@@ -306,17 +306,16 @@ def equipment_list(request):
         for _g in current_groups:
             _g['uavs'] = [uavs_detail[pk] for pk in _group_uav_ids.get(_g['_key'], []) if pk in uavs_detail]
 
-    # Build drone type choices for filter
-    type_choices = []
-    for dt in FPVDroneType.objects.select_related("model", "model__manufacturer"):
-        type_choices.append((f"{_fpv_ct.pk}-{dt.pk}", f"[Радіо] {dt}"))
-    for dt in OpticalDroneType.objects.select_related("model", "model__manufacturer"):
-        type_choices.append((f"{_opt_ct.pk}-{dt.pk}", f"[Оптика] {dt}"))
+    # Build drone type choices — reuse already-fetched type dicts (no extra queries)
+    type_choices = (
+        [(f"{_fpv_ct_id}-{dt.pk}", f"[Радіо] {dt}") for dt in sorted(_fpv_types.values(), key=str)] +
+        [(f"{_opt_ct_id}-{dt.pk}", f"[Оптика] {dt}") for dt in sorted(_opt_types.values(), key=str)]
+    )
 
-    # Summary counts — single aggregated query
+    # Summary counts — single aggregated query, total derived from it (no COUNT(*) needed)
     all_uavs = UAVInstance.objects.exclude(status='deleted')
-    total_drones = all_uavs.count()
     _status_agg = {row['status']: row['cnt'] for row in all_uavs.values('status').annotate(cnt=Count('pk'))}
+    total_drones = sum(_status_agg.values())
     status_counts = {
         code: {"label": label, "count": _status_agg.get(code, 0)}
         for code, label in UAVInstance.STATUS_CHOICES if code != 'deleted'
@@ -329,44 +328,47 @@ def equipment_list(request):
     comp_model_filter      = request.GET.get("comp_model", "")
     comp_drone_type_filter = request.GET.get("comp_drone_type", "")
 
-    components_qs = Component.objects.select_related(
-        "power_template", "video_template", "other_type", "assigned_to_uav"
-    ).exclude(status='given').order_by("-created_at")
-    if comp_status_filter:
-        components_qs = components_qs.filter(status=comp_status_filter)
-    if comp_category_filter in ('battery', 'spool', 'other'):
-        components_qs = components_qs.filter(kind=comp_category_filter)
-    if comp_assign_filter == "assigned":
-        components_qs = components_qs.filter(assigned_to_uav__isnull=False)
-    elif comp_assign_filter == "free":
-        components_qs = components_qs.filter(assigned_to_uav__isnull=True)
-    if comp_model_filter:
-        try:
-            model_id = int(comp_model_filter)
-        except ValueError:
-            model_id = None
-        if model_id:
-            pt_ids = list(
-                FPVDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
-            ) + list(
-                OpticalDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
-            )
+    # Only query components when the components tab is active (avoids COUNT + scan on every drone-tab load)
+    if tab == 'components':
+        components_qs = Component.objects.select_related(
+            "power_template", "video_template", "other_type", "assigned_to_uav"
+        ).exclude(status='given').order_by("-created_at")
+        if comp_status_filter:
+            components_qs = components_qs.filter(status=comp_status_filter)
+        if comp_category_filter in ('battery', 'spool', 'other'):
+            components_qs = components_qs.filter(kind=comp_category_filter)
+        if comp_assign_filter == "assigned":
+            components_qs = components_qs.filter(assigned_to_uav__isnull=False)
+        elif comp_assign_filter == "free":
+            components_qs = components_qs.filter(assigned_to_uav__isnull=True)
+        if comp_model_filter:
+            try:
+                model_id = int(comp_model_filter)
+            except ValueError:
+                model_id = None
+            if model_id:
+                pt_ids = list(
+                    FPVDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
+                ) + list(
+                    OpticalDroneType.objects.filter(model_id=model_id).values_list('power_template_id', flat=True)
+                )
+                components_qs = components_qs.filter(
+                    Q(kind='battery', power_template_id__in=pt_ids) |
+                    Q(kind='spool', video_template__drone_model_id=model_id)
+                )
+        if comp_drone_type_filter == 'fpv':
+            fpv_pt_ids = FPVDroneType.objects.values_list('power_template_id', flat=True)
+            components_qs = components_qs.filter(kind='battery', power_template_id__in=fpv_pt_ids)
+        elif comp_drone_type_filter == 'optical':
+            opt_pt_ids = OpticalDroneType.objects.values_list('power_template_id', flat=True)
             components_qs = components_qs.filter(
-                Q(kind='battery', power_template_id__in=pt_ids) |
-                Q(kind='spool', video_template__drone_model_id=model_id)
+                Q(kind='battery', power_template_id__in=opt_pt_ids) |
+                Q(kind='spool')
             )
-    if comp_drone_type_filter == 'fpv':
-        fpv_pt_ids = FPVDroneType.objects.values_list('power_template_id', flat=True)
-        components_qs = components_qs.filter(kind='battery', power_template_id__in=fpv_pt_ids)
-    elif comp_drone_type_filter == 'optical':
-        opt_pt_ids = OpticalDroneType.objects.values_list('power_template_id', flat=True)
-        components_qs = components_qs.filter(
-            Q(kind='battery', power_template_id__in=opt_pt_ids) |
-            Q(kind='spool')
-        )
-
-    comp_paginator  = Paginator(components_qs, 20)
-    comp_page_obj   = comp_paginator.get_page(request.GET.get("cpage"))
+        comp_paginator = Paginator(components_qs, 20)
+        comp_page_obj  = comp_paginator.get_page(request.GET.get("cpage"))
+    else:
+        comp_page_obj = None
 
     # Drone types
     fpv_drone_types = FPVDroneType.objects.select_related(
@@ -375,20 +377,19 @@ def equipment_list(request):
     ).prefetch_related("control_frequencies")
     optical_drone_types = OpticalDroneType.objects.select_related(
         "model", "model__manufacturer", "purpose",
-        "video_template", "power_template",
+        "video_template", "video_template__drone_model", "power_template",
     ).prefetch_related("control_frequencies")
 
     # Templates (exclude soft-deleted)
     power_templates = PowerTemplate.objects.filter(is_deleted=False)
-    video_templates = VideoTemplate.objects.filter(is_deleted=False)
+    video_templates = VideoTemplate.objects.filter(is_deleted=False).select_related("drone_model")
 
-    # Reference data
+    # Reference data — evaluated once, reused in ctx to avoid duplicate queries
     manufacturers = Manufacturer.objects.all()
     drone_models = DroneModel.objects.select_related("manufacturer").all()
-
-    position_location_ids = list(
-        Location.objects.filter(name='Позиція').values_list('pk', flat=True)
-    )
+    _locations = list(Location.objects.annotate(uav_count=Count('current_uavs')))
+    position_location_ids = [loc.pk for loc in _locations if loc.name == 'Позиція']
+    _positions = list(Position.objects.annotate(uav_count=Count('uavs')))
 
     ctx = {
         "tab": tab,
@@ -421,15 +422,15 @@ def equipment_list(request):
         "video_templates": video_templates,
         "manufacturers": manufacturers,
         "drone_models": drone_models,
-        "locations": Location.objects.all(),
-        "locations_give": Location.objects.all(),
-        "all_positions": Position.objects.annotate(uav_count=Count('uavs')),
+        "locations": _locations,
+        "locations_give": _locations,
+        "all_positions": _positions,
         "total_uavs": total_uavs,
         "position_location_ids": position_location_ids,
         "can_add_uav":    _can(request.user, PERM_ADD_UAV),
         "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
         "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
-        "positions": Position.objects.all(),
+        "positions": _positions,
         "can_add_component":    _is_master(request.user) or request.user.has_perm('equipment_accounting.add_component'),
         "can_edit_component":   _is_master(request.user) or request.user.has_perm('equipment_accounting.change_component'),
         "can_delete_component": _is_master(request.user) or request.user.has_perm('equipment_accounting.delete_component'),

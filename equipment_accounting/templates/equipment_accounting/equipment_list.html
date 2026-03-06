@@ -4,6 +4,9 @@
 
 {% block head %}
 <style>
+    [data-theme="dark"]  { --row-selected-bg: rgba(84, 246, 199, 0.18); }
+    [data-theme="light"] { --row-selected-bg: rgba(5, 150, 105, 0.14); }
+
     .eq-hero { margin-bottom: 1.5rem; }
     .eq-hero h1 {
         font-size: clamp(1.3rem, 3vw, 1.7rem);
@@ -301,6 +304,10 @@
             padding: 0.6rem 3rem 0.6rem 0.75rem;
             border-bottom: 1px solid var(--border);
         }
+        .group-uavs-inner .group-uav-row.row-selected {
+            background: var(--row-selected-bg);
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
         .group-uavs-inner .group-uav-row td { display: none; border: none; padding: 0; }
         .group-uavs-inner .group-uav-row .td-check { display: none !important; }
         .group-uavs-inner .group-uav-row .td-id { display: none !important; }
@@ -382,6 +389,8 @@
     .group-uav-row td { padding: 0.6rem 0.75rem; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
     .group-uav-row:last-child td { border-bottom: none; }
     .group-uav-row:hover td { background: var(--accent-dim); }
+    .group-uav-row.row-selected td { background: var(--row-selected-bg); }
+    .group-uav-row.row-selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
     .expand-btn svg { transition: transform 0.2s ease; }
     .expand-btn.open svg { transform: rotate(90deg); }
 
@@ -802,9 +811,7 @@
                                             <td data-label="Статус"><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
                                             <td data-label="Призначення">{{ uav.role.name|default:"—" }}</td>
                                             <td data-label="Режим" style="color:var(--text-muted);font-size:0.82rem;">
-                                                {% if uav.get_category == 'Радіо' %}
-                                                    {% if uav.uav_type.has_thermal %}Ніч{% else %}День{% endif %}
-                                                {% endif %}
+                                                {% if group.category == 'Радіо' %}{{ group.purpose_label }}{% endif %}
                                             </td>
                                             <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
                                             <td data-label="Локація">
@@ -1480,9 +1487,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
                     <td data-label="Назва">{{ loc.name }}</td>
                     <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
                     <td data-label="БПЛА">
-                        {% with cnt=loc.current_uavs.count %}
-                        {% if cnt %}<span style="font-weight:600;">{{ cnt }}</span>{% else %}—{% endif %}
-                        {% endwith %}
+                        {% if loc.uav_count %}<span style="font-weight:600;">{{ loc.uav_count }}</span>{% else %}—{% endif %}
                     </td>
                     {% if can_edit_location or can_delete_location %}
                     <td data-label="" class="actions-cell">
@@ -1580,6 +1585,13 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
         return document.querySelectorAll('.row-check');
     }
 
+    function syncRowHighlight() {
+        document.querySelectorAll('.row-check').forEach(function(cb) {
+            var row = cb.closest('tr');
+            if (row) row.classList.toggle('row-selected', cb.checked);
+        });
+    }
+
     function updateBulkBar() {
         var checked = document.querySelectorAll('.row-check:checked');
         var count = checked.length;
@@ -1588,6 +1600,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
         bulkBar.classList.toggle('visible', count > 0);
         headerCheckAll.checked = count > 0 && count === total;
         headerCheckAll.indeterminate = count > 0 && count < total;
+        syncRowHighlight();
 
         // Update each group checkbox state
         document.querySelectorAll('.group-check').forEach(function(gc) {

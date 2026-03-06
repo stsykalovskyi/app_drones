@@ -360,6 +360,9 @@ class Component(models.Model):
         verbose_name = "Комплектуюча"
         verbose_name_plural = "Комплектуючі"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['assigned_to_uav', 'kind'], name='component_uav_kind_idx'),
+        ]
 
     def __str__(self):
         if self.kind == 'battery':
