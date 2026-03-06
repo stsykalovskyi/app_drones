@@ -567,7 +567,7 @@
 
     <div class="card">
         <div class="toolbar">
-            <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
+            <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ total_uavs }}</span></h2>
             <div class="toolbar-controls" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                 <button type="button" class="btn-icon" id="view-table-btn" data-tooltip="Таблиця">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -608,9 +608,9 @@
 
         {# ── Badge view ── #}
         <div id="uav-badge-view" style="display:none;">
-            {% if badge_groups %}
+            {% if page_obj.object_list %}
             <div class="badge-grid">
-                {% for group in badge_groups %}
+                {% for group in page_obj %}
                 <a href="?tab=drones&type={{ group.type_key }}&date_from={{ group.date_str }}&date_to={{ group.date_str }}" class="drone-badge">
                     <div class="badge-top">
                         <span class="cat-chip {% if group.category == 'Радіо' %}cat-chip-radio{% else %}cat-chip-optical{% endif %}">{{ group.category }}</span>
@@ -753,7 +753,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for group in badge_groups %}
+                    {% for group in page_obj %}
                     <tr class="group-row">
                         {% if can_edit_uav or can_delete_uav %}
                         <td class="th-check">
@@ -851,6 +851,24 @@
             </table>
         </div>{# /uav-table-view #}
         </form>{# /uav-bulk-form #}
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination" style="margin-top:1rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+            {% if page_obj.has_previous %}
+            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">‹ Попередня</a>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <span style="padding:0.3rem 0.7rem;background:var(--accent);color:#fff;border-radius:6px;font-size:0.85rem;">{{ num }}</span>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}" style="padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">Наступна ›</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
