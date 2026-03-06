@@ -1731,22 +1731,38 @@ def component_available_uavs(request):
     })
 
 
-@uav_perm_required(PERM_DELETE_COMPONENT)
+@uav_perm_required(PERM_CHANGE_COMPONENT)
 def component_bulk_action(request):
-    """Handle bulk delete for selected components."""
+    """Handle bulk actions (mark damaged / restore / delete) for selected components."""
     if request.method != "POST":
         return redirect("equipment_accounting:equipment_list")
 
     ids = request.POST.getlist("selected")
+    action = request.POST.get("bulk_action", "")
+    redirect_url = f"{reverse('equipment_accounting:equipment_list')}?tab=components"
+
     if not ids:
         messages.warning(request, "Нічого не обрано.")
-        return redirect("equipment_accounting:equipment_list" + "?tab=components")
+        return redirect(redirect_url)
 
     qs = Component.objects.filter(pk__in=ids)
     count = qs.count()
-    qs.delete()
-    messages.success(request, f"Видалено {count} комплектуючих.")
-    return redirect(f"{reverse('equipment_accounting:equipment_list')}?tab=components")
+
+    if action == "damaged":
+        qs.update(status="damaged", assigned_to_uav_id=None)
+        messages.success(request, f"Позначено пошкодженими: {count}.")
+    elif action == "restore":
+        qs.update(status="in_use")
+        messages.success(request, f"Відновлено: {count}.")
+    elif action == "delete":
+        if not request.user.has_perm(PERM_DELETE_COMPONENT):
+            raise PermissionDenied
+        qs.delete()
+        messages.success(request, f"Видалено {count} комплектуючих.")
+    else:
+        messages.warning(request, "Оберіть дію.")
+
+    return redirect(redirect_url)
 
 
 @uav_perm_required(PERM_ADD_COMPONENT)

@@ -1090,10 +1090,18 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
         <form method="post" action="{% url 'equipment_accounting:component_bulk_action' %}" id="comp-bulk-form">
             {% csrf_token %}
 
-            {% if can_delete_component %}
+            {% if can_edit_component or can_delete_component %}
             <div class="bulk-bar" id="comp-bulk-bar">
                 <span class="bulk-count">Обрано: <span id="comp-bulk-count-num">0</span></span>
-                <button type="submit" class="btn-sm btn-danger" id="comp-bulk-submit">Видалити</button>
+                <select id="comp-bulk-action-select" name="bulk_action">
+                    <option value="">— Дія —</option>
+                    {% if can_edit_component %}
+                    <option value="damaged">Пошкоджено</option>
+                    <option value="restore">Відновити</option>
+                    {% endif %}
+                    {% if can_delete_component %}<option value="delete">Видалити</option>{% endif %}
+                </select>
+                <button type="submit" class="btn-sm btn-danger" id="comp-bulk-submit">Застосувати</button>
             </div>
             {% endif %}
 
@@ -1743,12 +1751,13 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
     if (!compCheckAll) return;
 
     var compRowChecks = document.querySelectorAll('.comp-row-check');
+    var compActionSelect = document.getElementById('comp-bulk-action-select');
 
     function updateCompBulkBar() {
         var checked = document.querySelectorAll('.comp-row-check:checked');
         var count = checked.length;
-        compBulkCount.textContent = count;
-        compBulkBar.classList.toggle('visible', count > 0);
+        if (compBulkCount) compBulkCount.textContent = count;
+        if (compBulkBar) compBulkBar.classList.toggle('visible', count > 0);
         compCheckAll.checked = count > 0 && count === compRowChecks.length;
         compCheckAll.indeterminate = count > 0 && count < compRowChecks.length;
     }
@@ -1762,16 +1771,26 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
         cb.addEventListener('change', updateCompBulkBar);
     });
 
-    compBulkSubmit.addEventListener('click', function (e) {
-        e.preventDefault();
-        var count = document.querySelectorAll('.comp-row-check:checked').length;
-        showModal(
-            'confirm-modal',
-            'Видалити комплектуючі',
-            'Видалити ' + count + ' комплектуючих? Цю дію не можна скасувати.',
-            function () { compBulkForm.submit(); }
-        );
-    });
+    if (compBulkSubmit) {
+        compBulkSubmit.addEventListener('click', function (e) {
+            e.preventDefault();
+            var action = compActionSelect ? compActionSelect.value : 'delete';
+            var count = document.querySelectorAll('.comp-row-check:checked').length;
+            if (!action) { alert('Оберіть дію.'); return; }
+            var titles   = { damaged: 'Пошкоджено', restore: 'Відновити', delete: 'Видалити' };
+            var messages = {
+                damaged: 'Позначити ' + count + ' комплектуючих як пошкоджені?',
+                restore: 'Відновити ' + count + ' комплектуючих?',
+                delete:  'Видалити '  + count + ' комплектуючих? Цю дію не можна скасувати.',
+            };
+            showModal(
+                'confirm-modal',
+                titles[action]   || 'Підтвердити',
+                messages[action] || 'Продовжити?',
+                function () { compBulkForm.submit(); }
+            );
+        });
+    }
 })();
 
 // Per-row give modal
