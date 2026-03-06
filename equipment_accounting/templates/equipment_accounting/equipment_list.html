@@ -676,7 +676,7 @@
             <table class="eq-table">
                 <thead>
                     <tr>
-                        {% if can_edit_uav or can_delete_uav %}<th class="th-check"><input type="checkbox" class="check-all" id="check-all"></th>{% endif %}
+                        {% if can_edit_uav or can_delete_uav %}<th class="th-check"><input type="checkbox" class="check-all" id="check-all" data-tooltip="Вибрати всі · Shift+клік для діапазону"></th>{% endif %}
                         <th>Тип БПЛА</th>
                         <th>Призначення</th>
                         <th>Дата партії</th>
@@ -1641,9 +1641,35 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
         });
     });
 
-    // Individual UAV checkboxes
+    // Individual UAV checkboxes — shift+click selects a range
+    var lastCheckedRowCheck = null;
+
+    function getVisibleRowChecks() {
+        return Array.from(document.querySelectorAll('.row-check')).filter(function(cb) {
+            return cb.offsetParent !== null;
+        });
+    }
+
     document.querySelectorAll('.row-check').forEach(function(cb) {
         cb.addEventListener('change', updateBulkBar);
+        cb.addEventListener('click', function(e) {
+            if (e.shiftKey) {
+                // Prevent text selection that shift+click can cause
+                window.getSelection && window.getSelection().removeAllRanges();
+                if (lastCheckedRowCheck && lastCheckedRowCheck !== cb) {
+                    var visible = getVisibleRowChecks();
+                    var a = visible.indexOf(lastCheckedRowCheck);
+                    var b = visible.indexOf(cb);
+                    if (a !== -1 && b !== -1) {
+                        var lo = Math.min(a, b), hi = Math.max(a, b);
+                        var state = cb.checked;
+                        for (var i = lo; i <= hi; i++) visible[i].checked = state;
+                        updateBulkBar();
+                    }
+                }
+            }
+            lastCheckedRowCheck = cb;
+        });
     });
 
     var bulkPositionSelect = document.getElementById('bulk-position-select');
