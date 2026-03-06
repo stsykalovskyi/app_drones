@@ -1559,15 +1559,12 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
 
 <script>
 (function() {
-    /* Tabs */
-    var btns = document.querySelectorAll('.tab-btn');
-    var panels = document.querySelectorAll('.tab-panel');
-    btns.forEach(function(btn) {
+    /* Tabs — navigate via URL so each tab gets its server-side data */
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            btns.forEach(function(b) { b.classList.remove('active'); });
-            panels.forEach(function(p) { p.classList.remove('active'); });
-            btn.classList.add('active');
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            var url = new URL(window.location.href);
+            url.searchParams.set('tab', btn.dataset.tab);
+            window.location.href = url.toString();
         });
     });
 
