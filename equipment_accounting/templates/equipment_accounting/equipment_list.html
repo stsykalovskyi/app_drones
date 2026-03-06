@@ -228,17 +228,110 @@
     }
     .pagination .disabled { opacity: 0.4; pointer-events: none; }
 
-    @media (max-width: 640px) {
-        .eq-table thead { display: none; }
-        .eq-table tr { display: block; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
-        .eq-table td {
-            display: flex; justify-content: space-between;
-            padding: 0.25rem 0; border: none;
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+        /* Toolbar: stack title + controls */
+        .toolbar { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+        .toolbar-controls { justify-content: flex-start; }
+        #uav-search-input { flex: 1; min-width: 80px; width: auto !important; }
+
+        /* Summary: 2 columns */
+        .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+        .summary-card { padding: 0.85rem 1rem; }
+        .summary-value { font-size: 1.15rem; }
+
+        /* Hide the in-thead filter row — filters still reachable via toolbar search */
+        .filter-row { display: none; }
+
+        /* ── Group table: card layout ── */
+        #uav-table-view .eq-table > thead { display: none; }
+
+        #uav-table-view .group-row {
+            display: block;
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            padding: 0.7rem 3rem 0.7rem 0.85rem;
+            background: var(--surface);
+            box-shadow: var(--shadow-card);
         }
-        .eq-table td::before {
-            content: attr(data-label); font-weight: 600;
-            font-size: 0.75rem; text-transform: uppercase;
-            letter-spacing: 0.06em; color: var(--text-muted);
+        #uav-table-view .group-row > td { display: none; border: none; padding: 0; }
+        #uav-table-view .group-row > td[data-label="Тип БПЛА"] {
+            display: block;
+            font-weight: 700; font-size: 0.9rem;
+            color: var(--text); margin-bottom: 0.3rem;
+        }
+        #uav-table-view .group-row > td[data-label="Призначення"] {
+            display: inline-block;
+            font-size: 0.78rem; color: var(--text-secondary); margin-right: 0.6rem;
+        }
+        #uav-table-view .group-row > td[data-label="Дата партії"] {
+            display: inline-block;
+            font-size: 0.78rem; color: var(--text-muted);
+        }
+        #uav-table-view .group-row > td[data-label="Комплект"] {
+            display: block;
+            font-size: 0.78rem; margin-top: 0.25rem;
+        }
+        #uav-table-view .group-row > td[data-label="Всього"] {
+            display: block;
+            margin-top: 0.3rem; font-size: 0.82rem;
+        }
+        #uav-table-view .group-row > .th-check { display: none !important; }
+        #uav-table-view .group-row > .actions-cell {
+            display: flex !important;
+            position: absolute; top: 0.7rem; right: 0.6rem;
+            background: none; padding: 0;
+        }
+
+        /* Group detail row: full-width block */
+        #uav-table-view .group-detail-row > td { display: block !important; padding: 0; }
+
+        /* ── Inner UAV rows: stacked cards ── */
+        .group-uavs-inner .eq-table thead { display: none; }
+        .group-uavs-inner .group-uav-row {
+            display: block;
+            position: relative;
+            padding: 0.6rem 3rem 0.6rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .group-uavs-inner .group-uav-row td { display: none; border: none; padding: 0; }
+        .group-uavs-inner .group-uav-row .td-check { display: none !important; }
+        .group-uavs-inner .group-uav-row .td-id { display: none !important; }
+
+        /* Status badge: top line */
+        .group-uavs-inner .group-uav-row td[data-label="Статус"] {
+            display: inline-block; margin-right: 0.5rem; margin-bottom: 0.25rem;
+        }
+        /* Призначення inline */
+        .group-uavs-inner .group-uav-row td[data-label="Призначення"] {
+            display: inline-block;
+            font-size: 0.8rem; color: var(--text-secondary); margin-right: 0.4rem;
+        }
+        /* Режим inline */
+        .group-uavs-inner .group-uav-row td[data-label="Режим"] {
+            display: inline-block;
+            font-size: 0.78rem; color: var(--text-muted); margin-right: 0.4rem;
+        }
+        /* Комплект: second line */
+        .group-uavs-inner .group-uav-row td[data-label="Комплект"] {
+            display: block; font-size: 0.78rem; margin-top: 0.15rem;
+        }
+        /* Локація: third line */
+        .group-uavs-inner .group-uav-row td[data-label="Локація"] {
+            display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.1rem;
+        }
+        /* Actions: top-right corner */
+        .group-uavs-inner .group-uav-row .actions-cell {
+            display: flex !important;
+            position: absolute; top: 0.5rem; right: 0.4rem;
+            background: none; padding: 0; gap: 0.2rem;
+        }
+
+        /* Badge grid: 1 col on very small screens */
+        @media (max-width: 440px) {
+            .badge-grid { grid-template-columns: 1fr; }
         }
     }
 
@@ -470,7 +563,7 @@
     <div class="card">
         <div class="toolbar">
             <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ page_obj.paginator.count }}</span></h2>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
+            <div class="toolbar-controls" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                 <button type="button" class="btn-icon" id="view-table-btn" data-tooltip="Таблиця">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 </button>
@@ -699,17 +792,17 @@
                                     <tbody>
                                         {% for uav in group.uavs %}
                                         <tr class="group-uav-row">
-                                            {% if can_edit_uav or can_delete_uav %}<td><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>{% endif %}
-                                            <td style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
-                                            <td><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
-                                            <td>{{ uav.role.name|default:"—" }}</td>
-                                            <td style="color:var(--text-muted);font-size:0.82rem;">
+                                            {% if can_edit_uav or can_delete_uav %}<td class="td-check"><input type="checkbox" name="selected" value="{{ uav.pk }}" class="row-check" data-group="{{ forloop.parentloop.counter0 }}"></td>{% endif %}
+                                            <td data-label="#" class="td-id" style="color:var(--text-muted);font-size:0.8rem;">{{ uav.id }}</td>
+                                            <td data-label="Статус"><span class="status-badge{% if uav.status == 'given' %} given{% elif uav.status == 'transit' %} transit{% endif %}">{{ uav.get_status_display }}</span></td>
+                                            <td data-label="Призначення">{{ uav.role.name|default:"—" }}</td>
+                                            <td data-label="Режим" style="color:var(--text-muted);font-size:0.82rem;">
                                                 {% if uav.get_category == 'Радіо' %}
                                                     {% if uav.uav_type.has_thermal %}Ніч{% else %}День{% endif %}
                                                 {% endif %}
                                             </td>
-                                            <td><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
-                                            <td>
+                                            <td data-label="Комплект"><span class="kit-{{ uav.get_kit_status }}">{{ uav.get_kit_status_display }}</span></td>
+                                            <td data-label="Локація">
                                                 {% if uav.status == 'transit' and uav.pending_to_location %}
                                                     <span style="color:var(--text-muted);">{{ uav.current_location.name|default:"—" }}</span>
                                                     <span style="color:#f59e0b;font-weight:600;"> → {{ uav.pending_to_location.name }}{% if uav.position %} «{{ uav.position.name }}»{% endif %}</span>
