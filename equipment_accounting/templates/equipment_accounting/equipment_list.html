@@ -645,8 +645,8 @@
         <form method="get" id="uav-filter-form">
             <input type="hidden" name="tab" value="drones">
             <input type="hidden" name="q" id="uav-search-hidden" value="{{ search_q }}">
-            <input type="hidden" name="mode" id="uav-mode-hidden" value="{{ mode_filter }}">
-            <input type="hidden" name="category" id="uav-category-hidden" value="{{ category_filter }}">
+            <input type="hidden" name="mode" value="{{ mode_filter }}">
+            <input type="hidden" name="category" value="{{ category_filter }}">
         </form>
 
         {# POST form for bulk actions — wraps the table #}
@@ -719,14 +719,14 @@
                             </div>
                         </th>
                         <th class="th-filter">
-                            <select id="uav-mode-select" class="th-filter-input" onchange="document.getElementById('uav-mode-hidden').value=this.value;document.getElementById('uav-filter-form').submit();">
+                            <select id="uav-mode-select" class="th-filter-input" onchange="uavFilterNav('mode',this.value)">
                                 <option value="">Всі</option>
                                 <option value="day"{% if mode_filter == "day" %} selected{% endif %}>День</option>
                                 <option value="night"{% if mode_filter == "night" %} selected{% endif %}>Ніч</option>
                             </select>
                         </th>
                         <th class="th-filter">
-                            <select id="uav-category-select" class="th-filter-input" onchange="document.getElementById('uav-category-hidden').value=this.value;document.getElementById('uav-filter-form').submit();">
+                            <select id="uav-category-select" class="th-filter-input" onchange="uavFilterNav('category',this.value)">
                                 <option value="">Всі</option>
                                 <option value="fpv"{% if category_filter == "fpv" %} selected{% endif %}>Радіо</option>
                                 <option value="optical"{% if category_filter == "optical" %} selected{% endif %}>Оптика</option>
@@ -900,6 +900,21 @@
 </div>
 
 <script>
+// Navigate preserving all URL params, updating only the given key
+function uavFilterNav(param, value) {
+    var p = new URLSearchParams(window.location.search);
+    if (value) { p.set(param, value); } else { p.delete(param); }
+    window.location.href = '?' + p.toString();
+}
+// Force select visual state from URL (overrides browser form-restore quirks)
+(function () {
+    var p = new URLSearchParams(window.location.search);
+    var ms = document.getElementById('uav-mode-select');
+    var cs = document.getElementById('uav-category-select');
+    if (ms) ms.value = p.get('mode') || '';
+    if (cs) cs.value = p.get('category') || '';
+})();
+
 (function () {
     var STORAGE_KEY = 'uav_view_mode';
     var tableView = document.getElementById('uav-table-view');

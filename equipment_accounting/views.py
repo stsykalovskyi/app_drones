@@ -652,6 +652,241 @@ def drone_location_stats(request):
     })
 
 
+@master_required
+def drone_stats(request):
+    """Detailed drone count breakdown by type, mode, and status — with filters and Excel export."""
+    _fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
+    _opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
+
+    ALL_STATUSES = [
+        ('ready',      'Готовий'),
+        ('inspection', 'Перевірка'),
+        ('repair',     'Ремонт'),
+        ('deferred',   'Відкладено'),
+        ('transit',    'В дорозі'),
+        ('given',      'Віддано'),
+    ]
+    ALL_STATUS_KEYS = [s for s, _ in ALL_STATUSES]
+
+    fpv_types_map = {dt.pk: dt for dt in FPVDroneType.objects.select_related(
+        'model', 'video_frequency',
+    ).prefetch_related('control_frequencies')}
+    opt_types_map = {dt.pk: dt for dt in OpticalDroneType.objects.select_related(
+        'model', 'video_template',
+    )}
+    all_locations = list(Location.objects.all().order_by('name'))
+    all_roles     = list(DroneRole.objects.all().order_by('name'))
+
+    # ── Parse filters ────────────────────────────────────────────────
+    # _f sentinel: if present the form was submitted; otherwise use defaults
+    is_filtered = '_f' in request.GET
+
+    if is_filtered:
+        sel_loc_ids   = {int(x) for x in request.GET.getlist('loc')  if x.isdigit()}
+        sel_stat_keys = [s for s in request.GET.getlist('stat') if s in ALL_STATUS_KEYS]
+        sel_modes     = set(request.GET.getlist('mode'))   # 'day', 'night'
+        sel_cats      = set(request.GET.getlist('cat'))    # 'fpv', 'optical'
+        sel_role_ids  = {int(x) for x in request.GET.getlist('role') if x.isdigit()}
+    else:
+        sel_loc_ids   = {loc.pk for loc in all_locations}
+        sel_stat_keys = list(ALL_STATUS_KEYS)
+        sel_modes     = {'day', 'night'}
+        sel_cats      = {'fpv', 'optical'}
+        sel_role_ids  = {role.pk for role in all_roles}
+
+    # Visible status columns
+    statuses     = [(s, lbl) for s, lbl in ALL_STATUSES if s in sel_stat_keys]
+    STATUS_KEYS  = [s for s, _ in statuses]
+
+    # Location queryset filter
+    all_loc_ids = {loc.pk for loc in all_locations}
+    if sel_loc_ids and sel_loc_ids != all_loc_ids:
+        loc_q = (Q(current_location_id__in=sel_loc_ids) |
+                 Q(status='transit', pending_to_location_id__in=sel_loc_ids))
+    else:
+        loc_q = Q()   # no restriction
+
+    # ── Helpers ──────────────────────────────────────────────────────
+    def _tlabel(ct_id, obj_id):
+        if ct_id == _fpv_ct.id:
+            dt = fpv_types_map.get(obj_id)
+            return _make_list_type_label(dt, False) if dt else f'FPV #{obj_id}'
+        dt = opt_types_map.get(obj_id)
+        return _make_list_type_label(dt, True) if dt else f'Opt #{obj_id}'
+
+    def _build(type_q):
+        raw = (
+            UAVInstance.objects
+            .filter(type_q & loc_q)
+            .exclude(status='deleted')
+            .values('content_type_id', 'object_id', 'status')
+            .annotate(cnt=Count('pk'))
+        )
+        data = {}
+        for row in raw:
+            key = (row['content_type_id'], row['object_id'])
+            data.setdefault(key, {s: 0 for s in ALL_STATUS_KEYS})
+            if row['status'] in ALL_STATUS_KEYS:
+                data[key][row['status']] = row['cnt']
+
+        rows = []
+        for key in sorted(data, key=lambda k: _tlabel(*k)):
+            counts = data[key]
+            total  = sum(counts[s] for s in STATUS_KEYS)
+            rows.append({
+                'name': _tlabel(*key),
+                'status_counts': [(s, lbl, counts.get(s, 0)) for s, lbl in statuses],
+                'total': total,
+            })
+        col_totals = {s: sum(data[k].get(s, 0) for k in data) for s in STATUS_KEYS}
+        grand  = sum(col_totals.values())
+        totals = [(s, lbl, col_totals[s]) for s, lbl in statuses]
+        return rows, totals, grand
+
+    # ── Build sections ───────────────────────────────────────────────
+    fpv_day_ids   = [pk for pk, dt in fpv_types_map.items() if not dt.has_thermal]
+    fpv_night_ids = [pk for pk, dt in fpv_types_map.items() if dt.has_thermal]
+    opt_ids       = list(opt_types_map.keys())
+
+    ROLE_COLORS = ['sky', 'violet', 'rose', 'amber', 'emerald', 'indigo']
+    sections = []
+
+    if 'day' in sel_modes and 'fpv' in sel_cats:
+        rows, tots, grand = _build(Q(content_type=_fpv_ct, object_id__in=fpv_day_ids))
+        if rows:
+            sections.append({'name': 'День',   'subtitle': 'FPV · без термальної камери',
+                             'color': 'day',    'rows': rows, 'totals': tots, 'grand': grand})
+
+    if 'night' in sel_modes and 'fpv' in sel_cats:
+        rows, tots, grand = _build(Q(content_type=_fpv_ct, object_id__in=fpv_night_ids))
+        if rows:
+            sections.append({'name': 'Ніч',    'subtitle': 'FPV · термальна камера',
+                             'color': 'night',  'rows': rows, 'totals': tots, 'grand': grand})
+
+    if 'optical' in sel_cats:
+        rows, tots, grand = _build(Q(content_type=_opt_ct, object_id__in=opt_ids))
+        if rows:
+            sections.append({'name': 'Оптика', 'subtitle': 'Оптичні БПЛА',
+                             'color': 'optical', 'rows': rows, 'totals': tots, 'grand': grand})
+
+    for i, role in enumerate(all_roles):
+        if role.pk not in sel_role_ids:
+            continue
+        rows, tots, grand = _build(Q(role=role))
+        if rows:
+            sections.append({'name': role.name, 'subtitle': f'Роль: {role.name}',
+                             'color': ROLE_COLORS[i % len(ROLE_COLORS)],
+                             'rows': rows, 'totals': tots, 'grand': grand})
+
+    # ── Summary cards ────────────────────────────────────────────────
+    summary_qs = UAVInstance.objects.exclude(status='deleted')
+    if loc_q != Q():
+        summary_qs = summary_qs.filter(loc_q)
+    total_by_status = {s: 0 for s in ALL_STATUS_KEYS}
+    for row in summary_qs.values('status').annotate(cnt=Count('pk')):
+        if row['status'] in ALL_STATUS_KEYS:
+            total_by_status[row['status']] = row['cnt']
+    total_all     = sum(total_by_status.values())
+    summary_cards = [(s, lbl, total_by_status[s]) for s, lbl in ALL_STATUSES]
+
+    # ── Excel export ─────────────────────────────────────────────────
+    if request.GET.get('export') == 'xlsx':
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
+
+        STAT_COLORS = {
+            'ready': '15803D', 'inspection': '1D4ED8', 'repair': 'B45309',
+            'deferred': '94A3B8', 'transit': '0F766E', 'given': '475569',
+        }
+        SEC_STYLES = {
+            'День':   ('FEF3C7', '92400E'), 'Ніч':    ('E0E7FF', '3730A3'),
+            'Оптика': ('F3E8FF', '6B21A8'),
+        }
+        DEF_STYLE = ('F1F5F9', '1E293B')
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Деталізація БПЛА'
+
+        headers = ['Тип БПЛА'] + [lbl for _, lbl in statuses] + ['Всього']
+        hdr_fill = PatternFill(fill_type='solid', fgColor='D6DCE4')
+        hdr_font = Font(bold=True, size=10, name='Calibri')
+        for ci, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=ci, value=h)
+            c.font = hdr_font; c.fill = hdr_fill
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.row_dimensions[1].height = 26
+
+        rn = 2
+        for sec in sections:
+            bg, fg = SEC_STYLES.get(sec['name'], DEF_STYLE)
+            sec_fill = PatternFill(fill_type='solid', fgColor=bg)
+            sec_font = Font(bold=True, size=10, name='Calibri', color=fg)
+            # section header row
+            for ci in range(1, len(headers) + 1):
+                c = ws.cell(row=rn, column=ci,
+                            value=sec['name'] if ci == 1 else None)
+                c.font = sec_font; c.fill = sec_fill
+            rn += 1
+            # data rows
+            for dr in sec['rows']:
+                ws.cell(row=rn, column=1, value=dr['name']).font = Font(size=10, name='Calibri')
+                for ci, (sk, _, cnt) in enumerate(dr['status_counts'], 2):
+                    c = ws.cell(row=rn, column=ci, value=cnt or None)
+                    c.alignment = Alignment(horizontal='center')
+                    if cnt and sk in STAT_COLORS:
+                        c.font = Font(size=10, name='Calibri', color=STAT_COLORS[sk], bold=True)
+                tot_c = ws.cell(row=rn, column=len(headers), value=dr['total'])
+                tot_c.font = Font(bold=True, size=10, name='Calibri')
+                tot_c.alignment = Alignment(horizontal='center')
+                rn += 1
+            # totals row
+            tot_font = Font(bold=True, size=10, name='Calibri')
+            ws.cell(row=rn, column=1, value='Всього').font = tot_font
+            for ci, (_, _, cnt) in enumerate(sec['totals'], 2):
+                c = ws.cell(row=rn, column=ci, value=cnt or None)
+                c.font = tot_font; c.alignment = Alignment(horizontal='center')
+            gc = ws.cell(row=rn, column=len(headers), value=sec['grand'])
+            gc.font = tot_font; gc.alignment = Alignment(horizontal='center')
+            rn += 2  # blank row between sections
+
+        ws.column_dimensions[get_column_letter(1)].width = 38
+        for ci in range(2, len(headers) + 1):
+            ws.column_dimensions[get_column_letter(ci)].width = 13
+
+        resp = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        resp['Content-Disposition'] = 'attachment; filename="drone_stats.xlsx"'
+        wb.save(resp)
+        return resp
+
+    # ── Render page ──────────────────────────────────────────────────
+    filter_state = {
+        'locations': [(loc, loc.pk in sel_loc_ids) for loc in all_locations],
+        'statuses':  [(s, lbl, s in sel_stat_keys) for s, lbl in ALL_STATUSES],
+        'modes':     [('day', 'День', 'day' in sel_modes),
+                      ('night', 'Ніч', 'night' in sel_modes)],
+        'cats':      [('fpv', 'Радіо (FPV)', 'fpv' in sel_cats),
+                      ('optical', 'Оптика', 'optical' in sel_cats)],
+        'roles':     [(role, role.pk in sel_role_ids) for role in all_roles],
+    }
+
+    # Build export URL (same params + export=xlsx)
+    get_copy = request.GET.copy()
+    get_copy['export'] = 'xlsx'
+    export_url = '?' + get_copy.urlencode()
+
+    return render(request, 'equipment_accounting/drone_stats.html', {
+        'sections':      sections,
+        'summary_cards': summary_cards,
+        'total_all':     total_all,
+        'filter_state':  filter_state,
+        'is_filtered':   is_filtered,
+        'export_url':    export_url,
+    })
+
+
 # ── Excel export ─────────────────────────────────────────────────────
 
 EXPORT_COLS = [

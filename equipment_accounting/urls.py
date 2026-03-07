@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.equipment_list, name='equipment_list'),
     path('stats/', views.component_stats, name='component_stats'),
     path('stats/drones/', views.drone_location_stats, name='drone_location_stats'),
+    path('stats/breakdown/', views.drone_stats, name='drone_stats'),
     path('stats/movements/', views.uav_movements, name='uav_movements'),
     path('stats/movements/delete/', views.movement_batch_delete, name='movement_batch_delete'),
 

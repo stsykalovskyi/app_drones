@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Деталізація БПЛА — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.25rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.2rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.88rem; margin: 0; }
+
+    /* ── Layout ── */
+    .stats-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    @media (max-width: 768px) {
+        .stats-layout { grid-template-columns: 1fr; }
+        .filter-sidebar { order: -1; }
+    }
+
+    /* ── Filter sidebar ── */
+    .filter-sidebar {
+        position: sticky; top: 1rem;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0; overflow: hidden;
+        box-shadow: var(--shadow-card);
+    }
+    .filter-head {
+        padding: 0.75rem 1rem; background: var(--accent-dim);
+        font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; color: var(--accent);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .filter-reset {
+        font-size: 0.72rem; color: var(--text-muted); text-decoration: none;
+        font-weight: 600; letter-spacing: 0; text-transform: none;
+    }
+    .filter-reset:hover { color: var(--accent); }
+    .filter-group { border-bottom: 1px solid var(--border); padding: 0.65rem 1rem; }
+    .filter-group:last-child { border-bottom: none; }
+    .filter-group-title {
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.5rem;
+    }
+    .filter-item {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin-bottom: 0.3rem; cursor: pointer;
+        font-size: 0.82rem; color: var(--text);
+        user-select: none;
+    }
+    .filter-item:last-child { margin-bottom: 0; }
+    .filter-item input[type="checkbox"] {
+        width: 14px; height: 14px; accent-color: var(--accent);
+        flex-shrink: 0; cursor: pointer;
+    }
+    .filter-item span { line-height: 1.3; }
+
+    .btn-export {
+        display: flex; align-items: center; gap: 0.45rem;
+        width: 100%; padding: 0.6rem 1rem; margin: 0;
+        background: #16a34a; color: #fff; border: none;
+        font-size: 0.8rem; font-weight: 600; cursor: pointer;
+        text-align: left; transition: background 0.15s;
+    }
+    .btn-export:hover { background: #15803d; }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 0.6rem; margin-bottom: 1.25rem;
+    }
+    .summary-card {
+        background: var(--surface); border-radius: var(--radius);
+        padding: 0.8rem 1rem; border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+    }
+    .summary-label {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.25rem;
+    }
+    .summary-value { font-size: 1.4rem; font-weight: 800; }
+    .sv-all        { color: var(--accent); }
+    .sv-ready      { color: #22c55e; }
+    .sv-inspection { color: #3b82f6; }
+    .sv-repair     { color: #f59e0b; }
+    .sv-deferred   { color: #94a3b8; }
+    .sv-transit    { color: #14b8a6; }
+    .sv-given      { color: #64748b; }
+
+    /* ── Section blocks ── */
+    .stats-section { margin-bottom: 1.5rem; }
+    .section-header {
+        display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.6rem;
+    }
+    .section-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 2rem; height: 2rem; border-radius: 0.5rem;
+        font-size: 0.95rem; flex-shrink: 0;
+    }
+    .section-title-wrap h2 { font-size: 1rem; font-weight: 700; margin: 0 0 0.05rem; }
+    .section-title-wrap p  { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
+    .section-grand-badge {
+        margin-left: auto; font-size: 0.8rem; font-weight: 700;
+        padding: 0.2rem 0.65rem; border-radius: 999px;
+        background: var(--accent-dim); color: var(--accent); white-space: nowrap;
+    }
+
+    /* Section colour themes */
+    .s-day     .section-badge { background: #fef3c7; color: #d97706; }
+    .s-night   .section-badge { background: #e0e7ff; color: #4338ca; }
+    .s-optical .section-badge { background: #f3e8ff; color: #7c3aed; }
+    .s-sky     .section-badge { background: #e0f2fe; color: #0284c7; }
+    .s-violet  .section-badge { background: #ede9fe; color: #6d28d9; }
+    .s-rose    .section-badge { background: #ffe4e6; color: #be123c; }
+    .s-amber   .section-badge { background: #fef3c7; color: #b45309; }
+    .s-emerald .section-badge { background: #d1fae5; color: #047857; }
+    .s-indigo  .section-badge { background: #e0e7ff; color: #3730a3; }
+
+    [data-theme="dark"] .s-day     .section-badge { background: rgba(251,191,36,.15); color: #fbbf24; }
+    [data-theme="dark"] .s-night   .section-badge { background: rgba(99,102,241,.2);  color: #818cf8; }
+    [data-theme="dark"] .s-optical .section-badge { background: rgba(168,85,247,.18); color: #c084fc; }
+    [data-theme="dark"] .s-sky     .section-badge { background: rgba(14,165,233,.18); color: #38bdf8; }
+    [data-theme="dark"] .s-violet  .section-badge { background: rgba(139,92,246,.18); color: #a78bfa; }
+    [data-theme="dark"] .s-rose    .section-badge { background: rgba(244,63,94,.18);  color: #fb7185; }
+    [data-theme="dark"] .s-amber   .section-badge { background: rgba(245,158,11,.18); color: #fbbf24; }
+    [data-theme="dark"] .s-emerald .section-badge { background: rgba(16,185,129,.18); color: #34d399; }
+    [data-theme="dark"] .s-indigo  .section-badge { background: rgba(99,102,241,.18); color: #818cf8; }
+
+    .s-day     .section-card { border-left: 3px solid #f59e0b; }
+    .s-night   .section-card { border-left: 3px solid #6366f1; }
+    .s-optical .section-card { border-left: 3px solid #a855f7; }
+    .s-sky     .section-card { border-left: 3px solid #0ea5e9; }
+    .s-violet  .section-card { border-left: 3px solid #8b5cf6; }
+    .s-rose    .section-card { border-left: 3px solid #f43f5e; }
+    .s-amber   .section-card { border-left: 3px solid #f59e0b; }
+    .s-emerald .section-card { border-left: 3px solid #10b981; }
+    .s-indigo  .section-card { border-left: 3px solid #6366f1; }
+
+    .section-card {
+        background: var(--surface); border-radius: 0;
+        border: 1px solid var(--border); box-shadow: var(--shadow-card);
+        overflow-x: auto;
+    }
+
+    /* ── Table ── */
+    .eq-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+    .eq-table th {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        padding: 0.5rem 0.75rem; text-align: left;
+        border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .eq-table th.num { text-align: right; }
+    .eq-table td {
+        padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border);
+        font-size: 0.84rem;
+    }
+    .eq-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .eq-table tbody tr:last-child td { border-bottom: none; }
+    .eq-table tbody tr:hover td { background: var(--accent-dim); }
+
+    .th-ready      { color: #22c55e !important; }
+    .th-inspection { color: #3b82f6 !important; }
+    .th-repair     { color: #f59e0b !important; }
+    .th-deferred   { color: #94a3b8 !important; }
+    .th-transit    { color: #14b8a6 !important; }
+    .th-given      { color: #64748b !important; }
+
+    .cnt-zero      { color: var(--text-muted); }
+    .cnt-ready     { color: #22c55e; font-weight: 600; }
+    .cnt-inspection{ color: #3b82f6; font-weight: 600; }
+    .cnt-repair    { color: #f59e0b; font-weight: 600; }
+    .cnt-deferred  { color: #94a3b8; }
+    .cnt-transit   { color: #14b8a6; font-weight: 600; }
+    .cnt-given     { color: #64748b; }
+
+    .col-total { font-weight: 700; color: var(--accent); }
+
+    .total-row td { border-top: 2px solid var(--border); border-bottom: none !important; }
+    .total-row td:first-child { font-weight: 700; font-size: 0.88rem; }
+    .total-row .num { font-weight: 700; color: var(--accent); }
+    .grand-total    { font-size: 1rem; }
+
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>Деталізація БПЛА</h1>
+    <p>Кількість по типах, режимах та статусах</p>
+</div>
+
+<div class="stats-layout">
+
+    {# ── Filter sidebar ── #}
+    <aside class="filter-sidebar">
+        <div class="filter-head">
+            Фільтри
+            <a href="{% url 'equipment_accounting:drone_stats' %}" class="filter-reset">Скинути</a>
+        </div>
+
+        <form method="get" id="filter-form">
+            <input type="hidden" name="_f" value="1">
+
+            {# Locations #}
+            {% if filter_state.locations %}
+            <div class="filter-group">
+                <div class="filter-group-title">Локація</div>
+                {% for loc, checked in filter_state.locations %}
+                <label class="filter-item">
+                    <input type="checkbox" name="loc" value="{{ loc.pk }}"{% if checked %} checked{% endif %}>
+                    <span>{{ loc.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# Statuses #}
+            <div class="filter-group">
+                <div class="filter-group-title">Статус</div>
+                {% for key, label, checked in filter_state.statuses %}
+                <label class="filter-item">
+                    <input type="checkbox" name="stat" value="{{ key }}"{% if checked %} checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            {# Mode #}
+            <div class="filter-group">
+                <div class="filter-group-title">Режим</div>
+                {% for key, label, checked in filter_state.modes %}
+                <label class="filter-item">
+                    <input type="checkbox" name="mode" value="{{ key }}"{% if checked %} checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            {# Category #}
+            <div class="filter-group">
+                <div class="filter-group-title">Категорія</div>
+                {% for key, label, checked in filter_state.cats %}
+                <label class="filter-item">
+                    <input type="checkbox" name="cat" value="{{ key }}"{% if checked %} checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            {# Roles #}
+            {% if filter_state.roles %}
+            <div class="filter-group">
+                <div class="filter-group-title">Призначення</div>
+                {% for role, checked in filter_state.roles %}
+                <label class="filter-item">
+                    <input type="checkbox" name="role" value="{{ role.pk }}"{% if checked %} checked{% endif %}>
+                    <span>{{ role.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </form>
+
+        <a href="{{ export_url }}" class="btn-export">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Експорт Excel
+        </a>
+    </aside>
+
+    {# ── Main content ── #}
+    <div class="stats-main">
+
+        {# Summary cards #}
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">Всього</div>
+                <div class="summary-value sv-all">{{ total_all }}</div>
+            </div>
+            {% for key, label, cnt in summary_cards %}
+            <div class="summary-card">
+                <div class="summary-label">{{ label }}</div>
+                <div class="summary-value sv-{{ key }}">{{ cnt }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Sections #}
+        {% if sections %}
+        {% for section in sections %}
+        <div class="stats-section s-{{ section.color }}">
+            <div class="section-header">
+                <div class="section-badge">
+                    {% if section.color == 'day' %}☀️{% elif section.color == 'night' %}🌙{% elif section.color == 'optical' %}🔭{% elif section.color == 'sky' %}🛩{% elif section.color == 'violet' %}🟣{% elif section.color == 'rose' %}🔴{% elif section.color == 'amber' %}🟡{% elif section.color == 'emerald' %}🟢{% else %}🔵{% endif %}
+                </div>
+                <div class="section-title-wrap">
+                    <h2>{{ section.name }}</h2>
+                    <p>{{ section.subtitle }}</p>
+                </div>
+                <span class="section-grand-badge">{{ section.grand }} шт</span>
+            </div>
+
+            <div class="section-card">
+                <table class="eq-table">
+                    <thead>
+                        <tr>
+                            <th>Тип БПЛА</th>
+                            {% for s_key, s_label, _ in section.totals %}
+                            <th class="num th-{{ s_key }}">{{ s_label }}</th>
+                            {% endfor %}
+                            <th class="num col-total">Всього</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in section.rows %}
+                        <tr>
+                            <td>{{ row.name }}</td>
+                            {% for s_key, s_label, cnt in row.status_counts %}
+                            <td class="num {% if cnt == 0 %}cnt-zero{% else %}cnt-{{ s_key }}{% endif %}">{{ cnt }}</td>
+                            {% endfor %}
+                            <td class="num col-total">{{ row.total }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td>Всього</td>
+                            {% for s_key, s_label, cnt in section.totals %}
+                            <td class="num {% if cnt == 0 %}cnt-zero{% else %}cnt-{{ s_key }}{% endif %}">{{ cnt }}</td>
+                            {% endfor %}
+                            <td class="num grand-total">{{ section.grand }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <div class="empty-state"><p>Немає даних для відображення.</p></div>
+        {% endif %}
+
+    </div>{# /stats-main #}
+</div>{# /stats-layout #}
+
+<script>
+/* Auto-submit filter form on any checkbox change */
+document.querySelectorAll('#filter-form input[type="checkbox"]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        document.getElementById('filter-form').submit();
+    });
+});
+</script>
+{% endblock %}
