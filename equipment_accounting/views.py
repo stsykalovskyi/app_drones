@@ -123,6 +123,7 @@ def equipment_list(request):
 
     status_filter = request.GET.get("status", "")
     category_filter = request.GET.get("category", "")
+    mode_filter = request.GET.get("mode", "")
     type_filter = request.GET.get("type", "")
     kit_filter = request.GET.get("kit", "")
     purpose_filter = request.GET.get("purpose", "")
@@ -210,12 +211,30 @@ def equipment_list(request):
     if role_filter.isdigit():
         uavs = uavs.filter(role_id=int(role_filter))
 
+    # Mode filter (день/ніч based on has_thermal)
+    if mode_filter in ("day", "night"):
+        is_thermal = (mode_filter == "night")
+        _thermal_fpv = list(FPVDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
+        _thermal_opt = list(OpticalDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
+        uavs = uavs.filter(
+            Q(content_type=_fpv_ct, object_id__in=_thermal_fpv) |
+            Q(content_type=_opt_ct, object_id__in=_thermal_opt)
+        )
+
     # Pre-fetch all drone types into dicts — avoids N+1 GenericFK access
-    _fpv_types = {dt.pk: dt for dt in FPVDroneType.objects.select_related("model").only(
-        "id", "prop_size", "has_thermal", "model__name"
+    _fpv_types = {dt.pk: dt for dt in FPVDroneType.objects.select_related(
+        "model", "video_frequency",
+    ).prefetch_related("control_frequencies").only(
+        "id", "prop_size", "has_thermal",
+        "video_frequency_id", "video_frequency__value", "video_frequency__unit",
+        "model__name",
     )}
-    _opt_types = {dt.pk: dt for dt in OpticalDroneType.objects.select_related("model").only(
-        "id", "prop_size", "has_thermal", "model__name"
+    _opt_types = {dt.pk: dt for dt in OpticalDroneType.objects.select_related(
+        "model", "video_template",
+    ).only(
+        "id", "prop_size", "has_thermal",
+        "video_template_id", "video_template__max_distance",
+        "model__name",
     )}
 
     def _kit_from_ann(uav):
@@ -254,8 +273,9 @@ def equipment_list(request):
                 _purpose_label = 'Ударні'
             _g = {
                 '_key': _key,
-                'type_label': str(_dt) if _dt else '—',
+                'type_label': _make_list_type_label(_dt, _is_opt),
                 'category': 'Оптика' if _is_opt else 'Радіо',
+                'mode_label': 'Ніч' if _is_th else 'День',
                 'purpose': _purpose,
                 'purpose_label': _purpose_label,
                 'role_name': _uav.role.name if _uav.role_id else '—',
@@ -396,6 +416,7 @@ def equipment_list(request):
         "page_obj": page_obj,
         "status_filter": status_filter,
         "category_filter": category_filter,
+        "mode_filter": mode_filter,
         "type_filter": type_filter,
         "kit_filter": kit_filter,
         "kit_choices": list(UAVInstance.KIT_LABELS.items()),
@@ -810,10 +831,10 @@ def uav_export_excel(request):
 # ── UAV movement history ──────────────────────────────────────────────
 
 def _fmt_freq(f):
-    """Format a Frequency object as e.g. '900gh' or '5.8gh'."""
+    """Format a Frequency object as e.g. '900MHz' or '5.8GHz'."""
     v = f.value
     val_str = str(int(v)) if v == int(v) else str(v)
-    return f"{val_str}gh"
+    return f"{val_str}{f.get_unit_display()}"
 
 
 def _fmt_drone_type_name(dt, category):
@@ -822,8 +843,9 @@ def _fmt_drone_type_name(dt, category):
     FPV  → 'ModelName (prop\') (freq1 freq2) (#purpose)'
     Optic → 'ModelName (prop\') distancekm [ніч]'
     """
+    prop_str = f" ({dt.prop_size}')" if dt.prop_size else ''
     if category == 'Оптика':
-        name = f"{dt.model.name} ({dt.prop_size}')"
+        name = dt.model.name + prop_str
         if getattr(dt, 'video_template_id', None):
             name += f" {dt.video_template.max_distance}км"
         if dt.has_thermal:
@@ -831,14 +853,41 @@ def _fmt_drone_type_name(dt, category):
         return name
 
     # FPV / radio drone
-    name = f"{dt.model.name} ({dt.prop_size}')"
-    freq_parts = [_fmt_freq(f) for f in dt.control_frequencies.all()]
-    if getattr(dt, 'video_frequency_id', None):
-        freq_parts.append(_fmt_freq(dt.video_frequency))
-    if freq_parts:
-        name += f" ({' '.join(freq_parts)})"
+    name = dt.model.name + prop_str
+    ctrl_parts = [_fmt_freq(f) for f in sorted(dt.control_frequencies.all(), key=lambda f: f.value * 1000 if f.unit == 'ghz' else f.value)]
+    video_part = _fmt_freq(dt.video_frequency) if getattr(dt, 'video_frequency_id', None) else ''
+    if ctrl_parts or video_part:
+        freqs_str = '-'.join(ctrl_parts)
+        if video_part:
+            freqs_str += (', ' if freqs_str else '') + video_part
+        name += f"({freqs_str})"
     if dt.purpose_id:
         name += f" (#{dt.purpose.name})"
+    return name
+
+
+def _make_list_type_label(dt, is_opt):
+    """Compact label for the equipment list table / badge grid.
+
+    FPV   → 'ModelName (10") (900gh 5.8gh)'
+    Optic → 'ModelName (10") 5км'
+    """
+    if not dt:
+        return '—'
+    name = dt.model.name
+    if dt.prop_size:
+        name += f' ({dt.prop_size}")'
+    if is_opt:
+        if getattr(dt, 'video_template_id', None):
+            name += f' {dt.video_template.max_distance}км'
+    else:
+        ctrl_parts = [_fmt_freq(f) for f in sorted(dt.control_frequencies.all(), key=lambda f: f.value * 1000 if f.unit == 'ghz' else f.value)]
+        video_part = _fmt_freq(dt.video_frequency) if getattr(dt, 'video_frequency_id', None) else ''
+        if ctrl_parts or video_part:
+            freqs_str = '-'.join(ctrl_parts)
+            if video_part:
+                freqs_str += (', ' if freqs_str else '') + video_part
+            name += f'({freqs_str})'
     return name
 
 

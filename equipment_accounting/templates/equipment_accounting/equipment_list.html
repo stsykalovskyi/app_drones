@@ -645,6 +645,8 @@
         <form method="get" id="uav-filter-form">
             <input type="hidden" name="tab" value="drones">
             <input type="hidden" name="q" id="uav-search-hidden" value="{{ search_q }}">
+            <input type="hidden" name="mode" id="uav-mode-hidden" value="{{ mode_filter }}">
+            <input type="hidden" name="category" id="uav-category-hidden" value="{{ category_filter }}">
         </form>
 
         {# POST form for bulk actions — wraps the table #}
@@ -687,6 +689,8 @@
                     <tr>
                         {% if can_edit_uav or can_delete_uav %}<th class="th-check"><input type="checkbox" class="check-all" id="check-all" data-tooltip="Вибрати всі · Shift+клік для діапазону"></th>{% endif %}
                         <th>Тип БПЛА</th>
+                        <th>Режим</th>
+                        <th>Категорія</th>
                         <th>Призначення</th>
                         <th>Дата партії</th>
                         <th>Комплект</th>
@@ -713,6 +717,20 @@
                                     {% endfor %}
                                 </ul>
                             </div>
+                        </th>
+                        <th class="th-filter">
+                            <select id="uav-mode-select" class="th-filter-input" onchange="document.getElementById('uav-mode-hidden').value=this.value;document.getElementById('uav-filter-form').submit();">
+                                <option value="">Всі</option>
+                                <option value="day"{% if mode_filter == "day" %} selected{% endif %}>День</option>
+                                <option value="night"{% if mode_filter == "night" %} selected{% endif %}>Ніч</option>
+                            </select>
+                        </th>
+                        <th class="th-filter">
+                            <select id="uav-category-select" class="th-filter-input" onchange="document.getElementById('uav-category-hidden').value=this.value;document.getElementById('uav-filter-form').submit();">
+                                <option value="">Всі</option>
+                                <option value="fpv"{% if category_filter == "fpv" %} selected{% endif %}>Радіо</option>
+                                <option value="optical"{% if category_filter == "optical" %} selected{% endif %}>Оптика</option>
+                            </select>
                         </th>
                         <th class="th-filter">
                             <select name="role" class="th-filter-input" form="uav-filter-form" onchange="document.getElementById('uav-filter-form').submit()">
@@ -754,7 +772,7 @@
                                     <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
                                     {% endfor %}
                                 </select>
-                                {% if status_filter or role_filter or type_filter or kit_filter or location_filter or date_from or date_to or search_q %}
+                                {% if status_filter or role_filter or type_filter or kit_filter or location_filter or date_from or date_to or search_q or mode_filter or category_filter %}
                                 <a href="?tab=drones" class="th-filter-reset">&#10005; Скинути</a>
                                 {% endif %}
                             </div>
@@ -770,6 +788,8 @@
                         </td>
                         {% endif %}
                         <td data-label="Тип БПЛА">{{ group.type_label }}</td>
+                        <td data-label="Режим" style="white-space:nowrap;font-size:0.82rem;color:var(--text-secondary);">{{ group.mode_label }}</td>
+                        <td data-label="Категорія"><span class="cat-chip {% if group.category == 'Радіо' %}cat-chip-radio{% else %}cat-chip-optical{% endif %}">{{ group.category }}</span></td>
                         <td data-label="Призначення">{{ group.role_name }}</td>
                         <td data-label="Дата партії" class="date-cell">{{ group.date|date:"d.m.Y" }}</td>
                         <td data-label="Комплект">
@@ -788,7 +808,7 @@
                         </td>
                     </tr>
                     <tr class="group-detail-row" id="grp-{{ forloop.counter0 }}" style="display:none;">
-                        <td colspan="7">
+                        <td colspan="9">
                             <div class="group-uavs-inner">
                                 <table class="eq-table" style="margin:0;">
                                     <thead>
@@ -862,17 +882,17 @@
         {% if page_obj.paginator.num_pages > 1 %}
         <div class="pagination" style="margin-top:1rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
             {% if page_obj.has_previous %}
-            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">‹ Попередня</a>
+            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&mode={{ mode_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.previous_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">‹ Попередня</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
                 {% if page_obj.number == num %}
                 <span style="padding:0.3rem 0.7rem;background:var(--accent);color:#fff;border-radius:6px;font-size:0.85rem;">{{ num }}</span>
                 {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}" style="padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">{{ num }}</a>
+                <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&mode={{ mode_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ num }}" style="padding:0.3rem 0.7rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">{{ num }}</a>
                 {% endif %}
             {% endfor %}
             {% if page_obj.has_next %}
-            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">Наступна ›</a>
+            <a href="?tab=drones&status={{ status_filter }}&role={{ role_filter }}&mode={{ mode_filter }}&category={{ category_filter }}&type={{ type_filter }}&kit={{ kit_filter }}&location={{ location_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ search_q }}&page={{ page_obj.next_page_number }}" class="btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.85rem;">Наступна ›</a>
             {% endif %}
         </div>
         {% endif %}
