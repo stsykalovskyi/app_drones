@@ -203,19 +203,40 @@ class Command(BaseCommand):
             self.stdout.write(
                 f'\n  scp root@85.121.4.216:{qr_path} /mnt/f/wa_qr.png\n'
                 '  Open the file and scan with WhatsApp → Linked Devices → Link a Device\n'
+                '  The file is refreshed every 15 s — re-open it if the QR expired.\n'
             )
-            self.stdout.write('Waiting up to 3 minutes for you to scan …')
+            self.stdout.write('Refreshing QR screenshot every 15 s for up to 3 minutes …')
 
-            # Wait for login
-            try:
-                page.wait_for_selector('[data-testid="chat-list"]', timeout=QR_TIMEOUT)
-            except PlaywrightTimeout:
-                # Save a fresh screenshot so user can diagnose
+            # Refresh QR screenshot every 15 s until logged in or timeout
+            deadline = time.monotonic() + QR_TIMEOUT / 1000
+            logged_in = False
+            while time.monotonic() < deadline:
+                # Check if login happened
+                try:
+                    page.wait_for_selector('[data-testid="chat-list"]', timeout=2_000)
+                    logged_in = True
+                    break
+                except Exception:
+                    pass
+
+                # Re-screenshot the QR
+                try:
+                    qr_el = page.query_selector('[data-ref]') or page.query_selector('canvas')
+                    if qr_el:
+                        qr_el.screenshot(path=qr_path)
+                    else:
+                        page.screenshot(path=qr_path)
+                    self.stdout.write(f'  QR refreshed → {qr_path}')
+                except Exception:
+                    pass
+
+                time.sleep(15)
+
+            if not logged_in:
                 page.screenshot(path=qr_path)
                 self.stderr.write(self.style.ERROR(
                     'Timed out — QR was not scanned within 3 minutes.\n'
-                    f'Latest page screenshot saved to {qr_path}.\n'
-                    'Run --setup again and scan faster, or check the screenshot.'
+                    'Run --setup again.'
                 ))
                 return
 
