@@ -153,6 +153,8 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ #
 
     def _run_setup(self, pw, session_dir, headless, chromium_path, qr_path):
+        from playwright._impl._errors import TimeoutError as PlaywrightTimeout
+
         self.stdout.write(self.style.WARNING(
             '=== SETUP MODE: authenticating WhatsApp session ==='
         ))
@@ -163,60 +165,79 @@ class Command(BaseCommand):
         try:
             page.goto('https://web.whatsapp.com', wait_until='domcontentloaded')
 
-            # Check if already logged in
+            # Already logged in?
             try:
                 page.wait_for_selector('[data-testid="chat-list"]', timeout=8_000)
                 self.stdout.write(self.style.SUCCESS(
-                    'Already logged in! Session is valid — no QR needed.\n'
-                    'You can start the monitor normally.'
+                    'Already logged in — session is valid. No QR needed.'
                 ))
                 return
             except Exception:
                 pass
 
-            # Wait for QR code element to appear
-            self.stdout.write('Waiting for QR code to appear …')
+            # Wait for QR element, then screenshot it
+            self.stdout.write('Waiting for QR code to render …')
+            qr_found = False
             try:
                 page.wait_for_selector('[data-ref]', timeout=20_000)
+                qr_found = True
             except Exception:
-                # fallback: screenshot entire page
                 pass
 
-            # Screenshot the QR area
-            time.sleep(2)  # let QR render fully
+            time.sleep(2)
             qr_el = page.query_selector('[data-ref]') or page.query_selector('canvas')
             if qr_el:
                 qr_el.screenshot(path=qr_path)
             else:
                 page.screenshot(path=qr_path)
 
-            self.stdout.write(self.style.SUCCESS(f'\nQR screenshot saved to: {qr_path}'))
-            self.stdout.write(self.style.WARNING(
-                '\n--- HOW TO SCAN ---\n'
-                f'  scp root@85.121.4.216:{qr_path} ~/wa_qr.png\n'
-                '  Then open ~/wa_qr.png on your computer and scan with WhatsApp.\n'
-                '-------------------\n'
-            ))
-            self.stdout.write('Waiting up to 3 minutes for you to scan the QR …')
+            if not qr_found:
+                self.stdout.write(self.style.WARNING(
+                    f'QR element not detected — full page screenshot saved to {qr_path}.\n'
+                    'The page may show an "unsupported browser" error.\n'
+                    'Check the screenshot and report back.'
+                ))
+            else:
+                self.stdout.write(self.style.SUCCESS(f'QR screenshot saved to: {qr_path}'))
+
+            self.stdout.write(
+                f'\n  scp root@85.121.4.216:{qr_path} /mnt/f/wa_qr.png\n'
+                '  Open the file and scan with WhatsApp → Linked Devices → Link a Device\n'
+            )
+            self.stdout.write('Waiting up to 3 minutes for you to scan …')
 
             # Wait for login
-            page.wait_for_selector('[data-testid="chat-list"]', timeout=QR_TIMEOUT)
+            try:
+                page.wait_for_selector('[data-testid="chat-list"]', timeout=QR_TIMEOUT)
+            except PlaywrightTimeout:
+                # Save a fresh screenshot so user can diagnose
+                page.screenshot(path=qr_path)
+                self.stderr.write(self.style.ERROR(
+                    'Timed out — QR was not scanned within 3 minutes.\n'
+                    f'Latest page screenshot saved to {qr_path}.\n'
+                    'Run --setup again and scan faster, or check the screenshot.'
+                ))
+                return
+
             self.stdout.write(self.style.SUCCESS(
-                '\nLogged in! Session saved. Now start the monitor:\n'
-                '  python manage.py run_whatsapp_monitor\n'
-                'or via screen:\n'
+                '\nLogged in! Session saved.\n'
+                'Start the monitor:\n'
                 '  screen -dmS wamon bash -c "cd /root/MyProjects/python/app_drones && '
-                'source .venv/bin/activate && python manage.py run_whatsapp_monitor '
-                '>> /var/log/wamon.log 2>&1"'
+                'source .venv/bin/activate && '
+                'python manage.py run_whatsapp_monitor >> /var/log/wamon.log 2>&1"'
             ))
         except KeyboardInterrupt:
             self.stdout.write('\nSetup cancelled.')
         except Exception as exc:
-            logger.exception('Setup error: %s', exc)
-            self.stderr.write(self.style.ERROR(
-                f'Error: {exc}\n'
-                f'Try downloading the page screenshot: scp root@85.121.4.216:{qr_path} ~/wa_qr.png'
-            ))
+            logger.exception('Unexpected setup error: %s', exc)
+            try:
+                page.screenshot(path=qr_path)
+                self.stderr.write(self.style.ERROR(
+                    f'Unexpected error: {exc}\n'
+                    f'Page screenshot saved to {qr_path}'
+                ))
+            except Exception:
+                self.stderr.write(self.style.ERROR(f'Unexpected error: {exc}'))
         finally:
             ctx.close()
 
