@@ -7,7 +7,7 @@ def avatar_upload_path(instance, filename):
 
 
 class Profile(models.Model):
-    """Extended user profile with avatar."""
+    """Extended user profile with avatar and Telegram integration."""
 
     user = models.OneToOneField(
         User,
@@ -19,6 +19,21 @@ class Profile(models.Model):
         "Позивний",
         max_length=50,
         blank=True,
+    )
+    phone_number = models.CharField(
+        "Номер телефону",
+        max_length=20,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text="Формат: +380000000000. Використовується для верифікації бота."
+    )
+    telegram_chat_id = models.CharField(
+        "Telegram Chat ID",
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True
     )
     avatar = models.ImageField(
         "Фото",
