@@ -222,7 +222,7 @@ class Command(BaseCommand):
             )
             self.stdout.write('Refreshing QR screenshot every 15 s for up to 3 minutes …')
 
-            # Refresh QR screenshot every 15 s until logged in or timeout
+            # Refresh QR screenshot every 10 s until logged in or timeout
             deadline = time.monotonic() + QR_TIMEOUT / 1000
             logged_in = False
             while time.monotonic() < deadline:
@@ -234,7 +234,20 @@ class Command(BaseCommand):
                 except Exception:
                     pass
 
-                # Re-screenshot the QR
+                # If QR expired, click the reload button
+                try:
+                    reload_btn = page.query_selector('[data-testid="refresh-large-icon"]')
+                    if not reload_btn:
+                        # fallback: any button/div containing reload text
+                        reload_btn = page.query_selector('div[role="button"] span[data-icon="refresh-large"]')
+                    if reload_btn:
+                        reload_btn.click()
+                        self.stdout.write('  QR expired — clicked reload')
+                        time.sleep(3)  # wait for new QR to render
+                except Exception:
+                    pass
+
+                # Screenshot fresh QR
                 try:
                     qr_el = None
                     for sel in ('[data-testid="qrcode"]', 'canvas', '[data-ref] img'):
@@ -249,7 +262,7 @@ class Command(BaseCommand):
                 except Exception:
                     pass
 
-                time.sleep(15)
+                time.sleep(10)
 
             if not logged_in:
                 page.screenshot(path=qr_path)
