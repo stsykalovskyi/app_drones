@@ -392,18 +392,42 @@ class Command(BaseCommand):
 
         # Type group name into whatever is focused
         page.keyboard.type(group_name)
-        time.sleep(2)
+        time.sleep(2.5)
 
-        # Click matching chat result
-        chat = page.locator(f'[title="{group_name}"]').first
-        try:
-            chat.wait_for(timeout=10_000)
-        except Exception:
+        # Save screenshot of search results for diagnosis
+        page.screenshot(path='/tmp/wa_search.png')
+        self.stdout.write('  Search results screenshot → /tmp/wa_search.png')
+
+        # Try exact title first, then partial match (community subgroups
+        # may appear as "ВИТРАТА • АДАМАХА/11" or similar)
+        chat = None
+        for locator in (
+            page.locator(f'[title="{group_name}"]'),
+            page.locator(f'[title*="{group_name}"]'),
+            page.locator(f'span:text-is("{group_name}")'),
+            page.locator(f'span:has-text("{group_name}")'),
+        ):
+            try:
+                locator.first.wait_for(timeout=4_000)
+                chat = locator.first
+                break
+            except Exception:
+                continue
+
+        if chat is None:
+            # Log all visible titles to help diagnose
+            titles = page.eval_on_selector_all(
+                '[title]', 'els => els.map(e => e.getAttribute("title")).filter(Boolean)'
+            )
+            self.stdout.write(f'  Visible titles in DOM: {titles[:20]}')
             page.screenshot(path='/tmp/wa_state.png')
             raise RuntimeError(
-                f'Group "{group_name}" not found in search results. '
-                'Screenshot: scp root@85.121.4.216:/tmp/wa_state.png /mnt/f/wa_state.png'
+                f'Group "{group_name}" not found in search results.\n'
+                '  Download screenshots:\n'
+                '  scp root@85.121.4.216:/tmp/wa_search.png /mnt/f/wa_search.png\n'
+                '  scp root@85.121.4.216:/tmp/wa_state.png  /mnt/f/wa_state.png'
             )
+
         chat.click()
 
         # Wait for messages to load
