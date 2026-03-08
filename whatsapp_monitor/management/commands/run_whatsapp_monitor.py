@@ -175,17 +175,33 @@ class Command(BaseCommand):
             except Exception:
                 pass
 
-            # Wait for QR element, then screenshot it
+            # Wait for the actual QR image to render (not just the container)
             self.stdout.write('Waiting for QR code to render …')
             qr_found = False
-            try:
-                page.wait_for_selector('[data-ref]', timeout=20_000)
-                qr_found = True
-            except Exception:
-                pass
+            # Try selectors in order of specificity
+            qr_selectors = [
+                '[data-testid="qrcode"]',   # newer WhatsApp Web
+                'canvas',                    # canvas-based QR
+                '[data-ref] img',            # image inside data-ref container
+            ]
+            for sel in qr_selectors:
+                try:
+                    page.wait_for_selector(sel, timeout=20_000)
+                    qr_found = True
+                    break
+                except Exception:
+                    pass
 
-            time.sleep(2)
-            qr_el = page.query_selector('[data-ref]') or page.query_selector('canvas')
+            # Extra wait to ensure QR is fully painted
+            time.sleep(3)
+
+            # Screenshot just the QR element for clarity
+            qr_el = None
+            for sel in qr_selectors:
+                qr_el = page.query_selector(sel)
+                if qr_el:
+                    break
+
             if qr_el:
                 qr_el.screenshot(path=qr_path)
             else:
@@ -194,7 +210,6 @@ class Command(BaseCommand):
             if not qr_found:
                 self.stdout.write(self.style.WARNING(
                     f'QR element not detected — full page screenshot saved to {qr_path}.\n'
-                    'The page may show an "unsupported browser" error.\n'
                     'Check the screenshot and report back.'
                 ))
             else:
@@ -221,7 +236,11 @@ class Command(BaseCommand):
 
                 # Re-screenshot the QR
                 try:
-                    qr_el = page.query_selector('[data-ref]') or page.query_selector('canvas')
+                    qr_el = None
+                    for sel in ('[data-testid="qrcode"]', 'canvas', '[data-ref] img'):
+                        qr_el = page.query_selector(sel)
+                        if qr_el:
+                            break
                     if qr_el:
                         qr_el.screenshot(path=qr_path)
                     else:
