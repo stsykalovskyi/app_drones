@@ -5,6 +5,30 @@ from user_management.models import Profile
 
 logger = logging.getLogger(__name__)
 
+
+def _post_message(token: str, chat_id: str, text: str) -> None:
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            logger.error("Telegram API error for %s: %s", chat_id, r.text)
+    except requests.exceptions.RequestException as e:
+        logger.error("Failed to send Telegram message to %s: %s", chat_id, e)
+
+
+def send_admin_message(message: str) -> None:
+    """Send a message only to the primary admin chat (TELEGRAM_CHAT_ID)."""
+    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+    chat_id = getattr(settings, 'TELEGRAM_CHAT_ID', None)
+    if not token or not chat_id:
+        logger.warning("Admin Telegram notification skipped: token or chat_id not set.")
+        return
+    _post_message(token, str(chat_id), message)
+
+
 def send_telegram_message(message: str):
     """
     Sends a message to:
@@ -32,17 +56,5 @@ def send_telegram_message(message: str):
         logger.info("No recipients for Telegram message.")
         return
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    
     for chat_id in recipients:
-        payload = {
-            "chat_id": chat_id,
-            "text": message,
-            "parse_mode": "HTML"
-        }
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            if response.status_code != 200:
-                logger.error(f"Telegram API Error for {chat_id}: {response.text}")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to send Telegram message to {chat_id}: {e}")
+        _post_message(token, chat_id, message)

@@ -58,4 +58,12 @@ jobs:
 
             # Restart application container
             docker container restart app_drones
+
+            # Restart Telegram bot in a detached screen session
+            screen -S bot -X quit || true
+            screen -dmS bot bash -c "
+              cd /root/MyProjects/python/app_drones
+              source .venv/bin/activate
+              python manage.py run_telegram_bot >> /var/log/tgbot.log 2>&1
+            "
           EOF
