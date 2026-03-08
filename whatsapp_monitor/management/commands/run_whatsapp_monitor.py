@@ -117,6 +117,27 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ #
 
+    def _save_qr(self, page, qr_path: str) -> bool:
+        """
+        Extract QR token from data-ref attribute and render a clean PNG.
+        Returns True on success, False if token not found.
+        """
+        try:
+            el = page.query_selector('[data-ref]')
+            if not el:
+                return False
+            token = el.get_attribute('data-ref')
+            if not token:
+                return False
+
+            import qrcode as _qrcode
+            img = _qrcode.make(token)
+            img.save(qr_path)
+            return True
+        except Exception as exc:
+            logger.debug('_save_qr failed: %s', exc)
+            return False
+
     @staticmethod
     def _find_chromium():
         """Return path to the first system Chromium/Chrome binary found."""
@@ -175,45 +196,26 @@ class Command(BaseCommand):
             except Exception:
                 pass
 
-            # Wait for the actual QR image to render (not just the container)
+            # Wait for the QR container with data-ref attribute (holds QR token)
             self.stdout.write('Waiting for QR code to render …')
-            qr_found = False
-            # Try selectors in order of specificity
-            qr_selectors = [
-                '[data-testid="qrcode"]',   # newer WhatsApp Web
-                'canvas',                    # canvas-based QR
-                '[data-ref] img',            # image inside data-ref container
-            ]
-            for sel in qr_selectors:
-                try:
-                    page.wait_for_selector(sel, timeout=20_000)
-                    qr_found = True
-                    break
-                except Exception:
-                    pass
-
-            # Extra wait to ensure QR is fully painted
-            time.sleep(3)
-
-            # Screenshot just the QR element for clarity
-            qr_el = None
-            for sel in qr_selectors:
-                qr_el = page.query_selector(sel)
-                if qr_el:
-                    break
-
-            if qr_el:
-                qr_el.screenshot(path=qr_path)
-            else:
+            try:
+                page.wait_for_selector('[data-ref]', timeout=25_000)
+            except Exception:
                 page.screenshot(path=qr_path)
-
-            if not qr_found:
-                self.stdout.write(self.style.WARNING(
-                    f'QR element not detected — full page screenshot saved to {qr_path}.\n'
-                    'Check the screenshot and report back.'
+                self.stderr.write(self.style.ERROR(
+                    'QR container not found — page screenshot saved.\n'
+                    f'Check: scp root@85.121.4.216:{qr_path} /mnt/f/wa_qr.png'
                 ))
-            else:
-                self.stdout.write(self.style.SUCCESS(f'QR screenshot saved to: {qr_path}'))
+                return
+
+            time.sleep(2)
+            saved = self._save_qr(page, qr_path)
+            if not saved:
+                self.stderr.write(self.style.ERROR(
+                    'Could not extract QR data. Check the screenshot.'
+                ))
+                return
+            self.stdout.write(self.style.SUCCESS(f'QR saved to: {qr_path}'))
 
             self.stdout.write(
                 f'\n  scp root@85.121.4.216:{qr_path} /mnt/f/wa_qr.png\n'
@@ -236,31 +238,25 @@ class Command(BaseCommand):
 
                 # If QR expired, click the reload button
                 try:
-                    reload_btn = page.query_selector('[data-testid="refresh-large-icon"]')
-                    if not reload_btn:
-                        # fallback: any button/div containing reload text
-                        reload_btn = page.query_selector('div[role="button"] span[data-icon="refresh-large"]')
-                    if reload_btn:
-                        reload_btn.click()
-                        self.stdout.write('  QR expired — clicked reload')
-                        time.sleep(3)  # wait for new QR to render
+                    for reload_sel in (
+                        '[data-testid="refresh-large-icon"]',
+                        'span[data-icon="refresh-large"]',
+                        'div[role="button"]',
+                    ):
+                        btn = page.query_selector(reload_sel)
+                        if btn:
+                            btn.click()
+                            self.stdout.write('  QR expired — clicked reload')
+                            time.sleep(3)
+                            break
                 except Exception:
                     pass
 
-                # Screenshot fresh QR
-                try:
-                    qr_el = None
-                    for sel in ('[data-testid="qrcode"]', 'canvas', '[data-ref] img'):
-                        qr_el = page.query_selector(sel)
-                        if qr_el:
-                            break
-                    if qr_el:
-                        qr_el.screenshot(path=qr_path)
-                    else:
-                        page.screenshot(path=qr_path)
+                # Regenerate QR from data-ref token
+                if self._save_qr(page, qr_path):
                     self.stdout.write(f'  QR refreshed → {qr_path}')
-                except Exception:
-                    pass
+                else:
+                    self.stdout.write('  Could not read QR data, retrying…')
 
                 time.sleep(10)
 

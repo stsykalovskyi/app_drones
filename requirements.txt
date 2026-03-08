@@ -14,3 +14,4 @@ bleach
 Pillow
 openpyxl
 playwright
+qrcode
