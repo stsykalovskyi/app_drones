@@ -17,11 +17,16 @@ Settings (in .env / Django settings):
     WHATSAPP_SESSION — path to store the browser session
                        (default: <BASE_DIR>/whatsapp_session)
 """
+import os
 import time
 import logging
 import shutil
 from pathlib import Path
 from datetime import datetime, timezone
+
+# Playwright's sync API runs inside an asyncio loop; Django's ORM guard
+# raises SynchronousOnlyOperation in that context. This flag disables it.
+os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'true')
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
