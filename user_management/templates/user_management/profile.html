@@ -377,11 +377,24 @@
             {% for field in profile_form %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {% if field.html_name == 'phone_number' %}
+                <input type="tel"
+                       name="{{ field.html_name }}"
+                       id="{{ field.id_for_label }}"
+                       value="{{ field.value|default_if_none:'' }}"
+                       placeholder="+380XXXXXXXXX"
+                       pattern="\+380\d{9}"
+                       inputmode="tel"
+                       maxlength="13"
+                       autocomplete="tel">
+                <span class="helptext" id="phone-hint">Формат: +380XXXXXXXXX (13 символів)</span>
+                {% else %}
                 <input type="{{ field.field.widget.input_type|default:'text' }}"
                        name="{{ field.html_name }}"
                        id="{{ field.id_for_label }}"
                        value="{{ field.value|default_if_none:'' }}"
                        {% if field.field.required %}required{% endif %}>
+                {% endif %}
                 {% if field.errors %}
                 <ul class="errorlist">
                     {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
@@ -446,6 +459,44 @@
 </div>
 
 <script>
+(function() {
+    var phoneInput = document.getElementById('id_phone_number');
+    var hint = document.getElementById('phone-hint');
+    if (!phoneInput) return;
+
+    var RE = /^\+380\d{9}$/;
+
+    function validate() {
+        var val = phoneInput.value.trim();
+        if (!val) {
+            phoneInput.style.borderColor = '';
+            hint.style.color = '';
+            hint.textContent = 'Формат: +380XXXXXXXXX (13 символів)';
+            return;
+        }
+        if (RE.test(val)) {
+            phoneInput.style.borderColor = 'var(--accent)';
+            hint.style.color = 'var(--accent)';
+            hint.textContent = '✓ Формат правильний';
+        } else {
+            phoneInput.style.borderColor = '#ef4444';
+            hint.style.color = '#ef4444';
+            var len = val.replace(/\D/g, '').length;
+            if (!val.startsWith('+380')) {
+                hint.textContent = 'Має починатися з +380';
+            } else if (len < 12) {
+                hint.textContent = 'Залишилось цифр: ' + (12 - len);
+            } else {
+                hint.textContent = 'Невірний формат — очікується +380XXXXXXXXX';
+            }
+        }
+    }
+
+    phoneInput.addEventListener('input', validate);
+    phoneInput.addEventListener('blur', validate);
+    validate();
+})();
+
 document.getElementById('avatar-input').addEventListener('change', function() {
     if (this.files.length > 0) {
         document.getElementById('avatar-form').submit();

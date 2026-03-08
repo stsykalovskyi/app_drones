@@ -1,9 +1,12 @@
+import re
 from django import forms
 from django.contrib.auth import get_user_model
 
 from .models import Profile
 
 User = get_user_model()
+
+_PHONE_RE = re.compile(r'^\+380\d{9}$')
 
 
 class ProfileForm(forms.ModelForm):
@@ -16,7 +19,12 @@ class ProfileForm(forms.ModelForm):
         label="Номер телефону",
         max_length=20,
         required=False,
-        help_text="Формат: +380XXXXXXXXX"
+        help_text="Формат: +380XXXXXXXXX (13 символів)",
+        widget=forms.TextInput(attrs={
+            'placeholder': '+380XXXXXXXXX',
+            'pattern': r'\+380\d{9}',
+            'inputmode': 'tel',
+        }),
     )
 
     class Meta:
@@ -24,29 +32,13 @@ class ProfileForm(forms.ModelForm):
         fields = ("email", "first_name", "last_name")
 
     def clean_phone_number(self):
-        phone = self.cleaned_data.get("phone_number")
+        phone = self.cleaned_data.get("phone_number", "").strip()
         if not phone:
             return phone
-            
-        # Remove all non-digit characters except the leading '+'
-        # If user entered 097... -> +38097...
-        import re
-        
-        # Strip all whitespace and special characters
-        phone = "".join(phone.split())
-        
-        if not phone.startswith('+'):
-            if phone.startswith('380'):
-                phone = '+' + phone
-            elif phone.startswith('0'):
-                phone = '+38' + phone
-            else:
-                raise forms.ValidationError("Номер телефону має починатися з '+' (наприклад, +380...)")
-        
-        # Verify it contains only digits after '+'
-        if not re.match(r'^\+\d{10,15}$', phone):
-            raise forms.ValidationError("Невірний формат номера. Використовуйте тільки цифри (мінімум 10) після '+'.")
-            
+        if not _PHONE_RE.match(phone):
+            raise forms.ValidationError(
+                "Невірний формат. Введіть номер у форматі +380XXXXXXXXX (13 символів)."
+            )
         return phone
 
     def __init__(self, *args, **kwargs):
