@@ -359,16 +359,64 @@ class Command(BaseCommand):
     def _open_group(self, page, group_name):
         self.stdout.write(f'Opening group "{group_name}" …')
 
-        page.click('[data-testid="search"]')
-        page.fill('[data-testid="search"] input', group_name)
-        time.sleep(1.5)
+        # Find and click search box (selector varies across WhatsApp Web versions)
+        SEARCH_SELECTORS = [
+            '[data-testid="search"]',
+            '[data-testid="search-input"]',
+            'div[contenteditable="true"][title]',
+            'div[role="textbox"]',
+            'input[type="text"]',
+        ]
+        search_clicked = False
+        for sel in SEARCH_SELECTORS:
+            try:
+                page.wait_for_selector(sel, timeout=10_000)
+                page.click(sel)
+                search_clicked = True
+                self.stdout.write(f'  Search box found: {sel}')
+                break
+            except Exception:
+                continue
 
+        if not search_clicked:
+            page.screenshot(path='/tmp/wa_state.png')
+            raise RuntimeError(
+                'Search box not found. Screenshot: '
+                'scp root@85.121.4.216:/tmp/wa_state.png /mnt/f/wa_state.png'
+            )
+
+        # Type group name into whatever is focused
+        page.keyboard.type(group_name)
+        time.sleep(2)
+
+        # Click matching chat result
         chat = page.locator(f'[title="{group_name}"]').first
-        chat.wait_for(timeout=10_000)
+        try:
+            chat.wait_for(timeout=10_000)
+        except Exception:
+            page.screenshot(path='/tmp/wa_state.png')
+            raise RuntimeError(
+                f'Group "{group_name}" not found in search results. '
+                'Screenshot: scp root@85.121.4.216:/tmp/wa_state.png /mnt/f/wa_state.png'
+            )
         chat.click()
 
-        page.wait_for_selector('[data-testid="msg-container"]', timeout=15_000)
-        self.stdout.write(self.style.SUCCESS(f'Opened group "{group_name}".'))
+        # Wait for messages to load
+        MSG_SELECTORS = [
+            '[data-testid="msg-container"]',
+            '[data-testid="conversation-panel-messages"]',
+            'div[role="row"]',
+        ]
+        for sel in MSG_SELECTORS:
+            try:
+                page.wait_for_selector(sel, timeout=15_000)
+                self.stdout.write(self.style.SUCCESS(f'Opened group "{group_name}".'))
+                return
+            except Exception:
+                continue
+
+        self.stdout.write(self.style.WARNING(
+            f'Opened group "{group_name}" but message list not confirmed.'))
 
     def _poll_loop(self, page, group_name):
         seen: set[str] = set(
