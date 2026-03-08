@@ -15,6 +15,7 @@ Settings (in .env / Django settings):
 """
 import time
 import logging
+import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -54,6 +55,12 @@ class Command(BaseCommand):
             default=True,
             help='Run Chromium in headless mode (default: True).',
         )
+        parser.add_argument(
+            '--chromium-path',
+            default='',
+            help='Path to system Chromium/Chrome binary. '
+                 'Auto-detected if not set (checks chromium-browser, chromium, google-chrome).',
+        )
 
     def handle(self, *args, **options):
         group_name  = options['group']
@@ -79,16 +86,30 @@ class Command(BaseCommand):
             ))
             return
 
+        chromium_path = options['chromium_path'] or self._find_chromium()
+        if chromium_path:
+            self.stdout.write(f'Using system Chromium: {chromium_path}')
+        else:
+            self.stdout.write('No system Chromium found — using Playwright bundled browser.')
+
         with sync_playwright() as pw:
-            self._run(pw, group_name, session_dir, options['headless'])
+            self._run(pw, group_name, session_dir, options['headless'], chromium_path)
 
     # ------------------------------------------------------------------ #
 
-    def _run(self, pw, group_name, session_dir, headless):
+    @staticmethod
+    def _find_chromium():
+        """Return path to the first system Chromium/Chrome binary found."""
+        for name in ('chromium-browser', 'chromium', 'google-chrome', 'google-chrome-stable'):
+            path = shutil.which(name)
+            if path:
+                return path
+        return ''
+
+    def _run(self, pw, group_name, session_dir, headless, chromium_path=''):
         Path(session_dir).mkdir(parents=True, exist_ok=True)
 
-        ctx = pw.chromium.launch_persistent_context(
-            session_dir,
+        launch_kwargs = dict(
             headless=headless,
             args=[
                 '--no-sandbox',
@@ -99,6 +120,10 @@ class Command(BaseCommand):
             ],
             viewport={'width': 1280, 'height': 900},
         )
+        if chromium_path:
+            launch_kwargs['executable_path'] = chromium_path
+
+        ctx = pw.chromium.launch_persistent_context(session_dir, **launch_kwargs)
 
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.set_default_timeout(PAGE_TIMEOUT)
