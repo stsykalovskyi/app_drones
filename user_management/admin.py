@@ -20,16 +20,20 @@ class GroupAdmin(ModelAdmin, BaseGroupAdmin):
 class ProfileInline(StackedInline):
     model = Profile
     can_delete = False
-    fields = ("avatar",)
+    fields = ("callsign", "phone_number", "telegram_chat_id", "avatar")
 
 
 @admin.register(User)
 class UserAdmin(ModelAdmin, BaseUserAdmin):
-    list_display = ('username', 'email', 'is_active', 'is_staff', 'date_joined')
+    list_display = ('username', 'email', 'get_phone_number', 'is_active', 'is_staff', 'date_joined')
     list_filter = ('is_active', 'is_staff', 'is_superuser')
     list_editable = ('is_active',)
     ordering = ('-date_joined',)
     inlines = [ProfileInline]
+
+    @admin.display(description='Номер телефону', ordering='profile__phone_number')
+    def get_phone_number(self, obj):
+        return obj.profile.phone_number
     actions = ['approve_users', 'revoke_users']
 
     @admin.action(description='Підтвердити обраних користувачів')
