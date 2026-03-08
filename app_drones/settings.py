@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'expense_log',
     'user_management',
     'app_drones',
+    'whatsapp_monitor',
 ]
 
 MIDDLEWARE = [

@@ -13,3 +13,4 @@ markdown
 bleach
 Pillow
 openpyxl
+playwright

@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Статистика ударів — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .page-hero { margin-bottom: 1.25rem; }
+    .page-hero h1 {
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.2rem;
+    }
+    .page-hero p { color: var(--text-secondary); font-size: 0.88rem; margin: 0; }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    .sum-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1rem;
+        box-shadow: var(--shadow-card); text-align: center;
+    }
+    .sum-card .sum-val {
+        font-size: 2rem; font-weight: 800; color: var(--accent); line-height: 1;
+    }
+    .sum-card .sum-lbl {
+        font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;
+        text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+    }
+    .sum-card.destroyed .sum-val { color: #22c55e; }
+    .sum-card.damaged    .sum-val { color: #f59e0b; }
+    .sum-card.missed     .sum-val { color: #ef4444; }
+    .sum-card.unknown    .sum-val { color: var(--text-muted); }
+
+    /* ── Date filter ── */
+    .date-filter {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem; display: flex; gap: 0.75rem;
+        align-items: center; flex-wrap: wrap;
+        box-shadow: var(--shadow-card);
+    }
+    .date-filter label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+    .date-filter input[type="date"] {
+        padding: 0.3rem 0.5rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg);
+        color: var(--text); font-size: 0.82rem;
+    }
+    .date-filter button {
+        padding: 0.35rem 0.9rem; background: var(--accent); color: var(--bg);
+        border: none; border-radius: var(--radius-sm); font-weight: 700;
+        font-size: 0.82rem; cursor: pointer;
+    }
+    .date-filter button:hover { opacity: .85; }
+    .date-filter a.reset {
+        font-size: 0.78rem; color: var(--text-muted); text-decoration: none;
+        font-weight: 600;
+    }
+    .date-filter a.reset:hover { color: var(--accent); }
+
+    /* ── Sections ── */
+    .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+    .section-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); overflow: hidden;
+        box-shadow: var(--shadow-card);
+    }
+    .section-head {
+        padding: 0.65rem 1rem; background: var(--accent-dim);
+        font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; color: var(--accent);
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Table ── */
+    .s-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .s-table th {
+        padding: 0.5rem 0.75rem; text-align: left;
+        color: var(--text-muted); font-size: 0.7rem;
+        text-transform: uppercase; letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border);
+    }
+    .s-table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .s-table tr:last-child td { border-bottom: none; }
+    .s-table tr:hover td { background: var(--surface-hover); }
+    .num-cell { font-weight: 700; color: var(--accent); }
+    .green { color: #22c55e; }
+    .yellow { color: #f59e0b; }
+    .red { color: #ef4444; }
+
+    /* ── Bar ── */
+    .bar-wrap { display: flex; align-items: center; gap: 0.5rem; }
+    .bar { height: 6px; background: var(--accent); border-radius: 3px; flex-shrink: 0; }
+
+    /* ── By-date table (full width) ── */
+    .full-card { margin-bottom: 1rem; }
+
+    /* ── Status badge ── */
+    .badge {
+        display: inline-block; padding: 0.15em 0.55em;
+        border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+    }
+    .badge-destroyed { background: rgba(34,197,94,.15); color: #22c55e; }
+    .badge-damaged   { background: rgba(245,158,11,.15); color: #f59e0b; }
+    .badge-missed    { background: rgba(239,68,68,.15);  color: #ef4444; }
+    .badge-unknown   { background: var(--accent-dim);    color: var(--text-muted); }
+
+    /* ── Empty ── */
+    .empty-msg {
+        padding: 2rem; text-align: center;
+        color: var(--text-muted); font-size: 0.85rem;
+    }
+    .raw-text {
+        font-size: 0.75rem; color: var(--text-muted);
+        white-space: pre-wrap; font-family: monospace;
+        max-width: 320px; overflow: hidden; text-overflow: ellipsis;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+    <h1>Статистика ударів</h1>
+    <p>Звіти з WhatsApp-групи, розпізнані автоматично</p>
+</div>
+
+<!-- Date filter -->
+<form method="get" class="date-filter">
+    <label>Від</label>
+    <input type="date" name="date_from" value="{{ date_from }}">
+    <label>До</label>
+    <input type="date" name="date_to" value="{{ date_to }}">
+    <button type="submit">Фільтр</button>
+    {% if date_from or date_to %}
+        <a href="{% url 'whatsapp_monitor:stats' %}" class="reset">× Скинути</a>
+    {% endif %}
+</form>
+
+<!-- Summary cards -->
+<div class="summary-grid">
+    <div class="sum-card">
+        <div class="sum-val">{{ total }}</div>
+        <div class="sum-lbl">Всього звітів</div>
+    </div>
+    <div class="sum-card destroyed">
+        <div class="sum-val">{{ destroyed }}</div>
+        <div class="sum-lbl">Знищено</div>
+    </div>
+    <div class="sum-card damaged">
+        <div class="sum-val">{{ damaged }}</div>
+        <div class="sum-lbl">Пошкоджено</div>
+    </div>
+    <div class="sum-card missed">
+        <div class="sum-val">{{ missed }}</div>
+        <div class="sum-lbl">Не вражено</div>
+    </div>
+    <div class="sum-card unknown">
+        <div class="sum-val">{{ unknown }}</div>
+        <div class="sum-lbl">Невідомо</div>
+    </div>
+</div>
+
+<!-- By date -->
+<div class="section-card full-card">
+    <div class="section-head">По датах</div>
+    {% if by_date %}
+    <table class="s-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Всього</th>
+                <th>Знищено</th>
+                <th>Пошкоджено</th>
+                <th>Промах</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in by_date %}
+            <tr>
+                <td>{{ row.day|date:"d.m.Y" }}</td>
+                <td class="num-cell">{{ row.cnt }}</td>
+                <td class="green">{% if row.destroyed %}{{ row.destroyed }}{% else %}—{% endif %}</td>
+                <td class="yellow">{% if row.damaged %}{{ row.damaged }}{% else %}—{% endif %}</td>
+                <td class="red">{% if row.missed %}{{ row.missed }}{% else %}—{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-msg">Немає даних</div>
+    {% endif %}
+</div>
+
+<!-- Operators + Targets -->
+<div class="two-col">
+    <div class="section-card">
+        <div class="section-head">Оператори (Позивний)</div>
+        {% if top_operators %}
+        <table class="s-table">
+            <thead>
+                <tr><th>Позивний</th><th>Разом</th><th class="green">Зн.</th></tr>
+            </thead>
+            <tbody>
+            {% for op in top_operators %}
+            {% with max_cnt=top_operators.0.cnt %}
+            <tr>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width:{{ op.cnt|floatformat:0 }}px; max-width:80px;
+                             width: calc({{ op.cnt }} / {{ max_cnt }} * 80px);"></div>
+                        {{ op.pozyvnyi }}
+                    </div>
+                </td>
+                <td class="num-cell">{{ op.cnt }}</td>
+                <td class="green">{{ op.destroyed }}</td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-msg">Немає даних</div>
+        {% endif %}
+    </div>
+
+    <div class="section-card">
+        <div class="section-head">Цілі</div>
+        {% if top_targets %}
+        <table class="s-table">
+            <thead>
+                <tr><th>Ціль</th><th>Кількість</th></tr>
+            </thead>
+            <tbody>
+            {% for t in top_targets %}
+            {% with max_cnt=top_targets.0.cnt %}
+            <tr>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width: calc({{ t.cnt }} / {{ max_cnt }} * 80px);"></div>
+                        {{ t.target }}
+                    </div>
+                </td>
+                <td class="num-cell">{{ t.cnt }}</td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-msg">Немає даних</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Drone types (zasib) -->
+<div class="section-card full-card">
+    <div class="section-head">Засоби ураження</div>
+    {% if top_zasib %}
+    <table class="s-table">
+        <thead>
+            <tr><th>Засіб</th><th>Разом</th><th class="green">Зн.</th></tr>
+        </thead>
+        <tbody>
+        {% for z in top_zasib %}
+        <tr>
+            <td>{{ z.zasib }}</td>
+            <td class="num-cell">{{ z.cnt }}</td>
+            <td class="green">{{ z.destroyed }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-msg">Немає даних</div>
+    {% endif %}
+</div>
+
+<!-- Recent unparsed -->
+{% if recent_raw %}
+<div class="section-card full-card">
+    <div class="section-head">Нерозпізнані повідомлення (останні 20)</div>
+    <table class="s-table">
+        <thead>
+            <tr><th>Час</th><th>Відправник</th><th>Текст</th></tr>
+        </thead>
+        <tbody>
+        {% for r in recent_raw %}
+        <tr>
+            <td style="white-space:nowrap;">{{ r.received_at|date:"d.m H:i" }}</td>
+            <td>{{ r.sender_name }}</td>
+            <td><div class="raw-text">{{ r.raw_text }}</div></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

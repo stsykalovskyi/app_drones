@@ -1009,6 +1009,13 @@
                     <span class="nav-label">Фінанси</span></a></li>
             {% endif %}
             {% if user.is_superuser %}
+                <li><a href="{% url 'whatsapp_monitor:stats' %}">
+                    <svg class="nav-icon" viewBox="0 0 24 24">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span class="nav-label">Звіти ударів</span></a></li>
+            {% endif %}
+            {% if user.is_superuser %}
                 <li><a href="{% url 'admin:index' %}">
                     <svg class="nav-icon" viewBox="0 0 24 24">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
