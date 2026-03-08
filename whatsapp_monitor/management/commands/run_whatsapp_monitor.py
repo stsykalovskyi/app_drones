@@ -578,30 +578,43 @@ class Command(BaseCommand):
             pre = text_el.get_attribute('data-pre-plain-text') or ''
             received_at, sender_name = self._parse_pre_plain(pre)
 
-            parsed = parse_report(raw_text)
-            parsed_ok = parsed is not None
+            parsed_list = parse_report(raw_text)
 
-            report = StrikeReport(
-                whatsapp_msg_id = msg_id,
-                raw_text        = raw_text,
-                sender_name     = sender_name,
-                group_name      = group_name,
-                received_at     = received_at,
-                parsed_ok       = parsed_ok,
-            )
-            if parsed:
-                for field, value in parsed.items():
-                    setattr(report, field, value)
-
-            report.save()
-            seen.add(msg_id)
-            new_count += 1
-
-            if parsed_ok:
-                self.stdout.write(self.style.SUCCESS(
-                    f'[+] {received_at:%d.%m %H:%M} {sender_name}: '
-                    f'{report.pozyvnyi} / {report.target} → {report.get_result_display()}'
-                ))
+            if not parsed_list:
+                # Save as unrecognised
+                StrikeReport(
+                    whatsapp_msg_id=msg_id,
+                    raw_text=raw_text,
+                    sender_name=sender_name,
+                    group_name=group_name,
+                    received_at=received_at,
+                    parsed_ok=False,
+                ).save()
+                seen.add(msg_id)
+                new_count += 1
+            else:
+                # One DB record per target (FPV messages may have several)
+                for idx, parsed in enumerate(parsed_list):
+                    uid = msg_id if idx == 0 else f'{msg_id}:{idx}'
+                    if uid in seen:
+                        continue
+                    report = StrikeReport(
+                        whatsapp_msg_id=uid,
+                        raw_text=raw_text,
+                        sender_name=sender_name,
+                        group_name=group_name,
+                        received_at=received_at,
+                        parsed_ok=True,
+                    )
+                    for field, value in parsed.items():
+                        setattr(report, field, value)
+                    report.save()
+                    seen.add(uid)
+                    new_count += 1
+                    self.stdout.write(self.style.SUCCESS(
+                        f'[+] {received_at:%d.%m %H:%M} {sender_name}: '
+                        f'{report.pozyvnyi} / {report.target} → {report.get_result_display()}'
+                    ))
 
         if new_count:
             self.stdout.write(f'Saved {new_count} new message(s).')
