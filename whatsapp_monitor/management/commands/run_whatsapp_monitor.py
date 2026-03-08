@@ -80,6 +80,12 @@ class Command(BaseCommand):
             default='/tmp/wa_qr.png',
             help='Where to save the QR screenshot in --setup mode (default: /tmp/wa_qr.png).',
         )
+        parser.add_argument(
+            '--backfill',
+            action='store_true',
+            default=False,
+            help='Scroll through entire chat history, save all messages, then exit.',
+        )
 
     def handle(self, *args, **options):
         group_name  = options['group']
@@ -113,6 +119,13 @@ class Command(BaseCommand):
             if setup_mode:
                 self._run_setup(pw, session_dir, options['headless'],
                                 chromium_path, options['qr_path'])
+            elif options['backfill']:
+                self.stdout.write(self.style.WARNING(
+                    f'BACKFILL MODE — scrolling full history of "{group_name}"'
+                ))
+                self.stdout.write(f'Session directory: {session_dir}')
+                self._run(pw, group_name, session_dir, options['headless'],
+                          chromium_path, backfill=True)
             else:
                 self.stdout.write(self.style.SUCCESS(
                     f'Starting WhatsApp monitor → group: "{group_name}"'
@@ -309,7 +322,7 @@ class Command(BaseCommand):
     # Normal monitor mode
     # ------------------------------------------------------------------ #
 
-    def _run(self, pw, group_name, session_dir, headless, chromium_path=''):
+    def _run(self, pw, group_name, session_dir, headless, chromium_path='', backfill=False):
         ctx = self._make_context(pw, session_dir, headless, chromium_path)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.set_default_timeout(PAGE_TIMEOUT)
@@ -317,7 +330,10 @@ class Command(BaseCommand):
         try:
             self._open_whatsapp(page)
             self._open_group(page, group_name)
-            self._poll_loop(page, group_name)
+            if backfill:
+                self._backfill(page, group_name)
+            else:
+                self._poll_loop(page, group_name)
         except KeyboardInterrupt:
             self.stdout.write('\nStopped by user.')
         except Exception as exc:
@@ -442,6 +458,90 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(
             f'Opened group "{group_name}" but message list not confirmed.'))
 
+    # JavaScript that finds the scrollable messages container
+    _FIND_PANE_JS = """
+        (() => {
+            const candidates = document.querySelectorAll('div[role="application"], #main div');
+            for (const el of candidates) {
+                const s = window.getComputedStyle(el);
+                if ((s.overflowY === 'scroll' || s.overflowY === 'auto')
+                        && el.scrollHeight > el.clientHeight + 50) {
+                    return el;
+                }
+            }
+            return null;
+        })()
+    """
+
+    def _backfill(self, page, group_name):
+        """Scroll to the top of chat history and save every message to the DB."""
+        seen: set[str] = set(
+            StrikeReport.objects.values_list('whatsapp_msg_id', flat=True)
+        )
+        self.stdout.write(f'Backfill start. Already in DB: {len(seen)}')
+
+        # Scroll to the very top first
+        self.stdout.write('Scrolling to top of chat history …')
+        for _ in range(60):          # up to 60 scroll-up steps (~5 min of history each)
+            prev_top = page.evaluate(
+                '(el => el ? el.scrollTop : 0)(document.querySelector("[data-tab=\'8\']") || ' +
+                self._FIND_PANE_JS.strip() + ')'
+            )
+            page.evaluate(
+                '(el => { if (el) el.scrollTop = 0; })(' +
+                '(document.querySelector("[data-tab=\'8\']") || ' +
+                self._FIND_PANE_JS.strip() + '))'
+            )
+            time.sleep(1.5)
+            new_top = page.evaluate(
+                '(el => el ? el.scrollTop : -1)(document.querySelector("[data-tab=\'8\']") || ' +
+                self._FIND_PANE_JS.strip() + ')'
+            )
+            if new_top == 0 and prev_top == 0:
+                break   # already at top
+            if new_top >= prev_top:
+                break   # can't scroll further up
+
+        self.stdout.write(self.style.SUCCESS('Reached top. Scrolling down and saving …'))
+
+        total_saved = 0
+        no_new_streak = 0
+
+        while True:
+            # Process all currently visible messages
+            saved = self._check_messages(page, group_name, seen)
+            total_saved += saved
+            if saved:
+                no_new_streak = 0
+                self.stdout.write(f'  +{saved} saved (total: {total_saved})')
+            else:
+                no_new_streak += 1
+
+            # Stop if 3 consecutive scrolls yielded nothing new
+            if no_new_streak >= 3:
+                break
+
+            # Scroll down one viewport
+            at_bottom = page.evaluate("""
+                (() => {
+                    const el = document.querySelector("[data-tab='8']") || """ +
+                    self._FIND_PANE_JS.strip() + """;
+                    if (!el) return true;
+                    el.scrollTop += el.clientHeight * 0.8;
+                    return el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+                })()
+            """)
+            time.sleep(1.5)
+            if at_bottom:
+                # One final read after reaching bottom
+                saved = self._check_messages(page, group_name, seen)
+                total_saved += saved
+                break
+
+        self.stdout.write(self.style.SUCCESS(
+            f'Backfill complete. Total new messages saved: {total_saved}'
+        ))
+
     def _poll_loop(self, page, group_name):
         seen: set[str] = set(
             StrikeReport.objects.values_list('whatsapp_msg_id', flat=True)
@@ -457,7 +557,7 @@ class Command(BaseCommand):
                 logger.error('Error checking messages: %s', exc)
             time.sleep(POLL_INTERVAL)
 
-    def _check_messages(self, page, group_name, seen):
+    def _check_messages(self, page, group_name, seen) -> int:
         # data-id attribute holds the WhatsApp message ID on each message row
         containers = page.query_selector_all('div[data-id]')
 
@@ -505,6 +605,7 @@ class Command(BaseCommand):
 
         if new_count:
             self.stdout.write(f'Saved {new_count} new message(s).')
+        return new_count
 
     @staticmethod
     def _parse_pre_plain(pre: str):
