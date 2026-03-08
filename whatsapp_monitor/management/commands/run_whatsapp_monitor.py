@@ -5,8 +5,12 @@ Launches a persistent Chromium session pointed at WhatsApp Web,
 opens the configured group, and polls for new messages every 30 s.
 Valid strike reports are parsed and saved to StrikeReport.
 
-First run: a QR code will appear in the terminal — scan it with your phone.
-Subsequent runs reuse the saved session (no QR needed).
+First run (authentication):
+    python manage.py run_whatsapp_monitor --setup
+    # saves QR screenshot to /tmp/wa_qr.png — download with scp and scan
+
+Subsequent runs reuse the saved session (no QR needed):
+    python manage.py run_whatsapp_monitor
 
 Settings (in .env / Django settings):
     WHATSAPP_GROUP   — exact display name of the target group
@@ -27,10 +31,9 @@ from whatsapp_monitor.parser import parse_report
 
 logger = logging.getLogger(__name__)
 
-# How often to check for new messages (seconds)
-POLL_INTERVAL = 30
-# How long to wait for WhatsApp Web to load after navigation (ms)
-PAGE_TIMEOUT  = 60_000
+POLL_INTERVAL = 30        # seconds between message checks
+PAGE_TIMEOUT  = 60_000    # ms — page load timeout
+QR_TIMEOUT    = 180_000   # ms — how long to wait for QR scan
 
 
 class Command(BaseCommand):
@@ -61,28 +64,35 @@ class Command(BaseCommand):
             help='Path to system Chromium/Chrome binary. '
                  'Auto-detected if not set (checks chromium-browser, chromium, google-chrome).',
         )
+        parser.add_argument(
+            '--setup',
+            action='store_true',
+            default=False,
+            help='Auth-only mode: screenshot the QR code, wait for scan, save session, exit.',
+        )
+        parser.add_argument(
+            '--qr-path',
+            default='/tmp/wa_qr.png',
+            help='Where to save the QR screenshot in --setup mode (default: /tmp/wa_qr.png).',
+        )
 
     def handle(self, *args, **options):
         group_name  = options['group']
         session_dir = options['session_dir']
+        setup_mode  = options['setup']
 
-        if not group_name:
+        if not group_name and not setup_mode:
             self.stderr.write(self.style.ERROR(
                 'Set WHATSAPP_GROUP in settings/.env or pass --group'
             ))
             return
 
-        self.stdout.write(self.style.SUCCESS(
-            f'Starting WhatsApp monitor → group: "{group_name}"'
-        ))
-        self.stdout.write(f'Session directory: {session_dir}')
-
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
             self.stderr.write(self.style.ERROR(
-                'playwright is not installed. Run: pip install playwright && '
-                'playwright install chromium'
+                'playwright is not installed. Run: '
+                'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pip install playwright'
             ))
             return
 
@@ -93,7 +103,15 @@ class Command(BaseCommand):
             self.stdout.write('No system Chromium found — using Playwright bundled browser.')
 
         with sync_playwright() as pw:
-            self._run(pw, group_name, session_dir, options['headless'], chromium_path)
+            if setup_mode:
+                self._run_setup(pw, session_dir, options['headless'],
+                                chromium_path, options['qr_path'])
+            else:
+                self.stdout.write(self.style.SUCCESS(
+                    f'Starting WhatsApp monitor → group: "{group_name}"'
+                ))
+                self.stdout.write(f'Session directory: {session_dir}')
+                self._run(pw, group_name, session_dir, options['headless'], chromium_path)
 
     # ------------------------------------------------------------------ #
 
@@ -106,10 +124,9 @@ class Command(BaseCommand):
                 return path
         return ''
 
-    def _run(self, pw, group_name, session_dir, headless, chromium_path=''):
+    def _make_context(self, pw, session_dir, headless, chromium_path):
         Path(session_dir).mkdir(parents=True, exist_ok=True)
-
-        launch_kwargs = dict(
+        kwargs = dict(
             headless=headless,
             args=[
                 '--no-sandbox',
@@ -121,10 +138,87 @@ class Command(BaseCommand):
             viewport={'width': 1280, 'height': 900},
         )
         if chromium_path:
-            launch_kwargs['executable_path'] = chromium_path
+            kwargs['executable_path'] = chromium_path
+        return pw.chromium.launch_persistent_context(session_dir, **kwargs)
 
-        ctx = pw.chromium.launch_persistent_context(session_dir, **launch_kwargs)
+    # ------------------------------------------------------------------ #
+    # Setup (auth) mode
+    # ------------------------------------------------------------------ #
 
+    def _run_setup(self, pw, session_dir, headless, chromium_path, qr_path):
+        self.stdout.write(self.style.WARNING(
+            '=== SETUP MODE: authenticating WhatsApp session ==='
+        ))
+        ctx = self._make_context(pw, session_dir, headless, chromium_path)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.set_default_timeout(PAGE_TIMEOUT)
+
+        try:
+            page.goto('https://web.whatsapp.com', wait_until='domcontentloaded')
+
+            # Check if already logged in
+            try:
+                page.wait_for_selector('[data-testid="chat-list"]', timeout=8_000)
+                self.stdout.write(self.style.SUCCESS(
+                    'Already logged in! Session is valid — no QR needed.\n'
+                    'You can start the monitor normally.'
+                ))
+                return
+            except Exception:
+                pass
+
+            # Wait for QR code element to appear
+            self.stdout.write('Waiting for QR code to appear …')
+            try:
+                page.wait_for_selector('[data-ref]', timeout=20_000)
+            except Exception:
+                # fallback: screenshot entire page
+                pass
+
+            # Screenshot the QR area
+            time.sleep(2)  # let QR render fully
+            qr_el = page.query_selector('[data-ref]') or page.query_selector('canvas')
+            if qr_el:
+                qr_el.screenshot(path=qr_path)
+            else:
+                page.screenshot(path=qr_path)
+
+            self.stdout.write(self.style.SUCCESS(f'\nQR screenshot saved to: {qr_path}'))
+            self.stdout.write(self.style.WARNING(
+                '\n--- HOW TO SCAN ---\n'
+                f'  scp root@85.121.4.216:{qr_path} ~/wa_qr.png\n'
+                '  Then open ~/wa_qr.png on your computer and scan with WhatsApp.\n'
+                '-------------------\n'
+            ))
+            self.stdout.write('Waiting up to 3 minutes for you to scan the QR …')
+
+            # Wait for login
+            page.wait_for_selector('[data-testid="chat-list"]', timeout=QR_TIMEOUT)
+            self.stdout.write(self.style.SUCCESS(
+                '\nLogged in! Session saved. Now start the monitor:\n'
+                '  python manage.py run_whatsapp_monitor\n'
+                'or via screen:\n'
+                '  screen -dmS wamon bash -c "cd /root/MyProjects/python/app_drones && '
+                'source .venv/bin/activate && python manage.py run_whatsapp_monitor '
+                '>> /var/log/wamon.log 2>&1"'
+            ))
+        except KeyboardInterrupt:
+            self.stdout.write('\nSetup cancelled.')
+        except Exception as exc:
+            logger.exception('Setup error: %s', exc)
+            self.stderr.write(self.style.ERROR(
+                f'Error: {exc}\n'
+                f'Try downloading the page screenshot: scp root@85.121.4.216:{qr_path} ~/wa_qr.png'
+            ))
+        finally:
+            ctx.close()
+
+    # ------------------------------------------------------------------ #
+    # Normal monitor mode
+    # ------------------------------------------------------------------ #
+
+    def _run(self, pw, group_name, session_dir, headless, chromium_path=''):
+        ctx = self._make_context(pw, session_dir, headless, chromium_path)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.set_default_timeout(PAGE_TIMEOUT)
 
@@ -144,7 +238,6 @@ class Command(BaseCommand):
         self.stdout.write('Opening WhatsApp Web …')
         page.goto('https://web.whatsapp.com', wait_until='domcontentloaded')
 
-        # Already logged in?
         try:
             page.wait_for_selector('[data-testid="chat-list"]', timeout=8_000)
             self.stdout.write(self.style.SUCCESS('Session restored — no QR needed.'))
@@ -152,27 +245,23 @@ class Command(BaseCommand):
         except Exception:
             pass
 
-        # Need QR scan
-        self.stdout.write(self.style.WARNING(
-            'Scan the QR code in the browser window (you have 3 minutes) …'
+        self.stderr.write(self.style.ERROR(
+            'Not logged in. Run first:\n'
+            '  python manage.py run_whatsapp_monitor --setup'
         ))
-        page.wait_for_selector('[data-testid="chat-list"]', timeout=180_000)
-        self.stdout.write(self.style.SUCCESS('Logged in!'))
+        raise RuntimeError('WhatsApp session not authenticated. Run --setup first.')
 
     def _open_group(self, page, group_name):
         self.stdout.write(f'Opening group "{group_name}" …')
 
-        # Click the search box
         page.click('[data-testid="search"]')
         page.fill('[data-testid="search"] input', group_name)
         time.sleep(1.5)
 
-        # Click the first result matching the exact title
         chat = page.locator(f'[title="{group_name}"]').first
         chat.wait_for(timeout=10_000)
         chat.click()
 
-        # Wait for message list to appear
         page.wait_for_selector('[data-testid="msg-container"]', timeout=15_000)
         self.stdout.write(self.style.SUCCESS(f'Opened group "{group_name}".'))
 
@@ -192,7 +281,6 @@ class Command(BaseCommand):
             time.sleep(POLL_INTERVAL)
 
     def _check_messages(self, page, group_name, seen):
-        # All message containers in the current view
         containers = page.query_selector_all('[data-testid="msg-container"]')
 
         new_count = 0
@@ -201,7 +289,6 @@ class Command(BaseCommand):
             if not msg_id or msg_id in seen:
                 continue
 
-            # Extract text
             text_el = container.query_selector('.copyable-text')
             if not text_el:
                 continue
@@ -210,12 +297,9 @@ class Command(BaseCommand):
             if not raw_text:
                 continue
 
-            # Extract timestamp + sender from data-pre-plain-text
-            # format: "[HH:MM, DD.MM.YYYY] Sender: "
             pre = text_el.get_attribute('data-pre-plain-text') or ''
             received_at, sender_name = self._parse_pre_plain(pre)
 
-            # Parse report
             parsed = parse_report(raw_text)
             parsed_ok = parsed is not None
 
