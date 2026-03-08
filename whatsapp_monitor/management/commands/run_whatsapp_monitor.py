@@ -431,12 +431,7 @@ class Command(BaseCommand):
         chat.click()
 
         # Wait for messages to load
-        MSG_SELECTORS = [
-            '[data-testid="msg-container"]',
-            '[data-testid="conversation-panel-messages"]',
-            'div[role="row"]',
-        ]
-        for sel in MSG_SELECTORS:
+        for sel in ('div[data-id]', '[data-testid="msg-container"]', 'div[role="row"]'):
             try:
                 page.wait_for_selector(sel, timeout=15_000)
                 self.stdout.write(self.style.SUCCESS(f'Opened group "{group_name}".'))
@@ -463,7 +458,8 @@ class Command(BaseCommand):
             time.sleep(POLL_INTERVAL)
 
     def _check_messages(self, page, group_name, seen):
-        containers = page.query_selector_all('[data-testid="msg-container"]')
+        # data-id attribute holds the WhatsApp message ID on each message row
+        containers = page.query_selector_all('div[data-id]')
 
         new_count = 0
         for container in containers:
