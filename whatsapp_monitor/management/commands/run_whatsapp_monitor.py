@@ -96,11 +96,13 @@ class Command(BaseCommand):
             ))
             return
 
-        chromium_path = options['chromium_path'] or self._find_chromium()
+        # Use explicit --chromium-path if given; otherwise let Playwright use
+        # its own bundled browser (installed via `playwright install chromium`).
+        chromium_path = options['chromium_path']
         if chromium_path:
-            self.stdout.write(f'Using system Chromium: {chromium_path}')
+            self.stdout.write(f'Using explicit Chromium: {chromium_path}')
         else:
-            self.stdout.write('No system Chromium found — using Playwright bundled browser.')
+            self.stdout.write('Using Playwright bundled Chromium.')
 
         with sync_playwright() as pw:
             if setup_mode:
