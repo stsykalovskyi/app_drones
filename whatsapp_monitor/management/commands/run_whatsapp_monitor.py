@@ -228,13 +228,23 @@ class Command(BaseCommand):
             deadline = time.monotonic() + QR_TIMEOUT / 1000
             logged_in = False
             while time.monotonic() < deadline:
-                # Check if login happened
+                # Check if login happened (give it up to 8s to load chat list)
                 try:
-                    page.wait_for_selector('[data-testid="chat-list"]', timeout=2_000)
+                    page.wait_for_selector('[data-testid="chat-list"]', timeout=8_000)
                     logged_in = True
                     break
                 except Exception:
                     pass
+
+                # If QR element is gone but chat list not yet visible — still loading
+                if not page.query_selector('[data-ref]'):
+                    self.stdout.write('  QR gone — waiting for chat list to load …')
+                    try:
+                        page.wait_for_selector('[data-testid="chat-list"]', timeout=15_000)
+                        logged_in = True
+                    except Exception:
+                        pass
+                    break
 
                 # If QR expired, click the reload button
                 try:
