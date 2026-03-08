@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Зміни статусів БПЛА{% endblock %}
+
+{% block head %}
+<style>
+    .eq-hero { margin-bottom: 1.5rem; }
+    .eq-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem;
+    }
+    .eq-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+
+    .filter-bar {
+        display: flex; gap: 0.75rem; margin-bottom: 1.25rem;
+        flex-wrap: wrap; align-items: flex-end;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 0.15rem; }
+    .filter-label {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted); line-height: 1;
+    }
+    .filter-bar select, .filter-bar input[type="text"], .filter-bar input[type="date"] {
+        padding: 0.55rem 0.75rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg);
+        color: var(--text); font-size: 0.85rem; font-family: inherit;
+        outline: none; transition: border-color 0.2s ease;
+    }
+    .filter-bar select:focus, .filter-bar input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .filter-reset {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.45rem 0.85rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--surface);
+        color: var(--text-muted); font-size: 0.8rem; text-decoration: none;
+        transition: all 0.15s ease;
+    }
+    .filter-reset:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.07); }
+
+    .log-table { width: 100%; border-collapse: collapse; }
+    .log-table th {
+        font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted);
+        padding: 0.55rem 0.75rem; text-align: left; border-bottom: 2px solid var(--border);
+        white-space: nowrap;
+    }
+    .log-table td {
+        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem;
+    }
+    .log-table tr:hover td { background: var(--accent-dim); }
+
+    .st-arrow { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+    .st-arrow .arrow { color: var(--text-muted); font-size: 0.8rem; }
+
+    .st-badge {
+        display: inline-block; padding: 0.15rem 0.55rem;
+        border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+    }
+    .st-ready      { background: rgba(34,197,94,.15);  color: #16a34a; }
+    .st-inspection { background: rgba(234,179,8,.15);  color: #b45309; }
+    .st-repair     { background: rgba(239,68,68,.15);  color: #dc2626; }
+    .st-deferred   { background: rgba(100,116,139,.15);color: #64748b; }
+    .st-transit    { background: rgba(59,130,246,.15); color: #2563eb; }
+    .st-given      { background: rgba(168,85,247,.15); color: #9333ea; }
+    .st-deleted    { background: rgba(239,68,68,.08);  color: #9ca3af; }
+
+    .count-badge {
+        display: inline-block; min-width: 2rem; text-align: center;
+        padding: 0.15rem 0.5rem; border-radius: 999px;
+        background: var(--accent-dim); color: var(--accent);
+        font-size: 0.8rem; font-weight: 700;
+    }
+
+    .pager { display: flex; align-items: center; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap; }
+    .pager a, .pager span {
+        padding: 0.35rem 0.7rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); font-size: 0.82rem; text-decoration: none; color: var(--text);
+    }
+    .pager a:hover { border-color: var(--accent); color: var(--accent); }
+    .pager .current { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+
+    .summary-bar { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .summary-bar strong { color: var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eq-hero">
+    <h1>Зміни статусів БПЛА</h1>
+    <p>Журнал переходів між статусами, згрупований за типом та датою</p>
+</div>
+
+{# ── Filters ── #}
+<form method="get" class="filter-bar">
+    <div class="filter-group">
+        <span class="filter-label">Від статусу</span>
+        <select name="from_status" onchange="this.form.submit()">
+            <option value="">Всі</option>
+            {% for code, label in status_choices %}
+            <option value="{{ code }}"{% if from_status_f == code %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <span class="filter-label">До статусу</span>
+        <select name="to_status" onchange="this.form.submit()">
+            <option value="">Всі</option>
+            {% for code, label in status_choices %}
+            <option value="{{ code }}"{% if to_status_f == code %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <span class="filter-label">Користувач</span>
+        <select name="user" onchange="this.form.submit()">
+            <option value="">Всі</option>
+            {% for u in users_with_changes %}
+            <option value="{{ u.pk }}"{% if user_f == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <span class="filter-label">Тип БПЛА</span>
+        <input type="text" name="drone_type" value="{{ type_f }}" placeholder="Пошук…" style="min-width:150px;">
+    </div>
+    <div class="filter-group">
+        <span class="filter-label">Дата від</span>
+        <input type="date" name="date_from" value="{{ date_from_f }}">
+    </div>
+    <div class="filter-group">
+        <span class="filter-label">Дата до</span>
+        <input type="date" name="date_to" value="{{ date_to_f }}">
+    </div>
+    <div class="filter-group" style="justify-content:flex-end;">
+        <button type="submit" style="padding:0.55rem 1rem;background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-sm);font-size:0.85rem;cursor:pointer;font-weight:600;">Застосувати</button>
+    </div>
+    {% if from_status_f or to_status_f or user_f or type_f or date_from_f or date_to_f %}
+    <div class="filter-group" style="justify-content:flex-end;">
+        <a href="{% url 'equipment_accounting:uav_status_log' %}" class="filter-reset">✕ Скинути</a>
+    </div>
+    {% endif %}
+</form>
+
+<div class="summary-bar">
+    Рядків: <strong>{{ total_rows }}</strong> &nbsp;·&nbsp; Всього БПЛА: <strong>{{ total_uavs }}</strong>
+</div>
+
+{% if page_obj.object_list %}
+<table class="log-table">
+    <thead>
+        <tr>
+            <th>Дата і час</th>
+            <th>Тип БПЛА</th>
+            <th>Перехід</th>
+            <th style="text-align:center;">К-сть</th>
+            <th>Хто змінив</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in page_obj %}
+        <tr>
+            <td style="white-space:nowrap;">{{ row.latest|date:"d.m.Y H:i" }}</td>
+            <td>{{ row.drone_type_label|default:"—" }}</td>
+            <td>
+                <span class="st-arrow">
+                    {% if row.from_status %}
+                    <span class="st-badge st-{{ row.from_status }}">{{ row.from_status_display }}</span>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-style:italic;font-size:0.78rem;">новий</span>
+                    {% endif %}
+                    <span class="arrow">→</span>
+                    <span class="st-badge st-{{ row.to_status }}">{{ row.to_status_display }}</span>
+                </span>
+            </td>
+            <td style="text-align:center;"><span class="count-badge">{{ row.count }}</span></td>
+            <td>{{ row.user_display }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if page_obj.has_other_pages %}
+<div class="pager">
+    {% if page_obj.has_previous %}
+    <a href="?from_status={{ from_status_f }}&to_status={{ to_status_f }}&user={{ user_f }}&drone_type={{ type_f }}&date_from={{ date_from_f }}&date_to={{ date_to_f }}&page={{ page_obj.previous_page_number }}">‹</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="current">{{ num }}</span>
+        {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
+        <a href="?from_status={{ from_status_f }}&to_status={{ to_status_f }}&user={{ user_f }}&drone_type={{ type_f }}&date_from={{ date_from_f }}&date_to={{ date_to_f }}&page={{ num }}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?from_status={{ from_status_f }}&to_status={{ to_status_f }}&user={{ user_f }}&drone_type={{ type_f }}&date_from={{ date_from_f }}&date_to={{ date_to_f }}&page={{ page_obj.next_page_number }}">›</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div style="text-align:center;padding:3rem 1rem;color:var(--text-muted);">
+    <p style="font-size:1.1rem;">Записів не знайдено</p>
+    {% if from_status_f or to_status_f or user_f or type_f or date_from_f or date_to_f %}
+    <p><a href="{% url 'equipment_accounting:uav_status_log' %}" style="color:var(--accent);">Скинути фільтри</a></p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

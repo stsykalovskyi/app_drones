@@ -10,12 +10,14 @@ urlpatterns = [
     path('stats/breakdown/', views.drone_stats, name='drone_stats'),
     path('stats/movements/', views.uav_movements, name='uav_movements'),
     path('stats/movements/delete/', views.movement_batch_delete, name='movement_batch_delete'),
+    path('stats/status-log/', views.uav_status_log, name='uav_status_log'),
 
     # UAV export
     path('uav/export/excel/', views.uav_export_excel, name='uav_export_excel'),
 
     # UAV bulk actions
     path('uav/bulk/', views.uav_bulk_action, name='uav_bulk_action'),
+    path('uav/quantity-action/', views.uav_quantity_action, name='uav_quantity_action'),
 
     # UAV instances
     path('uav/add/', views.uav_create, name='uav_create'),

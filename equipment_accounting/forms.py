@@ -396,13 +396,14 @@ class VideoTemplateForm(forms.ModelForm):
 class LocationForm(forms.ModelForm):
     class Meta:
         model = Location
-        fields = ("name", "notes")
+        fields = ("name", "can_repair", "notes")
         widgets = {
             "name": forms.TextInput(attrs={**INPUT_CSS, "placeholder": "Наприклад: Позиція Авдіївка"}),
             "notes": forms.Textarea(attrs={**INPUT_CSS, "rows": 2, "placeholder": "Додаткова інформація (необов'язково)"}),
         }
         labels = {
             "name": "Назва",
+            "can_repair": "Можливість ремонту",
             "notes": "Примітки",
         }
 

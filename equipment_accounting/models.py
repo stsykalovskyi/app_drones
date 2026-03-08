@@ -23,6 +23,7 @@ class Location(models.Model):
     """Physical location a UAV or component can be at."""
 
     name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
+    can_repair = models.BooleanField(default=False, verbose_name="Можливість ремонту")
     notes = models.TextField(blank=True, verbose_name="Примітки")
 
     class Meta:
@@ -579,6 +580,47 @@ class UAVMovement(models.Model):
     def __str__(self):
         frm = self.from_location or "—"
         return f"БПЛА #{self.uav_id}: {frm} → {self.to_location}"
+
+
+class UAVStatusLog(models.Model):
+    """Immutable record of every UAV status transition."""
+
+    uav = models.ForeignKey(
+        UAVInstance,
+        on_delete=models.CASCADE,
+        related_name='status_logs',
+        verbose_name="БПЛА",
+    )
+    changed_by = models.ForeignKey(
+        User,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='uav_status_changes',
+        verbose_name="Хто змінив",
+    )
+    from_status = models.CharField(
+        max_length=20, blank=True, verbose_name="Від",
+        choices=UAVInstance.STATUS_CHOICES,
+    )
+    to_status = models.CharField(
+        max_length=20, verbose_name="До",
+        choices=UAVInstance.STATUS_CHOICES,
+    )
+    # Snapshot of the drone type label at the moment of the change
+    drone_type_label = models.CharField(max_length=200, blank=True, verbose_name="Тип БПЛА")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Коли")
+
+    class Meta:
+        verbose_name = "Зміна статусу БПЛА"
+        verbose_name_plural = "Зміни статусів БПЛА"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='statuslog_created_idx'),
+            models.Index(fields=['uav'], name='statuslog_uav_idx'),
+        ]
+
+    def __str__(self):
+        return f"БПЛА #{self.uav_id}: {self.from_status} → {self.to_status}"
 
 
 def _uav_photo_path(instance, filename):

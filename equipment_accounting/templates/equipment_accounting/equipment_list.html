@@ -399,6 +399,52 @@
         background: var(--accent-dim); color: var(--accent); border-color: var(--accent);
     }
 
+    /* Quantity mode — filter bar */
+    .qty-filter-bar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center;
+                      padding: .6rem 0 .75rem; }
+    .qty-filter-select { padding: .3rem .5rem; border: 1px solid var(--border);
+                         border-radius: var(--radius-sm); background: var(--input-bg);
+                         color: var(--text); font-size: .82rem; font-family: inherit; }
+    .qty-filter-select:focus { outline: none; border-color: var(--accent); }
+    .qty-filter-clear { padding: .3rem .6rem; border: 1px solid var(--border);
+                        border-radius: var(--radius-sm); background: var(--surface);
+                        color: var(--text-muted); font-size: .82rem; cursor: pointer;
+                        text-decoration: none; line-height: 1.5; }
+    .qty-filter-clear:hover { border-color: var(--danger, #ef4444); color: var(--danger, #ef4444); }
+
+    /* Quantity mode */
+    .qty-grid { display: grid; gap: 1rem; }
+    .qty-card { background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
+    .qty-card-header { display: flex; justify-content: space-between; align-items: center;
+                       padding: .65rem 1rem; border-bottom: 1px solid var(--border);
+                       background: var(--accent-dim); }
+    .qty-type-name { font-weight: 700; font-size: .9rem; }
+    .qty-location-name { font-size: .8rem; color: var(--text-muted); margin-left: auto; margin-right: .5rem; }
+    .qty-total-badge { font-size: .8rem; font-weight: 700; color: var(--accent); }
+    .qty-table { width: 100%; border-collapse: collapse; }
+    .qty-table td { padding: .5rem .75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .qty-table tr:last-child td { border-bottom: none; }
+    .qty-status { font-size: .82rem; font-weight: 600; width: 110px; }
+    .qty-count  { font-size: .95rem; font-weight: 700; width: 50px; color: var(--accent); }
+    .qty-form-cell { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+    .qty-input  { width: 60px; padding: .3rem .5rem; border: 1px solid var(--border);
+                  border-radius: var(--radius-sm); background: var(--input-bg);
+                  color: var(--text); font-size: .82rem; font-family: inherit; }
+    .qty-action-select, .qty-loc-select, .qty-pos-select {
+        padding: .3rem .5rem; border: 1px solid var(--border);
+        border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text);
+        font-size: .82rem; font-family: inherit; }
+    .qty-pos-new { padding: .3rem .5rem; border: 1px solid var(--border);
+                   border-radius: var(--radius-sm); background: var(--input-bg);
+                   color: var(--text); font-size: .82rem; font-family: inherit; min-width: 120px; }
+    .qty-apply { padding: .3rem .75rem; background: var(--accent); color: var(--bg);
+                 border: none; border-radius: var(--radius-sm); font-weight: 700;
+                 cursor: pointer; font-size: .85rem; }
+    .qty-apply:hover { opacity: .85; }
+    .qty-apply-transit { background: var(--success, #22c55e); }
+    .qty-apply-transit:hover { opacity: .85; }
+
     /* Drone-type cards */
     .type-card-grid {
         display: grid;
@@ -579,10 +625,13 @@
             <h2>БПЛА <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem;">· {{ total_uavs }}</span></h2>
             <div class="toolbar-controls" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                 <button type="button" class="btn-icon" id="view-table-btn" data-tooltip="Таблиця">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
                 </button>
                 <button type="button" class="btn-icon" id="view-badge-btn" data-tooltip="Картки">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
+                <button type="button" class="btn-icon" id="view-qty-btn" data-tooltip="Режим кількостей">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
                 </button>
                 <div style="position:relative;display:flex;align-items:center;">
                     <input type="search" id="uav-search-input" value="{{ search_q }}" placeholder="Пошук…"
@@ -638,6 +687,123 @@
             {% else %}
             <div class="empty-state"><p>БПЛА ще не додано.</p></div>
             {% endif %}
+        </div>
+
+        {# ── Quantity view ── #}
+        <div id="uav-qty-view" style="display:none;">
+          <form method="get" class="qty-filter-bar">
+            <input type="hidden" name="tab" value="drones">
+            <input type="hidden" name="view" value="quantity">
+            <select name="status" class="qty-filter-select" onchange="this.form.submit()">
+              <option value="">Всі статуси</option>
+              {% for code, label in status_choices %}
+              <option value="{{ code }}"{% if status_filter == code %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <select name="category" class="qty-filter-select" onchange="this.form.submit()">
+              <option value="">Радіо + Оптика</option>
+              <option value="fpv"{% if category_filter == 'fpv' %} selected{% endif %}>Радіо</option>
+              <option value="optical"{% if category_filter == 'optical' %} selected{% endif %}>Оптика</option>
+            </select>
+            <select name="mode" class="qty-filter-select" onchange="this.form.submit()">
+              <option value="">День + Ніч</option>
+              <option value="day"{% if mode_filter == 'day' %} selected{% endif %}>День</option>
+              <option value="night"{% if mode_filter == 'night' %} selected{% endif %}>Ніч</option>
+            </select>
+            <select name="type" class="qty-filter-select" onchange="this.form.submit()">
+              <option value="">Всі типи</option>
+              {% for val, label in type_choices %}
+              <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <select name="location" class="qty-filter-select" onchange="this.form.submit()">
+              <option value="">Всі локації</option>
+              {% for loc in locations %}
+              <option value="{{ loc.pk }}"{% if location_filter == loc.pk %} selected{% endif %}>{{ loc.name }}</option>
+              {% endfor %}
+            </select>
+            {% if status_filter or category_filter or mode_filter or type_filter or location_filter %}
+            <a href="?tab=drones&view=quantity" class="qty-filter-clear" title="Скинути фільтри">✕</a>
+            {% endif %}
+          </form>
+          {% if qty_groups %}
+          <div class="qty-grid">
+            {% for group in qty_groups %}
+            <div class="qty-card">
+              <div class="qty-card-header">
+                <span class="qty-type-name">{{ group.type_label }}</span>
+                {% if group.pending_to_location_name %}
+                <span class="qty-location-name">{{ group.location_name }} → {{ group.pending_to_location_name }}</span>
+                {% else %}
+                <span class="qty-location-name">{{ group.location_name }}</span>
+                {% endif %}
+                <span class="qty-total-badge">{{ group.total }} шт</span>
+              </div>
+              <table class="qty-table">
+                {% for row in group.status_rows %}
+                <tr class="qty-row{% if not row.actionable %} qty-row-transit{% endif %}">
+                  <td class="qty-status st-{{ row.status }}">{{ row.label }}</td>
+                  <td class="qty-count">{{ row.count }}</td>
+                  <td class="qty-form-cell">
+                    {% if row.actionable %}
+                    <form method="post" action="{% url 'equipment_accounting:uav_quantity_action' %}"
+                          class="qty-action-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="content_type_id"      value="{{ group.ct_id }}">
+                      <input type="hidden" name="object_id"            value="{{ group.obj_id }}">
+                      <input type="hidden" name="current_location_id"  value="{{ group.location_id }}">
+                      <input type="hidden" name="from_status"          value="{{ row.status }}">
+                      <input type="number" name="quantity" min="1" max="{{ row.count }}"
+                             class="qty-input" placeholder="К-сть">
+                      <select name="action" class="qty-action-select">
+                        <option value="">— Дія —</option>
+                        {% for act_val, act_label in row.actions %}
+                          {% if act_val == 'given' %}
+                            {% if can_edit_uav %}<option value="given">Віддати</option>{% endif %}
+                          {% else %}
+                            <option value="{{ act_val }}">{{ act_label }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                      <select name="to_location_id" class="qty-loc-select" style="display:none;">
+                        <option value="">— Локація —</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.pk }}" data-is-pos="{% if loc.pk in position_location_ids %}1{% else %}0{% endif %}">{{ loc.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <select name="position_id" class="qty-pos-select" style="display:none;">
+                        <option value="">— Позиція —</option>
+                        {% for pos in all_positions %}
+                        <option value="{{ pos.pk }}">{{ pos.name }}</option>
+                        {% endfor %}
+                        <option value="__new__">+ Нова…</option>
+                      </select>
+                      <input type="text" name="position_name_new" class="qty-pos-new"
+                             placeholder="Нова позиція…" style="display:none;">
+                      <button type="submit" class="qty-apply">→</button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{% url 'equipment_accounting:uav_quantity_action' %}"
+                          class="qty-action-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="content_type_id"     value="{{ group.ct_id }}">
+                      <input type="hidden" name="object_id"           value="{{ group.obj_id }}">
+                      <input type="hidden" name="current_location_id" value="{{ group.location_id }}">
+                      <input type="hidden" name="from_status"         value="transit">
+                      <input type="hidden" name="action"              value="confirm_arrival">
+                      <button type="submit" class="qty-apply qty-apply-transit">Підтвердити прибуття</button>
+                    </form>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </table>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state"><p>Немає дронів.</p></div>
+          {% endif %}
         </div>
 
         {# ── Table view ── #}
@@ -699,24 +865,14 @@
                     </tr>
                     <tr class="filter-row">
                         {% if can_edit_uav or can_delete_uav %}<th class="th-filter"></th>{% endif %}
-                        <th class="th-filter" style="position:relative;">
-                            <input type="hidden" name="type" id="type-filter-val" value="{{ type_filter }}" form="uav-filter-form">
-                            <input type="text" id="type-filter-display" class="th-filter-input" placeholder="Всі типи"
-                                autocomplete="off" readonly
-                                value="{% for val, label in type_choices %}{% if type_filter == val %}{{ label }}{% endif %}{% endfor %}"
-                                style="cursor:pointer;">
-                            <div id="type-filter-dropdown" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:220px;padding:0.4rem 0;">
-                                <div style="padding:0.3rem 0.5rem;">
-                                    <input type="text" id="type-filter-search" placeholder="Пошук…" autocomplete="off"
-                                        style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:0.82rem;box-sizing:border-box;">
-                                </div>
-                                <ul id="type-filter-list" style="list-style:none;margin:0;padding:0;max-height:220px;overflow-y:auto;">
-                                    <li data-val="" style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.85rem;">Всі типи</li>
-                                    {% for val, label in type_choices %}
-                                    <li data-val="{{ val }}" style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.85rem;">{{ label }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
+                        <th class="th-filter">
+                            <select name="type" class="th-filter-input" form="uav-filter-form"
+                                    onchange="document.getElementById('uav-filter-form').submit()">
+                                <option value="">Всі типи</option>
+                                {% for val, label in type_choices %}
+                                <option value="{{ val }}"{% if type_filter == val %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
                         </th>
                         <th class="th-filter">
                             <select id="uav-mode-select" class="th-filter-input" onchange="uavFilterNav('mode',this.value)">
@@ -859,9 +1015,13 @@
                                                 </a>
                                                 {% endif %}
                                                 {% if can_delete_uav %}
-                                                <a href="{% url 'equipment_accounting:uav_delete' uav.pk %}" class="btn-icon btn-icon-danger" data-tooltip="Видалити">
+                                                <button type="button" class="btn-icon btn-icon-danger" data-tooltip="Видалити"
+                                                    data-uav-pk="{{ uav.pk }}"
+                                                    data-uav-label="{{ uav.uav_type }}"
+                                                    data-comp-count="{{ uav.components.all|length }}"
+                                                    onclick="openUavDeleteModal(this)">
                                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                                </a>
+                                                </button>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -919,30 +1079,31 @@ function uavFilterNav(param, value) {
     var STORAGE_KEY = 'uav_view_mode';
     var tableView = document.getElementById('uav-table-view');
     var badgeView = document.getElementById('uav-badge-view');
+    var qtyView   = document.getElementById('uav-qty-view');
     var tableBtn  = document.getElementById('view-table-btn');
     var badgeBtn  = document.getElementById('view-badge-btn');
+    var qtyBtn    = document.getElementById('view-qty-btn');
     if (!tableBtn) return;
 
     function setView(mode) {
-        if (mode === 'badge') {
-            tableView.style.display = 'none';
-            badgeView.style.display = '';
-            tableBtn.classList.remove('view-active');
-            badgeBtn.classList.add('view-active');
-        } else {
-            tableView.style.display = '';
-            badgeView.style.display = 'none';
-            tableBtn.classList.add('view-active');
-            badgeBtn.classList.remove('view-active');
-        }
+        tableView.style.display = (mode === 'table') ? '' : 'none';
+        badgeView.style.display = (mode === 'badge') ? '' : 'none';
+        if (qtyView) qtyView.style.display = (mode === 'quantity') ? '' : 'none';
+        tableBtn.classList.toggle('view-active', mode === 'table');
+        badgeBtn.classList.toggle('view-active', mode === 'badge');
+        if (qtyBtn) qtyBtn.classList.toggle('view-active', mode === 'quantity');
         try { localStorage.setItem(STORAGE_KEY, mode); } catch (e) {}
     }
 
     tableBtn.addEventListener('click', function () { setView('table'); });
     badgeBtn.addEventListener('click', function () { setView('badge'); });
+    if (qtyBtn) qtyBtn.addEventListener('click', function () { setView('quantity'); });
 
     var saved = 'table';
     try { saved = localStorage.getItem(STORAGE_KEY) || 'table'; } catch (e) {}
+    // URL param ?view=quantity overrides localStorage
+    var _urlView = new URLSearchParams(window.location.search).get('view');
+    if (_urlView === 'quantity') saved = 'quantity';
     setView(saved);
 
     // Expand / collapse group rows — persist open state in localStorage
@@ -988,6 +1149,35 @@ function uavFilterNav(param, value) {
     });
 })();
 
+// Quantity mode — per-row action/location/position show-hide
+(function () {
+    document.querySelectorAll('.qty-action-form').forEach(function (form) {
+        var actionSel = form.querySelector('.qty-action-select');
+        var locSel    = form.querySelector('.qty-loc-select');
+        var posSel    = form.querySelector('.qty-pos-select');
+        var posNew    = form.querySelector('.qty-pos-new');
+        if (!actionSel) return; // transit forms have no action select
+
+        actionSel.addEventListener('change', function () {
+            var needLoc = (this.value === 'given');
+            locSel.style.display = needLoc ? '' : 'none';
+            if (!needLoc) {
+                posSel.style.display = 'none';
+                posNew.style.display = 'none';
+            }
+        });
+        locSel.addEventListener('change', function () {
+            var isPos = (this.options[this.selectedIndex] || {}).dataset &&
+                        this.options[this.selectedIndex].dataset.isPos === '1';
+            posSel.style.display = (isPos && actionSel.value === 'given') ? '' : 'none';
+            posNew.style.display = 'none';
+        });
+        posSel.addEventListener('change', function () {
+            posNew.style.display = (this.value === '__new__') ? '' : 'none';
+        });
+    });
+})();
+
 // UAV search
 (function () {
     var input  = document.getElementById('uav-search-input');
@@ -1002,55 +1192,6 @@ function uavFilterNav(param, value) {
     input.addEventListener('search',  function ()  { if (!input.value) submit(); });
 })();
 
-// Type filter searchable dropdown
-(function () {
-    var display  = document.getElementById('type-filter-display');
-    var hidden   = document.getElementById('type-filter-val');
-    var dropdown = document.getElementById('type-filter-dropdown');
-    var search   = document.getElementById('type-filter-search');
-    var list     = document.getElementById('type-filter-list');
-    if (!display) return;
-
-    function open() {
-        dropdown.style.display = '';
-        search.value = '';
-        filterList('');
-        search.focus();
-    }
-    function close() { dropdown.style.display = 'none'; }
-
-    function filterList(q) {
-        var lq = q.toLowerCase();
-        Array.prototype.forEach.call(list.querySelectorAll('li'), function (li) {
-            li.style.display = li.textContent.toLowerCase().indexOf(lq) !== -1 ? '' : 'none';
-        });
-    }
-
-    display.addEventListener('click', function (e) {
-        e.stopPropagation();
-        dropdown.style.display === 'none' ? open() : close();
-    });
-    search.addEventListener('input', function () { filterList(search.value); });
-    search.addEventListener('click', function (e) { e.stopPropagation(); });
-
-    list.addEventListener('click', function (e) {
-        var li = e.target.closest('li');
-        if (!li) return;
-        hidden.value  = li.dataset.val;
-        display.value = li.dataset.val ? li.textContent.trim() : '';
-        close();
-        document.getElementById('uav-filter-form').submit();
-    });
-
-    list.querySelectorAll('li').forEach(function (li) {
-        li.addEventListener('mouseenter', function () { li.style.background = 'var(--accent-dim)'; });
-        li.addEventListener('mouseleave', function () { li.style.background = ''; });
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!dropdown.contains(e.target) && e.target !== display) close();
-    });
-})();
 
 // Collapse all groups
 document.getElementById('collapse-all-btn').addEventListener('click', function () {
@@ -1519,6 +1660,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
             <thead>
                 <tr>
                     <th>Назва</th>
+                    <th>Ремонт</th>
                     <th>Примітки</th>
                     <th>БПЛА</th>
                     {% if can_edit_location or can_delete_location %}<th></th>{% endif %}
@@ -1528,6 +1670,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
                 {% for loc in locations %}
                 <tr>
                     <td data-label="Назва">{{ loc.name }}</td>
+                    <td data-label="Ремонт">{% if loc.can_repair %}<span class="status-badge st-repair" style="font-size:.75rem;">✓</span>{% else %}—{% endif %}</td>
                     <td data-label="Примітки" style="color:var(--text-secondary);font-size:0.82rem;">{{ loc.notes|default:"—" }}</td>
                     <td data-label="БПЛА">
                         {% if loc.uav_count %}<span style="font-weight:600;">{{ loc.uav_count }}</span>{% else %}—{% endif %}
@@ -2037,4 +2180,69 @@ function showModal(id, title, message, onConfirm) {
     <input type="hidden" name="position_id" id="give-action-position-id" value="">
     <input type="hidden" name="position_name_new" id="give-action-position-new" value="">
 </form>
+
+{# UAV delete confirmation modal #}
+<div id="uav-delete-modal" style="display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.45);" onclick="closeUavDeleteModal()"></div>
+    <div style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.25);padding:1.5rem;max-width:420px;width:calc(100% - 2rem);">
+        <h3 style="margin:0 0 0.5rem;font-size:1.05rem;font-weight:700;">Видалити БПЛА</h3>
+        <p style="margin:0 0 1rem;font-size:0.9rem;color:var(--text-secondary);">
+            Ви впевнені, що хочете видалити <strong id="del-uav-label"></strong>? Цю дію не можна скасувати.
+        </p>
+        <div id="del-comp-block" style="display:none;margin-bottom:1rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--accent-dim);font-size:0.85rem;">
+            <span id="del-comp-msg"></span>
+            <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;cursor:pointer;">
+                <input type="checkbox" id="del-comp-check" style="width:1rem;height:1rem;accent-color:#ef4444;">
+                Видалити комплектуючі разом з БПЛА
+            </label>
+        </div>
+        <form id="uav-delete-form" method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="delete_components" id="del-comp-hidden" value="0">
+            <div style="display:flex;gap:0.75rem;">
+                <button type="submit" style="padding:0.55rem 1.1rem;background:#ef4444;color:#fff;border:none;border-radius:var(--radius-sm);font-weight:700;font-size:0.85rem;cursor:pointer;letter-spacing:.03em;text-transform:uppercase;">Видалити</button>
+                <button type="button" onclick="closeUavDeleteModal()" style="padding:0.55rem 1rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;cursor:pointer;">Скасувати</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openUavDeleteModal(btn) {
+    var pk = btn.dataset.uavPk;
+    var label = btn.dataset.uavLabel;
+    var compCount = parseInt(btn.dataset.compCount, 10);
+    var deleteUrl = '{% url "equipment_accounting:uav_delete" 0 %}'.replace('/0/', '/' + pk + '/');
+
+    document.getElementById('del-uav-label').textContent = label || ('БПЛА #' + pk);
+    document.getElementById('uav-delete-form').action = deleteUrl;
+    document.getElementById('del-comp-check').checked = false;
+    document.getElementById('del-comp-hidden').value = '0';
+
+    var compBlock = document.getElementById('del-comp-block');
+    if (compCount > 0) {
+        document.getElementById('del-comp-msg').textContent = 'Закріплені комплектуючі: ' + compCount + ' шт. При видаленні будуть розкомплектовані.';
+        compBlock.style.display = '';
+    } else {
+        compBlock.style.display = 'none';
+    }
+
+    var modal = document.getElementById('uav-delete-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUavDeleteModal() {
+    document.getElementById('uav-delete-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+document.getElementById('del-comp-check').addEventListener('change', function() {
+    document.getElementById('del-comp-hidden').value = this.checked ? '1' : '0';
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeUavDeleteModal();
+});
+</script>
 {% endblock %}

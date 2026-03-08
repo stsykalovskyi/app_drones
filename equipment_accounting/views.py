@@ -8,7 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.db.models.deletion import ProtectedError
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -24,10 +24,76 @@ from .models import (
     FPVDroneType, OpticalDroneType,
     OtherComponentType, Location, UAVMovement,
     Manufacturer, DroneModel, UAVPhoto, DroneRole, Position,
+    UAVStatusLog,
 )
 
 def _list_url(tab="drones"):
     return reverse("equipment_accounting:equipment_list") + f"?tab={tab}"
+
+
+def _log_status_changes(uav_old_statuses, new_status, user, type_label_map=None):
+    """Bulk-create UAVStatusLog entries.
+
+    uav_old_statuses: iterable of (uav_pk, old_status, drone_type_label) OR UAVInstance objects
+    If a dict {pk: old_status} is passed, type_label_map {pk: label} is also needed.
+    """
+    logs = []
+    for uav_pk, old_status, type_label in uav_old_statuses:
+        if old_status != new_status:
+            logs.append(UAVStatusLog(
+                uav_id=uav_pk,
+                changed_by=user,
+                from_status=old_status,
+                to_status=new_status,
+                drone_type_label=type_label or '',
+            ))
+    if logs:
+        UAVStatusLog.objects.bulk_create(logs)
+
+
+def _uav_type_label(uav):
+    """Return full type label with category prefix, frequencies, day/night."""
+    try:
+        fpv_ct_id = ContentType.objects.get_for_model(FPVDroneType).pk
+        is_opt = uav.content_type_id != fpv_ct_id
+        if is_opt:
+            dt = OpticalDroneType.objects.select_related('model', 'video_template').get(pk=uav.object_id)
+            return '[Оптика] ' + _make_list_type_label(dt, True)
+        else:
+            dt = FPVDroneType.objects.select_related('model', 'video_frequency').prefetch_related('control_frequencies').get(pk=uav.object_id)
+            return '[Радіо] ' + _make_list_type_label(dt, False)
+    except Exception:
+        return ''
+
+
+def _type_labels_for_qs(qs):
+    """Return {uav_pk: full drone_type_label} with one query per unique drone type."""
+    rows = list(qs.values_list('pk', 'content_type_id', 'object_id'))
+    fpv_ct_id = ContentType.objects.get_for_model(FPVDroneType).pk
+    ct_groups = {}
+    for pk, ct_id, obj_id in rows:
+        ct_groups.setdefault((ct_id, obj_id), []).append(pk)
+    fpv_obj_ids = [obj_id for (ct_id, obj_id) in ct_groups if ct_id == fpv_ct_id]
+    opt_obj_ids = [obj_id for (ct_id, obj_id) in ct_groups if ct_id != fpv_ct_id]
+    fpv_map = {dt.pk: dt for dt in FPVDroneType.objects
+               .filter(pk__in=fpv_obj_ids)
+               .select_related('model', 'video_frequency')
+               .prefetch_related('control_frequencies')}
+    opt_map = {dt.pk: dt for dt in OpticalDroneType.objects
+               .filter(pk__in=opt_obj_ids)
+               .select_related('model', 'video_template')}
+    labels = {}
+    for (ct_id, obj_id), pks in ct_groups.items():
+        is_opt = ct_id != fpv_ct_id
+        dt = (opt_map if is_opt else fpv_map).get(obj_id)
+        if dt:
+            prefix = '[Оптика] ' if is_opt else '[Радіо] '
+            lbl = prefix + _make_list_type_label(dt, is_opt)
+        else:
+            lbl = ''
+        for pk in pks:
+            labels[pk] = lbl
+    return labels
 
 
 GROUP_NAME = "майстер"
@@ -161,11 +227,15 @@ def equipment_list(request):
         uavs = uavs.filter(content_type=_opt_ct)
 
     if type_filter:
-        try:
-            ct_id, obj_id = type_filter.split("-")
-            uavs = uavs.filter(content_type_id=int(ct_id), object_id=int(obj_id))
-        except (ValueError, TypeError):
-            pass
+        _type_q = Q()
+        for _pair in type_filter.split(','):
+            try:
+                _ct_s, _oid_s = _pair.strip().split('-')
+                _type_q |= Q(content_type_id=int(_ct_s), object_id=int(_oid_s))
+            except (ValueError, TypeError):
+                pass
+        if _type_q:
+            uavs = uavs.filter(_type_q)
 
     if date_from:
         try:
@@ -307,6 +377,79 @@ def equipment_list(request):
         _g['cnt_deferred']   = _g['status_counts'].get('deferred', 0)
         _g['cnt_transit']    = _g['status_counts'].get('transit', 0)
 
+    # Fetch locations early — needed for qty_groups sort + labels
+    _locations = list(Location.objects.annotate(uav_count=Count('current_uavs')))
+    _loc_dict = {loc.pk: loc for loc in _locations}
+    position_location_ids = [loc.pk for loc in _locations if loc.name == 'Позиція']
+
+    # Quantity-mode groups — grouped by type + location
+    _STATUS_ORDER_QTY = ['ready', 'inspection', 'repair', 'deferred', 'given', 'transit']
+    _STATUS_LABELS_QTY = dict(UAVInstance.STATUS_CHOICES)
+    _ACTIONABLE_QTY = {'ready', 'inspection', 'repair', 'deferred', 'given'}
+    # Valid target actions per source status (excludes same status; 'given' only from 'ready')
+    _QTY_ACTIONS = {
+        'ready':      [('inspection', 'Перевірка'), ('repair', 'Ремонт'), ('deferred', 'Відкладено'), ('given', 'Віддати')],
+        'inspection': [('ready', 'Готовий'), ('repair', 'Ремонт'), ('deferred', 'Відкладено')],
+        'repair':     [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('deferred', 'Відкладено')],
+        'deferred':   [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('repair', 'Ремонт')],
+        'given':      [('ready', 'Готовий'), ('inspection', 'Перевірка')],
+    }
+
+    qty_raw = (
+        uavs
+        .values('content_type_id', 'object_id', 'current_location_id', 'position_id',
+                'pending_to_location_id', 'status')
+        .annotate(cnt=Count('pk'))
+    )
+    _qty_map = {}
+    for _row in qty_raw:
+        _qkey = (_row['content_type_id'], _row['object_id'],
+                 _row['current_location_id'], _row['position_id'],
+                 _row['pending_to_location_id'])
+        _qty_map.setdefault(_qkey, {})[_row['status']] = _row['cnt']
+
+    _pos_loc_ids = set(position_location_ids)
+
+    def _loc_label(loc_id):
+        loc = _loc_dict.get(loc_id)
+        return loc.name if loc else '—'
+
+    qty_groups = []
+    for (_qct, _qobj, _qloc_id, _qpos_id, _qpend_id), _scounts in sorted(
+        _qty_map.items(),
+        key=lambda x: (
+            _make_qty_label(x[0][0], x[0][1], _fpv_ct_id, _fpv_types, _opt_types),
+            _loc_dict[x[0][2]].name if x[0][2] and x[0][2] in _loc_dict else '',
+        )
+    ):
+        _srows = []
+        for _s in _STATUS_ORDER_QTY:
+            _cnt = _scounts.get(_s, 0)
+            if _cnt:
+                _srows.append({
+                    'status': _s,
+                    'label': _STATUS_LABELS_QTY.get(_s, _s),
+                    'count': _cnt,
+                    'actionable': _s in _ACTIONABLE_QTY,
+                    'actions': _QTY_ACTIONS.get(_s, []),
+                })
+        if _srows:
+            _qloc = _loc_dict.get(_qloc_id)
+            _loc_name = _qloc.name if _qloc else '—'
+            qty_groups.append({
+                'ct_id': _qct,
+                'obj_id': _qobj,
+                'location_id': _qloc_id or '',
+                'location_name': _loc_name,
+                'position_id': _qpos_id or '',
+                'is_position_loc': _qloc_id in _pos_loc_ids,
+                'pending_to_location_name': _loc_label(_qpend_id) if _qpend_id else '',
+                'pending_to_is_position': bool(_qpend_id and _qpend_id in _pos_loc_ids),
+                'type_label': _make_qty_label(_qct, _qobj, _fpv_ct_id, _fpv_types, _opt_types),
+                'status_rows': _srows,
+                'total': sum(_scounts.values()),
+            })
+
     # Paginate at GROUP level — each page shows up to 20 drone-type groups
     total_uavs = sum(_g['total'] for _g in badge_groups)
     paginator = Paginator(badge_groups, 20)
@@ -326,11 +469,21 @@ def equipment_list(request):
         for _g in current_groups:
             _g['uavs'] = [uavs_detail[pk] for pk in _group_uav_ids.get(_g['_key'], []) if pk in uavs_detail]
 
-    # Build drone type choices — reuse already-fetched type dicts (no extra queries)
-    type_choices = (
-        [(f"{_fpv_ct_id}-{dt.pk}", f"[Радіо] {dt}") for dt in sorted(_fpv_types.values(), key=str)] +
-        [(f"{_opt_ct_id}-{dt.pk}", f"[Оптика] {dt}") for dt in sorted(_opt_types.values(), key=str)]
-    )
+    # Build drone type choices — reuse already-fetched type dicts (no extra queries).
+    # Deduplicate by label: if two types produce the same display label, keep only the first.
+    _tc_seen = set()
+    type_choices = []
+    for _dt in sorted(_fpv_types.values(), key=lambda d: _make_list_type_label(d, False)):
+        _lbl = '[Радіо] ' + _make_list_type_label(_dt, False)
+        if _lbl not in _tc_seen:
+            _tc_seen.add(_lbl)
+            type_choices.append((f"{_fpv_ct_id}-{_dt.pk}", _lbl))
+    for _dt in sorted(_opt_types.values(), key=lambda d: _make_list_type_label(d, True)):
+        _lbl = '[Оптика] ' + _make_list_type_label(_dt, True)
+        if _lbl not in _tc_seen:
+            _tc_seen.add(_lbl)
+            type_choices.append((f"{_opt_ct_id}-{_dt.pk}", _lbl))
+    type_choices.sort(key=lambda x: x[1])
 
     # Summary counts — single aggregated query, total derived from it (no COUNT(*) needed)
     all_uavs = UAVInstance.objects.exclude(status='deleted')
@@ -407,9 +560,15 @@ def equipment_list(request):
     # Reference data — evaluated once, reused in ctx to avoid duplicate queries
     manufacturers = Manufacturer.objects.all()
     drone_models = DroneModel.objects.select_related("manufacturer").all()
-    _locations = list(Location.objects.annotate(uav_count=Count('current_uavs')))
-    position_location_ids = [loc.pk for loc in _locations if loc.name == 'Позиція']
     _positions = list(Position.objects.annotate(uav_count=Count('uavs')))
+    _pos_dict = {pos.pk: pos for pos in _positions}
+    for _g in qty_groups:
+        if _g['is_position_loc'] and _g['position_id']:
+            _pos = _pos_dict.get(_g['position_id'])
+            _g['location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['location_name']
+        if _g['pending_to_is_position'] and _g['position_id']:
+            _pos = _pos_dict.get(_g['position_id'])
+            _g['pending_to_location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['pending_to_location_name']
 
     ctx = {
         "tab": tab,
@@ -448,6 +607,7 @@ def equipment_list(request):
         "all_positions": _positions,
         "total_uavs": total_uavs,
         "position_location_ids": position_location_ids,
+        "qty_groups": qty_groups,
         "can_add_uav":    _can(request.user, PERM_ADD_UAV),
         "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
         "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
@@ -1126,6 +1286,13 @@ def _make_list_type_label(dt, is_opt):
     return name
 
 
+def _make_qty_label(ct_id, obj_id, fpv_ct_id, fpv_map, opt_map):
+    """Return display label for a (ct_id, obj_id) drone type in qty_groups."""
+    is_opt = ct_id != fpv_ct_id
+    dt = (opt_map if is_opt else fpv_map).get(obj_id)
+    return _make_list_type_label(dt, is_opt)
+
+
 def _build_role_groups(uav_objs, fpv_ct, opt_ct, fpv_types, opt_types):
     """Return hierarchical role_groups list.
 
@@ -1387,6 +1554,83 @@ def movement_batch_delete(request):
     return redirect('equipment_accounting:uav_movements')
 
 
+@master_required
+def uav_status_log(request):
+    """Status change history grouped by (date, type, transition, user)."""
+    from django.db.models.functions import TruncDate
+    from django.contrib.auth import get_user_model
+
+    from_status_f = request.GET.get('from_status', '')
+    to_status_f   = request.GET.get('to_status', '')
+    user_f        = request.GET.get('user', '')
+    date_from_f   = request.GET.get('date_from', '')
+    date_to_f     = request.GET.get('date_to', '')
+    type_f        = request.GET.get('drone_type', '')
+
+    qs = UAVStatusLog.objects.all()
+
+    if from_status_f:
+        qs = qs.filter(from_status=from_status_f)
+    if to_status_f:
+        qs = qs.filter(to_status=to_status_f)
+    if user_f.isdigit():
+        qs = qs.filter(changed_by_id=int(user_f))
+    if type_f:
+        qs = qs.filter(drone_type_label__icontains=type_f)
+    if date_from_f:
+        try:
+            qs = qs.filter(created_at__date__gte=date.fromisoformat(date_from_f))
+        except ValueError:
+            pass
+    if date_to_f:
+        try:
+            qs = qs.filter(created_at__date__lte=date.fromisoformat(date_to_f))
+        except ValueError:
+            pass
+
+    # Aggregate: one row per (day, drone type, from→to, user)
+    rows = list(
+        qs.values(
+            'drone_type_label', 'from_status', 'to_status',
+            'changed_by_id',
+            'changed_by__username',
+            'changed_by__first_name',
+            'changed_by__last_name',
+        )
+        .annotate(count=Count('pk'), day=TruncDate('created_at'), latest=Max('created_at'))
+        .order_by('-latest')
+    )
+
+    STATUS_LABELS = dict(UAVInstance.STATUS_CHOICES)
+    for row in rows:
+        row['from_status_display'] = STATUS_LABELS.get(row['from_status'], row['from_status']) if row['from_status'] else ''
+        row['to_status_display']   = STATUS_LABELS.get(row['to_status'], row['to_status'])
+        parts = [row['changed_by__first_name'], row['changed_by__last_name']]
+        row['user_display'] = ' '.join(p for p in parts if p) or row['changed_by__username'] or '—'
+
+    total_uavs = sum(r['count'] for r in rows)
+
+    paginator = Paginator(rows, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    User = get_user_model()
+    users_with_changes = User.objects.filter(uav_status_changes__isnull=False).distinct()
+
+    return render(request, 'equipment_accounting/uav_status_log.html', {
+        'page_obj': page_obj,
+        'from_status_f': from_status_f,
+        'to_status_f': to_status_f,
+        'user_f': user_f,
+        'date_from_f': date_from_f,
+        'date_to_f': date_to_f,
+        'type_f': type_f,
+        'status_choices': UAVInstance.STATUS_CHOICES,
+        'users_with_changes': users_with_changes,
+        'total_rows': len(rows),
+        'total_uavs': total_uavs,
+    })
+
+
 @uav_perm_required(PERM_CHANGE_UAV)
 def uav_photo_upload(request, uav_pk):
     uav = get_object_or_404(UAVInstance, pk=uav_pk)
@@ -1449,9 +1693,15 @@ def uav_move(request, pk):
         notes=notes,
         pre_transit_status=uav.status,
     )
+    old_status = uav.status
     uav.status = 'transit'
     uav.pending_to_location = to_location
     uav.save(update_fields=['status', 'pending_to_location', 'updated_at'])
+    UAVStatusLog.objects.create(
+        uav=uav, changed_by=request.user,
+        from_status=old_status, to_status='transit',
+        drone_type_label=_uav_type_label(uav),
+    )
 
     messages.success(request, f'БПЛА відправлено до "{to_location.name}". Очікується підтвердження прибуття.')
     return redirect(reverse('equipment_accounting:uav_detail', args=[pk]))
@@ -1476,8 +1726,14 @@ def uav_confirm_arrival(request, movement_pk):
 
     uav.current_location = movement.to_location
     uav.pending_to_location = None
-    uav.status = movement.pre_transit_status or 'inspection'
+    new_status = movement.pre_transit_status or 'inspection'
+    uav.status = new_status
     uav.save(update_fields=['current_location', 'pending_to_location', 'status', 'updated_at'])
+    UAVStatusLog.objects.create(
+        uav=uav, changed_by=request.user,
+        from_status='transit', to_status=new_status,
+        drone_type_label=_uav_type_label(uav),
+    )
 
     messages.success(request, f'Прибуття БПЛА до "{movement.to_location.name}" підтверджено.')
     return redirect(reverse('equipment_accounting:uav_detail', args=[uav.pk]))
@@ -1547,6 +1803,11 @@ def uav_toggle_given(request, pk):
         uav.pending_to_location = workshop
         uav.position = None
         uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
+        UAVStatusLog.objects.create(
+            uav=uav, changed_by=request.user,
+            from_status='given', to_status='transit',
+            drone_type_label=_uav_type_label(uav),
+        )
     elif uav.status == 'ready':
         to_location_id = request.POST.get('to_location_id')
         to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
@@ -1559,6 +1820,7 @@ def uav_toggle_given(request, pk):
             elif position_name_new:
                 position, _ = Position.objects.get_or_create(name=position_name_new)
         prev_location = uav.current_location
+        new_status = 'transit' if to_location else 'given'
         if to_location:
             # Send via transit; status becomes 'given' after arrival confirmation
             UAVMovement.objects.create(
@@ -1571,14 +1833,110 @@ def uav_toggle_given(request, pk):
             )
             uav.status = 'transit'
             uav.pending_to_location = to_location
-            uav.position = position
-            uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
+            _fields = ['status', 'pending_to_location', 'updated_at']
+            if position is not None:
+                uav.position = position
+                _fields.append('position')
+            uav.save(update_fields=_fields)
         else:
             uav.status = 'given'
             uav.save(update_fields=['status', 'updated_at'])
+        UAVStatusLog.objects.create(
+            uav=uav, changed_by=request.user,
+            from_status='ready', to_status=new_status,
+            drone_type_label=_uav_type_label(uav),
+        )
     else:
         messages.error(request, 'Віддати можна лише готовий дрон.')
     return redirect(next_url)
+
+
+def _do_bulk_action(ids, action, to_location_id, position_id, position_name_new, request):
+    """Apply bulk action to a list of UAVInstance PKs."""
+    qs = UAVInstance.objects.filter(pk__in=ids)
+    count = qs.count()
+
+    to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
+    position = None
+    if to_location and to_location.name == 'Позиція':
+        if position_id:
+            position = Position.objects.filter(pk=position_id).first()
+        elif position_name_new:
+            position, _ = Position.objects.get_or_create(name=position_name_new.strip())
+
+    if action == "delete":
+        if not _can(request.user, PERM_DELETE_UAV):
+            raise PermissionDenied
+        old_rows = list(qs.values_list('pk', 'status'))
+        type_labels = _type_labels_for_qs(qs)
+        qs.update(status='deleted')
+        _log_status_changes(
+            [(pk, st, type_labels.get(pk, '')) for pk, st in old_rows],
+            'deleted', request.user,
+        )
+        messages.success(request, f"Видалено {count} БПЛА.")
+    elif action == "given":
+        eligible = qs.filter(status='ready')
+        given_count = eligible.count()
+        skipped = count - given_count
+        new_status = 'transit' if to_location else 'given'
+        for uav in eligible.select_related('current_location'):
+            prev = uav.current_location
+            if to_location:
+                UAVMovement.objects.create(
+                    uav=uav,
+                    from_location=prev,
+                    to_location=to_location,
+                    moved_by=request.user,
+                    reason='given',
+                    pre_transit_status='given',
+                )
+                uav.status = 'transit'
+                uav.pending_to_location = to_location
+                _fields = ['status', 'pending_to_location', 'updated_at']
+                if position is not None:
+                    uav.position = position
+                    _fields.append('position')
+                uav.save(update_fields=_fields)
+            else:
+                uav.status = 'given'
+                uav.save(update_fields=['status', 'updated_at'])
+            UAVStatusLog.objects.create(
+                uav=uav, changed_by=request.user,
+                from_status='ready', to_status=new_status,
+                drone_type_label=_uav_type_label(uav),
+            )
+        msg = f"Віддано {given_count} БПЛА разом з комплектуючими."
+        if skipped:
+            msg += f" Пропущено {skipped} (не готові)."
+        messages.success(request, msg)
+    elif action == 'repair':
+        old_rows = list(qs.values_list('pk', 'status'))
+        type_labels = _type_labels_for_qs(qs)
+        prev_locations = {uav.pk: uav.current_location for uav in qs.select_related('current_location')}
+        qs.update(status='repair')
+        _log_status_changes([(pk, st, type_labels.get(pk, '')) for pk, st in old_rows], 'repair', request.user)
+        if to_location:
+            for uav in qs:
+                uav.current_location = to_location
+                uav.save(update_fields=['current_location', 'updated_at'])
+                UAVMovement.objects.create(
+                    uav=uav,
+                    from_location=prev_locations.get(uav.pk),
+                    to_location=to_location,
+                    moved_by=request.user,
+                    reason='repair',
+                )
+        messages.success(request, f"Статус {count} БПЛА змінено на \"Ремонт\".")
+    elif action in dict(UAVInstance.STATUS_CHOICES):
+        old_rows = list(qs.values_list('pk', 'status'))
+        type_labels = _type_labels_for_qs(qs)
+        qs.update(status=action)
+        _log_status_changes([(pk, st, type_labels.get(pk, '')) for pk, st in old_rows], action, request.user)
+        label = dict(UAVInstance.STATUS_CHOICES)[action]
+        messages.success(request, f"Статус {count} БПЛА змінено на \"{label}\".")
+    else:
+        messages.error(request, "Невідома дія.")
 
 
 @uav_perm_required(PERM_CHANGE_UAV)
@@ -1594,74 +1952,101 @@ def uav_bulk_action(request):
         messages.warning(request, "Нічого не обрано.")
         return redirect("equipment_accounting:equipment_list")
 
-    qs = UAVInstance.objects.filter(pk__in=ids)
-    count = qs.count()
-
-    to_location_id = request.POST.get('to_location_id')
-    to_location = Location.objects.filter(pk=to_location_id).first() if to_location_id else None
-    position = None
-    if to_location and to_location.name == 'Позиція':
-        position_id = request.POST.get('position_id')
-        position_name_new = request.POST.get('position_name_new', '').strip()
-        if position_id:
-            position = Position.objects.filter(pk=position_id).first()
-        elif position_name_new:
-            position, _ = Position.objects.get_or_create(name=position_name_new)
-
-    if action == "delete":
-        if not _can(request.user, PERM_DELETE_UAV):
-            raise PermissionDenied
-        qs.update(status='deleted')
-        messages.success(request, f"Видалено {count} БПЛА.")
-    elif action == "given":
-        eligible = qs.filter(status='ready')
-        given_count = eligible.count()
-        skipped = count - given_count
-        for uav in eligible.select_related('current_location'):
-            prev = uav.current_location
-            if to_location:
-                UAVMovement.objects.create(
-                    uav=uav,
-                    from_location=prev,
-                    to_location=to_location,
-                    moved_by=request.user,
-                    reason='given',
-                    pre_transit_status='given',
-                )
-                uav.status = 'transit'
-                uav.pending_to_location = to_location
-                uav.position = position
-                uav.save(update_fields=['status', 'pending_to_location', 'position', 'updated_at'])
-            else:
-                uav.status = 'given'
-                uav.save(update_fields=['status', 'updated_at'])
-        msg = f"Віддано {given_count} БПЛА разом з комплектуючими."
-        if skipped:
-            msg += f" Пропущено {skipped} (не готові)."
-        messages.success(request, msg)
-    elif action == 'repair':
-        prev_statuses = {uav.pk: uav.current_location for uav in qs.select_related('current_location')}
-        qs.update(status='repair')
-        if to_location:
-            for uav in qs:
-                uav.current_location = to_location
-                uav.save(update_fields=['current_location', 'updated_at'])
-                UAVMovement.objects.create(
-                    uav=uav,
-                    from_location=prev_statuses.get(uav.pk),
-                    to_location=to_location,
-                    moved_by=request.user,
-                    reason='repair',
-                )
-        messages.success(request, f"Статус {count} БПЛА змінено на \"Ремонт\".")
-    elif action in dict(UAVInstance.STATUS_CHOICES):
-        qs.update(status=action)
-        label = dict(UAVInstance.STATUS_CHOICES)[action]
-        messages.success(request, f"Статус {count} БПЛА змінено на \"{label}\".")
-    else:
-        messages.error(request, "Невідома дія.")
-
+    _do_bulk_action(
+        ids, action,
+        request.POST.get('to_location_id'),
+        request.POST.get('position_id'),
+        request.POST.get('position_name_new', ''),
+        request,
+    )
     return redirect("equipment_accounting:equipment_list")
+
+
+@uav_perm_required(PERM_CHANGE_UAV)
+def uav_quantity_action(request):
+    """Apply a bulk action to N drones of a given type+status from quantity mode."""
+    if request.method != 'POST':
+        return redirect(_list_url('drones'))
+
+    try:
+        ct_id   = int(request.POST['content_type_id'])
+        obj_id  = int(request.POST['object_id'])
+        from_st = request.POST['from_status']
+    except (KeyError, ValueError):
+        messages.error(request, 'Невірні параметри.')
+        return redirect(_list_url('drones'))
+
+    action = request.POST.get('action', '')
+    qty_raw = request.POST.get('quantity', '').strip()
+    loc_raw = request.POST.get('current_location_id', '').strip()
+
+    qs = (
+        UAVInstance.objects
+        .filter(content_type_id=ct_id, object_id=obj_id, status=from_st)
+        .exclude(status='deleted')
+        .order_by('pk')
+        .values_list('pk', flat=True)
+    )
+    if loc_raw.isdigit():
+        qs = qs.filter(current_location_id=int(loc_raw))
+
+    if action == 'confirm_arrival':
+        ids = list(qs)
+    else:
+        try:
+            quantity = int(qty_raw)
+        except ValueError:
+            quantity = 0
+        if quantity <= 0:
+            messages.error(request, 'Кількість має бути більше 0.')
+            return redirect(_list_url('drones'))
+        ids = list(qs[:quantity])
+
+    if not ids:
+        messages.warning(request, 'Не знайдено дронів для дії.')
+        return redirect(_list_url('drones') + '&view=quantity')
+
+    if action == 'confirm_arrival':
+        from django.utils import timezone as tz
+        confirmed = 0
+        for uav_id in ids:
+            uav = UAVInstance.objects.filter(pk=uav_id, status='transit').first()
+            if not uav:
+                continue
+            movement = (
+                UAVMovement.objects
+                .filter(uav=uav, confirmed_at__isnull=True)
+                .order_by('-created_at')
+                .first()
+            )
+            if not movement:
+                continue
+            movement.confirmed_at = tz.now()
+            movement.confirmed_by = request.user
+            movement.save(update_fields=['confirmed_at', 'confirmed_by'])
+            uav.current_location = movement.to_location
+            uav.pending_to_location = None
+            new_st = movement.pre_transit_status or 'inspection'
+            uav.status = new_st
+            uav.save(update_fields=['current_location', 'pending_to_location', 'status', 'updated_at'])
+            UAVStatusLog.objects.create(
+                uav=uav, changed_by=request.user,
+                from_status='transit', to_status=new_st,
+                drone_type_label=_uav_type_label(uav),
+            )
+            confirmed += 1
+        messages.success(request, f'Прибуття {confirmed} БПЛА підтверджено.')
+    else:
+        _do_bulk_action(
+            ids, action,
+            request.POST.get('to_location_id') or None,
+            request.POST.get('position_id') or None,
+            request.POST.get('position_name_new', ''),
+            request,
+        )
+
+    ref = request.META.get('HTTP_REFERER', '')
+    return redirect(ref or (_list_url('drones') + '&view=quantity'))
 
 
 # ── UAV CRUD ────────────────────────────────────────────────────────
@@ -1766,9 +2151,17 @@ def uav_create(request):
 def uav_edit(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
     if request.method == "POST":
+        old_status = uav.status
         form = UAVInstanceForm(request.POST, instance=uav)
         if form.is_valid():
             form.save()
+            new_status = uav.status
+            if old_status != new_status:
+                UAVStatusLog.objects.create(
+                    uav=uav, changed_by=request.user,
+                    from_status=old_status, to_status=new_status,
+                    drone_type_label=_uav_type_label(uav),
+                )
             messages.success(request, "БПЛА оновлено.")
             return redirect("equipment_accounting:equipment_list")
     else:
@@ -1781,25 +2174,23 @@ def uav_edit(request, pk):
 @uav_perm_required(PERM_DELETE_UAV)
 def uav_delete(request, pk):
     uav = get_object_or_404(UAVInstance, pk=pk)
-    components = list(uav.components.select_related('content_type').all())
-    if request.method == "POST":
-        delete_components = request.POST.get('delete_components') == '1'
-        if components:
-            if delete_components:
-                uav.components.all().delete()
-            else:
-                uav.components.all().update(assigned_to_uav=None, status='disassembled')
-        uav.status = 'deleted'
-        uav.save(update_fields=['status', 'updated_at'])
-        messages.success(request, "БПЛА видалено.")
+    if request.method != "POST":
         return redirect("equipment_accounting:equipment_list")
-    for comp in components:
-        comp.type_display = str(comp)
-    return render(request, "equipment_accounting/equipment_confirm_delete.html", {
-        "object": uav, "title": "Видалити БПЛА",
-        "cancel_url": _list_url("drones"),
-        "uav_components": components,
-    })
+    delete_components = request.POST.get('delete_components') == '1'
+    if delete_components:
+        uav.components.all().delete()
+    else:
+        uav.components.all().update(assigned_to_uav=None, status='disassembled')
+    old_status = uav.status
+    uav.status = 'deleted'
+    uav.save(update_fields=['status', 'updated_at'])
+    UAVStatusLog.objects.create(
+        uav=uav, changed_by=request.user,
+        from_status=old_status, to_status='deleted',
+        drone_type_label=_uav_type_label(uav),
+    )
+    messages.success(request, "БПЛА видалено.")
+    return redirect("equipment_accounting:equipment_list")
 
 
 # ── Manufacturer CRUD ───────────────────────────────────────────────
