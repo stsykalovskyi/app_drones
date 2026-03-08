@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'equipment_accounting',
     'expense_log',
     'user_management',
+    'app_drones',
 ]
 
 MIDDLEWARE = [
@@ -209,8 +210,6 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-
-# ... існуючий код ...
 
 # ---------------------------------------------------------------------------
 # Telegram Bot Settings
