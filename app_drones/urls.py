@@ -21,6 +21,8 @@ from django.urls import include, path, re_path
 from django.views.static import serve
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
+from django.views.generic import TemplateView
+from django.shortcuts import render
 
 from user_management.views import CustomLoginView
 
@@ -49,6 +51,32 @@ urlpatterns += [
     path('user-management/', include('user_management.urls')),
 ]
 
+# Обробники помилок
+handler400 = 'app_drones.urls.error_400'
+handler403 = 'app_drones.urls.error_403'
+handler404 = 'app_drones.urls.error_404'
+handler500 = 'app_drones.urls.error_500'
+
+def error_400(request, exception=None):
+    return render(request, '400.html', status=400)
+
+def error_403(request, exception=None):
+    return render(request, '403.html', status=403)
+
+def error_404(request, exception=None):
+    return render(request, '404.html', status=404)
+
+def error_500(request):
+    return render(request, '500.html', status=500)
+
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    # Тестові маршрути для перегляду помилок при DEBUG=True
+    urlpatterns += [
+        path('400/', TemplateView.as_view(template_name='400.html')),
+        path('403/', TemplateView.as_view(template_name='403.html')),
+        path('404/', TemplateView.as_view(template_name='404.html')),
+        path('500/', TemplateView.as_view(template_name='500.html')),
+    ]

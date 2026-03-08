@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}404 — Сторінку не знайдено{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+<style>
+    .app-main { margin-left: 0 !important; }
+    body.sidebar-pinned .app-main { margin-left: 0 !important; }
+    main { padding-top: 2rem !important; }
+    
+    .error-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 85vh;
+        text-align: center;
+    }
+    .error-code {
+        font-size: clamp(6rem, 20vw, 12rem);
+        font-weight: 900;
+        line-height: 1;
+        background: var(--btn-bg);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        user-select: none;
+        filter: drop-shadow(0 0 20px var(--accent-glow));
+    }
+    .error-card {
+        max-width: 500px;
+        width: 100%;
+    }
+</style>
+
+<div class="error-wrapper">
+    <div class="error-code">404</div>
+    <div class="card error-card">
+        <h2 style="margin-bottom: 1rem;">Сторінку не знайдено</h2>
+        <p class="muted" style="margin-bottom: 2rem;">
+            На жаль, сторінка, яку ви шукаєте, не існує або була переміщена в інший розділ.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+            <a href="{% url 'home' %}" class="button">На головну</a>
+            <a href="javascript:history.back()" class="button ghost">Повернутися назад</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
