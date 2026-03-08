@@ -325,18 +325,36 @@ class Command(BaseCommand):
         self.stdout.write('Opening WhatsApp Web …')
         page.goto('https://web.whatsapp.com', wait_until='domcontentloaded')
 
-        try:
-            page.wait_for_selector('[data-testid="chat-list"]', timeout=8_000)
-            self.stdout.write(self.style.SUCCESS('Session restored — no QR needed.'))
-            return
-        except Exception:
-            pass
+        # WhatsApp Web can take 20-30s to restore session on slow servers
+        LOGGED_IN_SELECTORS = [
+            '[data-testid="chat-list"]',
+            '#pane-side',
+            '[data-testid="conversation-panel-wrapper"]',
+            'header[data-testid="chatlist-header"]',
+        ]
+        for sel in LOGGED_IN_SELECTORS:
+            try:
+                page.wait_for_selector(sel, timeout=30_000)
+                self.stdout.write(self.style.SUCCESS('Session restored — no QR needed.'))
+                return
+            except Exception:
+                pass
 
+        # Check if we're on a QR page (not logged in)
+        if page.query_selector('[data-ref]'):
+            self.stderr.write(self.style.ERROR(
+                'Not logged in. Run first:\n'
+                '  python manage.py run_whatsapp_monitor --setup'
+            ))
+            raise RuntimeError('WhatsApp session not authenticated. Run --setup first.')
+
+        # Page loaded but unknown state — take screenshot for diagnosis
+        page.screenshot(path='/tmp/wa_state.png')
         self.stderr.write(self.style.ERROR(
-            'Not logged in. Run first:\n'
-            '  python manage.py run_whatsapp_monitor --setup'
+            'Could not detect chat list. Page state saved to /tmp/wa_state.png\n'
+            'Copy with: scp root@85.121.4.216:/tmp/wa_state.png /mnt/f/wa_state.png'
         ))
-        raise RuntimeError('WhatsApp session not authenticated. Run --setup first.')
+        raise RuntimeError('WhatsApp Web loaded but chat list not found.')
 
     def _open_group(self, page, group_name):
         self.stdout.write(f'Opening group "{group_name}" …')
