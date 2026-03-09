@@ -165,6 +165,24 @@ class Command(BaseCommand):
                 return path
         return ''
 
+    @staticmethod
+    def _find_playwright_chromium() -> str:
+        """
+        Return path to the full Playwright Chromium binary.
+        Playwright defaults to chromium_headless_shell which may be missing
+        system libs on WSL. The full chromium-XXXX build is more reliable.
+        """
+        import glob
+        cache = Path.home() / '.cache' / 'ms-playwright'
+        for pattern in (
+            'chromium-*/chrome-linux64/chrome',
+            'chromium-*/chrome-linux/chrome',
+        ):
+            matches = sorted(glob.glob(str(cache / pattern)), reverse=True)
+            if matches:
+                return matches[0]
+        return ''
+
     def _make_context(self, pw, session_dir, headless, chromium_path):
         Path(session_dir).mkdir(parents=True, exist_ok=True)
         kwargs = dict(
@@ -183,8 +201,10 @@ class Command(BaseCommand):
                 'Chrome/124.0.0.0 Safari/537.36'
             ),
         )
-        if chromium_path:
-            kwargs['executable_path'] = chromium_path
+        exe = chromium_path or self._find_playwright_chromium()
+        if exe:
+            kwargs['executable_path'] = exe
+            self.stdout.write(f'Chromium: {exe}')
         return pw.chromium.launch_persistent_context(session_dir, **kwargs)
 
     # ------------------------------------------------------------------ #
@@ -458,84 +478,82 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(
             f'Opened group "{group_name}" but message list not confirmed.'))
 
-    # JavaScript that finds the scrollable messages container
-    _FIND_PANE_JS = """
+    # JS: find the scrollable messages pane by walking up from a message element
+    _PANE_JS = """
         (() => {
-            const candidates = document.querySelectorAll('div[role="application"], #main div');
-            for (const el of candidates) {
+            const msg = document.querySelector('div[data-id]');
+            if (!msg) return null;
+            let el = msg.parentElement;
+            while (el && el !== document.body) {
                 const s = window.getComputedStyle(el);
                 if ((s.overflowY === 'scroll' || s.overflowY === 'auto')
-                        && el.scrollHeight > el.clientHeight + 50) {
+                        && el.scrollHeight > el.clientHeight + 100) {
                     return el;
                 }
+                el = el.parentElement;
             }
             return null;
         })()
     """
 
+    def _get_scroll_top(self, page) -> int:
+        return page.evaluate(f'(el => el ? Math.round(el.scrollTop) : -1)({self._PANE_JS.strip()})')
+
+    def _scroll_up(self, page) -> int:
+        """Scroll up one viewport. Returns new scrollTop."""
+        return page.evaluate(f"""
+            (el => {{
+                if (!el) return -1;
+                el.scrollTop = Math.max(0, el.scrollTop - el.clientHeight * 0.85);
+                return Math.round(el.scrollTop);
+            }})({self._PANE_JS.strip()})
+        """)
+
     def _backfill(self, page, group_name):
-        """Scroll to the top of chat history and save every message to the DB."""
+        """Scroll UP through chat history and save every message to the DB."""
         seen: set[str] = set(
             StrikeReport.objects.values_list('whatsapp_msg_id', flat=True)
         )
         self.stdout.write(f'Backfill start. Already in DB: {len(seen)}')
 
-        # Scroll to the very top first
-        self.stdout.write('Scrolling to top of chat history …')
-        for _ in range(60):          # up to 60 scroll-up steps (~5 min of history each)
-            prev_top = page.evaluate(
-                '(el => el ? el.scrollTop : 0)(document.querySelector("[data-tab=\'8\']") || ' +
-                self._FIND_PANE_JS.strip() + ')'
-            )
-            page.evaluate(
-                '(el => { if (el) el.scrollTop = 0; })(' +
-                '(document.querySelector("[data-tab=\'8\']") || ' +
-                self._FIND_PANE_JS.strip() + '))'
-            )
-            time.sleep(1.5)
-            new_top = page.evaluate(
-                '(el => el ? el.scrollTop : -1)(document.querySelector("[data-tab=\'8\']") || ' +
-                self._FIND_PANE_JS.strip() + ')'
-            )
-            if new_top == 0 and prev_top == 0:
-                break   # already at top
-            if new_top >= prev_top:
-                break   # can't scroll further up
+        # Save currently visible messages (most recent batch)
+        total_saved = self._check_messages(page, group_name, seen)
+        if total_saved:
+            self.stdout.write(f'  +{total_saved} saved (total: {total_saved})')
 
-        self.stdout.write(self.style.SUCCESS('Reached top. Scrolling down and saving …'))
+        if self._get_scroll_top(page) < 0:
+            self.stderr.write(self.style.ERROR(
+                'Could not find messages pane. Backfill aborted.'
+            ))
+            return
 
-        total_saved = 0
-        no_new_streak = 0
+        self.stdout.write('Scrolling UP through history …')
+        no_move_streak = 0   # consecutive iters where scrollTop did not change
 
         while True:
-            # Process all currently visible messages
+            prev_top = self._get_scroll_top(page)
+            self._scroll_up(page)
+
+            # At the very top WhatsApp may prepend an older batch — wait longer
+            at_top = self._get_scroll_top(page) == 0
+            time.sleep(5 if at_top else 3)
+
+            # Re-read after wait: position may have grown if old msgs were prepended
+            new_top = self._get_scroll_top(page)
+
             saved = self._check_messages(page, group_name, seen)
             total_saved += saved
             if saved:
-                no_new_streak = 0
+                no_move_streak = 0
                 self.stdout.write(f'  +{saved} saved (total: {total_saved})')
+            elif new_top == prev_top:
+                no_move_streak += 1
+                self.stdout.write(f'  (no new msgs, streak {no_move_streak}/3)')
             else:
-                no_new_streak += 1
+                # Scroll moved but messages already in DB — not stuck yet
+                no_move_streak = max(0, no_move_streak - 1)
 
-            # Stop if 3 consecutive scrolls yielded nothing new
-            if no_new_streak >= 3:
-                break
-
-            # Scroll down one viewport
-            at_bottom = page.evaluate("""
-                (() => {
-                    const el = document.querySelector("[data-tab='8']") || """ +
-                    self._FIND_PANE_JS.strip() + """;
-                    if (!el) return true;
-                    el.scrollTop += el.clientHeight * 0.8;
-                    return el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
-                })()
-            """)
-            time.sleep(1.5)
-            if at_bottom:
-                # One final read after reaching bottom
-                saved = self._check_messages(page, group_name, seen)
-                total_saved += saved
+            if no_move_streak >= 3:
                 break
 
         self.stdout.write(self.style.SUCCESS(
