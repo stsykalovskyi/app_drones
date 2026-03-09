@@ -366,20 +366,20 @@ class Command(BaseCommand):
         self.stdout.write('Opening WhatsApp Web …')
         page.goto('https://web.whatsapp.com', wait_until='domcontentloaded')
 
-        # WhatsApp Web can take 20-30s to restore session on slow servers
-        LOGGED_IN_SELECTORS = [
-            '[data-testid="chat-list"]',
-            '#pane-side',
-            '[data-testid="conversation-panel-wrapper"]',
-            'header[data-testid="chatlist-header"]',
-        ]
-        for sel in LOGGED_IN_SELECTORS:
-            try:
-                page.wait_for_selector(sel, timeout=30_000)
-                self.stdout.write(self.style.SUCCESS('Session restored — no QR needed.'))
-                return
-            except Exception:
-                pass
+        # WhatsApp Web can take up to 90s to restore session on slow servers.
+        # Use a combined CSS selector so we wait for ANY of them in one call.
+        COMBINED = (
+            '[data-testid="chat-list"],'
+            '#pane-side,'
+            '[data-testid="conversation-panel-wrapper"],'
+            'header[data-testid="chatlist-header"]'
+        )
+        try:
+            page.wait_for_selector(COMBINED, timeout=90_000)
+            self.stdout.write(self.style.SUCCESS('Session restored — no QR needed.'))
+            return
+        except Exception:
+            pass
 
         # Check if we're on a QR page (not logged in)
         if page.query_selector('[data-ref]'):
