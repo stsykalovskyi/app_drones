@@ -529,6 +529,7 @@ class Command(BaseCommand):
 
         self.stdout.write('Scrolling UP through history …')
         no_move_streak = 0   # consecutive iters where scrollTop did not change
+        no_new_streak  = 0   # consecutive iters where no new messages were found
 
         while True:
             prev_top = self._get_scroll_top(page)
@@ -545,15 +546,21 @@ class Command(BaseCommand):
             total_saved += saved
             if saved:
                 no_move_streak = 0
+                no_new_streak  = 0
                 self.stdout.write(f'  +{saved} saved (total: {total_saved})')
-            elif new_top == prev_top:
-                no_move_streak += 1
-                self.stdout.write(f'  (no new msgs, streak {no_move_streak}/3)')
             else:
-                # Scroll moved but messages already in DB — not stuck yet
-                no_move_streak = max(0, no_move_streak - 1)
+                no_new_streak += 1
+                if new_top == prev_top:
+                    no_move_streak += 1
+                    self.stdout.write(
+                        f'  (scroll frozen, streak {no_move_streak}/3, no_new {no_new_streak})'
+                    )
+                else:
+                    self.stdout.write(
+                        f'  (scroll moved, no new msgs, no_new {no_new_streak}/10)'
+                    )
 
-            if no_move_streak >= 3:
+            if no_move_streak >= 3 or no_new_streak >= 10:
                 break
 
         self.stdout.write(self.style.SUCCESS(

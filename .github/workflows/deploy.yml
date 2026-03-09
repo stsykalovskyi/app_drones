@@ -72,6 +72,6 @@ jobs:
             screen -dmS wamon bash -c "
               cd /root/MyProjects/python/app_drones
               source .venv/bin/activate
-              python manage.py run_whatsapp_monitor >> /var/log/wamon.log 2>&1
+              python manage.py run_whatsapp_monitor --group "ВИТРАТА" >> /var/log/wamon.log 2>&1
             "
           EOF
