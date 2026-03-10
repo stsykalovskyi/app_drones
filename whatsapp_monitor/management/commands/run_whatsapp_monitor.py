@@ -438,13 +438,11 @@ class Command(BaseCommand):
             raise RuntimeError('Compose box not found. Screenshot: scp root@85.121.4.216:/tmp/wa_compose.png /mnt/f/wa_compose.png')
 
         box.click()
-        time.sleep(0.3)
-        # Use execCommand — reliable with React contenteditable in headless mode
-        escaped = text.replace('\\', '\\\\').replace("'", "\\'")
-        page.evaluate(f"document.execCommand('insertText', false, '{escaped}')")
-        time.sleep(0.3)
+        time.sleep(0.5)
+        page.keyboard.type(text, delay=50)
+        time.sleep(0.5)
         page.keyboard.press('Enter')
-        time.sleep(1)
+        time.sleep(1.5)
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
 
     def _open_group(self, page, group_name):
