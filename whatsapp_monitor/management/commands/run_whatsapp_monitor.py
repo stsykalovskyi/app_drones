@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 30        # seconds between message checks
 PAGE_TIMEOUT  = 60_000    # ms — page load timeout
-QR_TIMEOUT    = 180_000   # ms — how long to wait for QR scan
+QR_TIMEOUT    = 1_800_000  # ms — how long to wait for QR scan (30 min)
 
 
 class Command(BaseCommand):
@@ -320,7 +320,7 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write('  Could not read QR data, retrying…')
 
-                time.sleep(10)
+                time.sleep(55)
 
             if not logged_in:
                 page.screenshot(path=qr_path)
