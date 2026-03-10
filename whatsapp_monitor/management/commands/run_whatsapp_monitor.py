@@ -129,9 +129,12 @@ class Command(BaseCommand):
                 ctx  = self._make_context(pw, session_dir, options['headless'], chromium_path)
                 page = ctx.pages[0] if ctx.pages else ctx.new_page()
                 page.set_default_timeout(PAGE_TIMEOUT)
+                page.on('console', lambda msg: self.stdout.write(f'  [browser:{msg.type}] {msg.text}'))
+                page.on('pageerror', lambda exc: self.stderr.write(f'  [page error] {exc}'))
                 self._open_whatsapp(page)
                 self._open_group(page, group_name)
                 self._send_message(page, options['send'])
+                time.sleep(3)
                 ctx.close()
             elif options['backfill']:
                 self.stdout.write(self.style.WARNING(
