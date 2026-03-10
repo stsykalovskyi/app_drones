@@ -134,7 +134,7 @@ class Command(BaseCommand):
                 self._open_whatsapp(page)
                 self._open_group(page, group_name)
                 self._send_message(page, options['send'])
-                time.sleep(3)
+                time.sleep(15)
                 ctx.close()
             elif options['backfill']:
                 self.stdout.write(self.style.WARNING(
