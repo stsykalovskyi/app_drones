@@ -412,12 +412,14 @@ class Command(BaseCommand):
         raise RuntimeError('WhatsApp Web loaded but chat list not found.')
 
     def _send_message(self, page, text: str):
+        # Dismiss search overlay so compose box becomes active
+        page.keyboard.press('Escape')
+        time.sleep(0.5)
+
         COMPOSE_SELECTORS = [
             '[data-testid="conversation-compose-box-input"]',
             'footer div[contenteditable="true"]',
             'div[contenteditable="true"][data-tab="10"]',
-            'div[contenteditable="true"][data-tab]',
-            'div[role="textbox"][contenteditable="true"]',
         ]
         box = None
         for sel in COMPOSE_SELECTORS:
@@ -429,11 +431,12 @@ class Command(BaseCommand):
                 continue
         if box is None:
             raise RuntimeError('Compose box not found. Check selectors.')
+
         box.click()
-        time.sleep(0.5)
-        # Use clipboard paste — more reliable with React contenteditable
-        page.evaluate(f'navigator.clipboard.writeText({text!r})')
-        page.keyboard.press('Control+v')
+        time.sleep(0.3)
+        # Use execCommand — reliable with React contenteditable in headless mode
+        escaped = text.replace('\\', '\\\\').replace("'", "\\'")
+        page.evaluate(f"document.execCommand('insertText', false, '{escaped}')")
         time.sleep(0.3)
         page.keyboard.press('Enter')
         time.sleep(1)
