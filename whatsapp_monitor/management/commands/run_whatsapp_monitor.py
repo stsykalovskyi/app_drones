@@ -412,14 +412,12 @@ class Command(BaseCommand):
         raise RuntimeError('WhatsApp Web loaded but chat list not found.')
 
     def _send_message(self, page, text: str):
-        # Dismiss search overlay so compose box becomes active
-        page.keyboard.press('Escape')
-        time.sleep(0.5)
-
         COMPOSE_SELECTORS = [
             '[data-testid="conversation-compose-box-input"]',
+            '[data-testid="compose-box-input"]',
             'footer div[contenteditable="true"]',
             'div[contenteditable="true"][data-tab="10"]',
+            'div[contenteditable="true"][spellcheck="true"]',
         ]
         box = None
         for sel in COMPOSE_SELECTORS:
@@ -430,7 +428,14 @@ class Command(BaseCommand):
             except Exception:
                 continue
         if box is None:
-            raise RuntimeError('Compose box not found. Check selectors.')
+            page.screenshot(path='/tmp/wa_compose.png')
+            # Log all contenteditable elements for diagnosis
+            els = page.evaluate(
+                'Array.from(document.querySelectorAll("[contenteditable]"))'
+                '.map(e => e.tagName + " " + JSON.stringify({dt: e.dataset.testid, tab: e.dataset.tab, role: e.getAttribute("role"), footer: !!e.closest("footer")}))'
+            )
+            self.stdout.write(f'  contenteditable elements: {els}')
+            raise RuntimeError('Compose box not found. Screenshot: scp root@85.121.4.216:/tmp/wa_compose.png /mnt/f/wa_compose.png')
 
         box.click()
         time.sleep(0.3)
