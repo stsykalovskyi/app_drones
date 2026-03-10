@@ -430,8 +430,13 @@ class Command(BaseCommand):
         if box is None:
             raise RuntimeError('Compose box not found. Check selectors.')
         box.click()
-        box.type(text)
+        time.sleep(0.5)
+        # Use clipboard paste — more reliable with React contenteditable
+        page.evaluate(f'navigator.clipboard.writeText({text!r})')
+        page.keyboard.press('Control+v')
+        time.sleep(0.3)
         page.keyboard.press('Enter')
+        time.sleep(1)
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
 
     def _open_group(self, page, group_name):
