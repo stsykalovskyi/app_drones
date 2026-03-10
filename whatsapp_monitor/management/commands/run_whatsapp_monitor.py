@@ -86,6 +86,12 @@ class Command(BaseCommand):
             default=False,
             help='Scroll through entire chat history, save all messages, then exit.',
         )
+        parser.add_argument(
+            '--send',
+            default='',
+            metavar='MESSAGE',
+            help='Send a message to the group and exit (useful for testing the session).',
+        )
 
     def handle(self, *args, **options):
         group_name  = options['group']
@@ -119,6 +125,14 @@ class Command(BaseCommand):
             if setup_mode:
                 self._run_setup(pw, session_dir, options['headless'],
                                 chromium_path, options['qr_path'])
+            elif options['send']:
+                ctx  = self._make_context(pw, session_dir, options['headless'], chromium_path)
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                page.set_default_timeout(PAGE_TIMEOUT)
+                self._open_whatsapp(page)
+                self._open_group(page, group_name)
+                self._send_message(page, options['send'])
+                ctx.close()
             elif options['backfill']:
                 self.stdout.write(self.style.WARNING(
                     f'BACKFILL MODE — scrolling full history of "{group_name}"'
@@ -396,6 +410,14 @@ class Command(BaseCommand):
             'Copy with: scp root@85.121.4.216:/tmp/wa_state.png /mnt/f/wa_state.png'
         ))
         raise RuntimeError('WhatsApp Web loaded but chat list not found.')
+
+    def _send_message(self, page, text: str):
+        box = page.wait_for_selector('[data-testid="conversation-compose-box-input"]',
+                                     timeout=15_000)
+        box.click()
+        box.type(text)
+        page.keyboard.press('Enter')
+        self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
 
     def _open_group(self, page, group_name):
         self.stdout.write(f'Opening group "{group_name}" …')
