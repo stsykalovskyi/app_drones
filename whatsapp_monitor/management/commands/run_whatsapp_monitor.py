@@ -412,8 +412,23 @@ class Command(BaseCommand):
         raise RuntimeError('WhatsApp Web loaded but chat list not found.')
 
     def _send_message(self, page, text: str):
-        box = page.wait_for_selector('[data-testid="conversation-compose-box-input"]',
-                                     timeout=15_000)
+        COMPOSE_SELECTORS = [
+            '[data-testid="conversation-compose-box-input"]',
+            'footer div[contenteditable="true"]',
+            'div[contenteditable="true"][data-tab="10"]',
+            'div[contenteditable="true"][data-tab]',
+            'div[role="textbox"][contenteditable="true"]',
+        ]
+        box = None
+        for sel in COMPOSE_SELECTORS:
+            try:
+                box = page.wait_for_selector(sel, timeout=8_000)
+                self.stdout.write(f'  Compose box found: {sel}')
+                break
+            except Exception:
+                continue
+        if box is None:
+            raise RuntimeError('Compose box not found. Check selectors.')
         box.click()
         box.type(text)
         page.keyboard.press('Enter')
