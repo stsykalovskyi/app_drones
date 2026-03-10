@@ -439,10 +439,16 @@ class Command(BaseCommand):
 
         box.click()
         time.sleep(0.5)
+        page.screenshot(path='/tmp/wa_before_type.png')
+        self.stdout.write('  Screenshot before typing → /tmp/wa_before_type.png')
         page.keyboard.type(text, delay=50)
         time.sleep(0.5)
+        page.screenshot(path='/tmp/wa_after_type.png')
+        self.stdout.write('  Screenshot after typing → /tmp/wa_after_type.png')
         page.keyboard.press('Enter')
         time.sleep(1.5)
+        page.screenshot(path='/tmp/wa_after_send.png')
+        self.stdout.write('  Screenshot after send → /tmp/wa_after_send.png')
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
 
     def _open_group(self, page, group_name):
