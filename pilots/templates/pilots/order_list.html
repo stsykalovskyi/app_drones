@@ -3,7 +3,7 @@
 {% block content %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
     <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ title }}</h1>
-    <a href="{% url 'pilots:drone_order_create' %}" class="btn btn-primary">+ Замовити дрон</a>
+    <a href="{% url 'pilots:drone_order_create' %}" class="button">+ Замовити дрон</a>
 </div>
 
 {% if orders %}

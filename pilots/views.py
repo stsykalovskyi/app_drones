@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import DroneOrderForm, OrderStatusForm, StrikeReportForm
+from .forms import OrderStatusForm, StrikeReportForm
 from .models import DroneOrder, StrikeReport
 
 MASTER_GROUPS = {'майстер', 'командир майстерні'}
@@ -61,16 +61,90 @@ def strike_report_list(request):
 
 @login_required
 def drone_order_create(request):
+    from django.contrib.contenttypes.models import ContentType
+    from equipment_accounting.models import FPVDroneType, OpticalDroneType, UAVInstance
+
+    fpv_ct = ContentType.objects.get_for_model(FPVDroneType)
+    opt_ct = ContentType.objects.get_for_model(OpticalDroneType)
+
+    # Count ready instances per type
+    ready_counts = {}
+    for uav in UAVInstance.objects.filter(status='ready').values('content_type_id', 'object_id'):
+        k = (uav['content_type_id'], uav['object_id'])
+        ready_counts[k] = ready_counts.get(k, 0) + 1
+
+    fpv_qs = FPVDroneType.objects.select_related(
+        'model', 'purpose', 'power_template', 'video_frequency'
+    ).prefetch_related('control_frequencies').order_by('model__name', 'prop_size')
+
+    opt_qs = OpticalDroneType.objects.select_related(
+        'model', 'purpose', 'power_template', 'video_template'
+    ).prefetch_related('control_frequencies').order_by('model__name', 'prop_size')
+
+    # Group ALL drone types (FPV + Optical) by DronePurpose name
+    from collections import defaultdict
+    purpose_map = defaultdict(list)
+
+    for t in fpv_qs:
+        count = ready_counts.get((fpv_ct.id, t.pk), 0)
+        if count:
+            purpose = t.purpose.name if t.purpose_id else 'Без призначення'
+            purpose_map[purpose].append({'type': t, 'count': count, 'key': f'{fpv_ct.id}_{t.pk}'})
+
+    for t in opt_qs:
+        count = ready_counts.get((opt_ct.id, t.pk), 0)
+        if count:
+            purpose = t.purpose.name if t.purpose_id else 'Без призначення'
+            purpose_map[purpose].append({'type': t, 'count': count, 'key': f'{opt_ct.id}_{t.pk}'})
+
+    # Sort: named purposes alphabetically, "Без призначення" last
+    named = sorted((k, v) for k, v in purpose_map.items() if k != 'Без призначення')
+    bez = [('Без призначення', purpose_map['Без призначення'])] if 'Без призначення' in purpose_map else []
+    sections = [{'label': k, 'cards': v} for k, v in named + bez]
+
     if request.method == 'POST':
-        form = DroneOrderForm(request.POST)
-        if form.is_valid():
-            form.save(pilot=request.user)
-            messages.success(request, 'Замовлення відправлено до майстерні.')
+        notes = request.POST.get('notes', '')
+        created = 0
+        for key, val in request.POST.items():
+            if not key.startswith('qty_'):
+                continue
+            try:
+                qty = int(val)
+            except (ValueError, TypeError):
+                continue
+            if qty <= 0:
+                continue
+            parts = key.split('_')
+            if len(parts) != 3:
+                continue
+            try:
+                ct_id = int(parts[1])
+                obj_id = int(parts[2])
+            except ValueError:
+                continue
+            from django.contrib.contenttypes.models import ContentType as CT
+            try:
+                ct = CT.objects.get(id=ct_id)
+            except CT.DoesNotExist:
+                continue
+            DroneOrder.objects.create(
+                pilot=request.user,
+                content_type=ct,
+                object_id=obj_id,
+                quantity=qty,
+                notes=notes,
+            )
+            created += 1
+
+        if created:
+            messages.success(request, f'Замовлення відправлено до майстерні ({created} поз.).')
             return redirect('pilots:drone_order_list')
-    else:
-        form = DroneOrderForm()
+        else:
+            messages.warning(request, 'Не вибрано жодного дрона.')
+
     return render(request, 'pilots/order_form.html', {
-        'form': form, 'title': 'Замовити дрон',
+        'sections': sections,
+        'title': 'Замовити дрони',
     })
 
 
