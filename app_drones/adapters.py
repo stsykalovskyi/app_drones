@@ -2,7 +2,11 @@ import logging
 import traceback
 
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.socialaccount.providers.base import AuthError
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
@@ -39,4 +43,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             request.META.get('HTTP_REFERER', '?'),
             traceback.format_exc() if exception else '(no traceback)',
         )
+        # Cloudflare routes the same OAuth callback through two edge nodes
+        # simultaneously. The first request consumes the session state; the
+        # second finds it gone (error=unknown, no exception). Redirect to login
+        # so the user can retry cleanly instead of landing on the error page.
+        if error == AuthError.UNKNOWN and exception is None:
+            raise ImmediateHttpResponse(HttpResponseRedirect(reverse('login')))
+
         super().on_authentication_error(request, provider, error=error, exception=exception, extra_context=extra_context)
