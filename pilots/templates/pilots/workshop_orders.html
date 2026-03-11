@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
+
+{% if inventory %}
+<div class="card" style="margin-bottom:1.5rem">
+    <h3 style="margin:0 0 1rem;font-size:1rem;font-weight:700;color:var(--text-secondary)">Наявність у майстерні (статус «Готовий»)</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem">
+        {% for key, item in inventory.items %}
+        <div style="background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem 1rem;min-width:160px">
+            <div style="font-size:.75rem;color:var(--text-secondary);margin-bottom:.2rem">{{ item.type }}</div>
+            <div style="font-size:1.35rem;font-weight:800;color:var(--accent)">{{ item.available }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if orders %}
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Пілот</th>
+                <th>Тип БПЛА</th>
+                <th>К-сть</th>
+                <th>Статус</th>
+                <th>Примітки пілота</th>
+                <th>Замовлено</th>
+                <th>Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td>{{ o.pk }}</td>
+                <td>{{ o.pilot.profile.display_name|default:o.pilot.username }}</td>
+                <td>{{ o.drone_type_name }}</td>
+                <td>{{ o.quantity }}</td>
+                <td><span class="badge badge-{{ o.status_color }}">{{ o.get_status_display }}</span></td>
+                <td>{{ o.notes|default:"—"|truncatechars:80 }}</td>
+                <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <form method="post" action="{% url 'pilots:workshop_order_update' o.pk %}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+                        {% csrf_token %}
+                        <select name="status" class="form-select-sm">
+                            {% for val, label in o.STATUS_CHOICES %}
+                            <option value="{{ val }}"{% if val == o.status %} selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="text" name="master_notes" value="{{ o.master_notes }}" placeholder="Примітка майстра" class="form-input-sm">
+                        <button type="submit" class="btn btn-sm btn-primary">Зберегти</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;color:var(--text-secondary);padding:3rem">
+    Активних замовлень немає.
+</div>
+{% endif %}
+{% endblock %}

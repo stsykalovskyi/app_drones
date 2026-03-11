@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ title }}</h1>
+    <a href="{% url 'pilots:drone_order_create' %}" class="btn btn-primary">+ Замовити дрон</a>
+</div>
+
+{% if orders %}
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Тип БПЛА</th>
+                <th>К-сть</th>
+                <th>Статус</th>
+                <th>Примітки</th>
+                <th>Майстер</th>
+                <th>Замовлено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td>{{ o.pk }}</td>
+                <td>{{ o.drone_type_name }}</td>
+                <td>{{ o.quantity }}</td>
+                <td><span class="badge badge-{{ o.status_color }}">{{ o.get_status_display }}</span></td>
+                <td>{{ o.notes|default:"—"|truncatechars:60 }}</td>
+                <td>{{ o.handled_by.profile.display_name|default:o.handled_by.username|default:"—" }}</td>
+                <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;color:var(--text-secondary);padding:3rem">
+    Замовлень поки немає.
+</div>
+{% endif %}
+{% endblock %}

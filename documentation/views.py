@@ -9,7 +9,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import CategoryForm, CommentForm, PageForm
-from .models import Category, Page
+from .gemini_service import ask_gemini
+from .models import Category, Page, Question
 
 GROUP_NAME = "майстер"
 COMMANDER_GROUP = "командир майстерні"
@@ -172,3 +173,37 @@ def comment_create(request, slug):
         messages.success(request, "Коментар додано.")
 
     return redirect("documentation:page_detail", slug=slug)
+
+
+@login_required
+def question_ask(request):
+    recent_questions = Question.objects.filter(user=request.user).order_by('-created_at')[:20]
+
+    if request.method == 'POST':
+        question_text = request.POST.get('question_text', '').strip()
+        if not question_text:
+            messages.error(request, 'Введіть питання.')
+            return render(request, 'documentation/question_ask.html', {
+                'title': 'Задати питання',
+                'recent_questions': recent_questions,
+            })
+
+        answer_text = ask_gemini(question_text)
+        question = Question.objects.create(
+            user=request.user,
+            question_text=question_text,
+            answer_text=answer_text,
+            is_answered=bool(answer_text),
+        )
+        return render(request, 'documentation/question_ask.html', {
+            'title': 'Задати питання',
+            'answered': question,
+            'recent_questions': Question.objects.filter(
+                user=request.user
+            ).order_by('-created_at')[:20],
+        })
+
+    return render(request, 'documentation/question_ask.html', {
+        'title': 'Задати питання',
+        'recent_questions': recent_questions,
+    })

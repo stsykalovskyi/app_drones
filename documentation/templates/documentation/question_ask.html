@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
+
+  <div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <label class="form-label" style="font-weight:600;margin-bottom:.5rem;display:block">Ваше питання</label>
+        <textarea name="question_text" rows="4" class="form-control"
+          placeholder="Введіть питання до бази знань…"
+          style="width:100%;resize:vertical">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
+        <button type="submit" class="btn btn-primary" style="margin-top:1rem">Запитати Gemini</button>
+      </form>
+    </div>
+
+    {% if answered %}
+    <div class="card" style="border-color:var(--accent);background:var(--accent-dim)">
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem">Відповідь</div>
+      <div style="white-space:pre-wrap;line-height:1.7;color:var(--text)">{{ answered.answer_text }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Мої питання</div>
+      {% if recent_questions %}
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        {% for q in recent_questions %}
+        <div style="border-bottom:1px solid var(--border);padding-bottom:.75rem">
+          <div style="font-size:.85rem;font-weight:600;margin-bottom:.3rem">{{ q.question_text|truncatechars:80 }}</div>
+          {% if q.answer_text %}
+          <div style="font-size:.78rem;color:var(--text-secondary);line-height:1.5">{{ q.answer_text|truncatechars:120 }}</div>
+          {% endif %}
+          <div style="font-size:.7rem;color:var(--text-muted);margin-top:.3rem">{{ q.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="color:var(--text-muted);font-size:.85rem">Питань поки немає.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

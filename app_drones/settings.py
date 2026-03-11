@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'user_management',
     'app_drones',
     'whatsapp_monitor',
+    'pilots',
 ]
 
 MIDDLEWARE = [
@@ -425,3 +426,8 @@ UNFOLD = {
         ],
     },
 }
+
+# Gemini API
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+DOCS_FOLDER = BASE_DIR / "docs"
+

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Category, Comment, Page
+from .models import Category, Comment, Page, Question
 
 
 @admin.register(Category)
@@ -26,3 +26,15 @@ class CommentAdmin(ModelAdmin):
     list_filter = ("page", "author")
     search_fields = ("body",)
     raw_id_fields = ("page", "author")
+
+
+@admin.register(Question)
+class QuestionAdmin(ModelAdmin):
+    list_display = ("user", "question_text_short", "is_answered", "created_at")
+    list_filter = ("is_answered",)
+    search_fields = ("question_text", "answer_text", "user__username")
+    readonly_fields = ("created_at", "updated_at")
+
+    def question_text_short(self, obj):
+        return obj.question_text[:80]
+    question_text_short.short_description = "Питання"

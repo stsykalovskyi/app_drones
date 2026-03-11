@@ -11,4 +11,5 @@ urlpatterns = [
     path("<slug:slug>/", views.page_detail, name="page_detail"),
     path("<slug:slug>/edit/", views.page_edit, name="page_edit"),
     path("<slug:slug>/comment/", views.comment_create, name="comment_create"),
+    path("ask/", views.question_ask, name="question_ask"),
 ]

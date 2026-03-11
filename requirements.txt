@@ -15,3 +15,5 @@ Pillow
 openpyxl
 playwright
 qrcode
+google-generativeai
+google-genai

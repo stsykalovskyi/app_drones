@@ -230,6 +230,11 @@ class BaseDroneType(models.Model):
         default=False,
         verbose_name="Термальна камера"
     )
+    photo = models.ImageField(
+        upload_to='drone_types/',
+        null=True, blank=True,
+        verbose_name="Фото зовнішнього вигляду"
+    )
     notes = models.TextField(blank=True, verbose_name="Примітки")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")

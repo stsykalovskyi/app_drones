@@ -86,3 +86,25 @@ class Comment(TimeStampedModel):
 
     def __str__(self):
         return f"{self.author} — {self.page} ({self.created_at:%Y-%m-%d})"
+
+
+class Question(TimeStampedModel):
+    """Питання пілота до бази знань — відповідь надає Gemini."""
+
+    user = models.ForeignKey(
+        User,
+        related_name='knowledge_questions',
+        on_delete=models.CASCADE,
+        verbose_name="Користувач",
+    )
+    question_text = models.TextField("Питання")
+    answer_text = models.TextField("Відповідь", blank=True)
+    is_answered = models.BooleanField("Відповідь отримано", default=False)
+
+    class Meta:
+        verbose_name = "Питання"
+        verbose_name_plural = "Питання"
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.user} — {self.question_text[:60]}"
