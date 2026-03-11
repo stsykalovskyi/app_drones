@@ -173,7 +173,7 @@ class WhatsAppBaseCommand(BaseCommand):
         box = None
         for sel in COMPOSE_SELECTORS:
             try:
-                box = page.wait_for_selector(sel, timeout=8_000)
+                box = page.wait_for_selector(sel, timeout=2_000)
                 break
             except Exception:
                 continue
@@ -183,9 +183,9 @@ class WhatsAppBaseCommand(BaseCommand):
             raise RuntimeError('Compose box not found. Screenshot: /tmp/wa_compose.png')
 
         box.click()
-        time.sleep(0.5)
-        page.keyboard.type(text, delay=50)
-        time.sleep(0.5)
+        time.sleep(0.3)
+        page.keyboard.type(text, delay=30)
+        time.sleep(0.3)
         page.keyboard.press('Enter')
-        time.sleep(1.5)
+        time.sleep(1.0)
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))

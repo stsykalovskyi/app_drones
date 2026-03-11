@@ -32,9 +32,9 @@ class Command(WhatsAppBaseCommand):
         parser.add_argument(
             '--poll-interval',
             type=int,
-            default=5,
+            default=3,
             metavar='SECONDS',
-            help='Seconds between queue checks (default: 5).',
+            help='Seconds between queue checks (default: 3).',
         )
 
     def handle(self, *args, **options):
