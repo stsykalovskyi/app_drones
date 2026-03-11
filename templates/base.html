@@ -24,6 +24,7 @@
             var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:light)').matches?'light':'dark');
             d.setAttribute('data-theme',t);
             if(localStorage.getItem('sidebar-pinned')==='1')d.classList.add('sidebar-pinned');
+            d.classList.add('sidebar-loading');
         })();
     </script>
     <style>
@@ -214,6 +215,8 @@
             overflow-y: auto;
             overflow-x: hidden;
         }
+
+        html.sidebar-loading .sidebar-nav { visibility: hidden; }
 
         .sidebar-nav::-webkit-scrollbar {
             width: 0;
@@ -1231,6 +1234,9 @@
         if (overlay) {
             overlay.addEventListener('click', closeMobile);
         }
+
+        /* reveal sidebar nav now that all states are applied */
+        html.classList.remove('sidebar-loading');
     })();
 </script>
 <script>
