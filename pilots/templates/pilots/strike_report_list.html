@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title }} — Майстерня{% endblock %}
 {% block content %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
     <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ title }}</h1>
-    <a href="{% url 'pilots:strike_report_create' %}" class="btn btn-primary">+ Новий звіт</a>
+    <a href="{% url 'pilots:strike_report_create' %}" class="button">+ Новий звіт</a>
 </div>
 
 {% if reports %}
@@ -11,25 +11,29 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th>Дата удару</th>
-                <th>Пілот</th>
+                <th>Дата</th>
+                <th>Екіпаж</th>
+                <th>Засіб</th>
+                <th>Назва засобу</th>
+                <th>БК</th>
+                <th>Ініціація</th>
                 <th>Ціль</th>
                 <th>Результат</th>
-                <th>Дрон</th>
-                <th>Місце</th>
-                <th>Фото</th>
+                <th>Примітки</th>
             </tr>
         </thead>
         <tbody>
             {% for r in reports %}
             <tr>
                 <td>{{ r.strike_date }}</td>
-                <td>{{ r.pilot.profile.display_name|default:r.pilot.username }}</td>
-                <td>{{ r.target_description }}</td>
-                <td>{{ r.result_description|truncatechars:120 }}</td>
-                <td>{{ r.drone_used|default:"—" }}</td>
-                <td>{{ r.location_description|default:"—" }}</td>
-                <td>{% if r.photo %}<a href="{{ r.photo.url }}" target="_blank">📷</a>{% else %}—{% endif %}</td>
+                <td>{{ r.crew }}</td>
+                <td>{{ r.weapon_type }}</td>
+                <td>{{ r.weapon_name }}</td>
+                <td>{{ r.ammo_type }}</td>
+                <td>{{ r.initiation_type }}</td>
+                <td>{{ r.target_type }}</td>
+                <td>{{ r.result_type }}</td>
+                <td>{{ r.notes|default:"—"|truncatechars:60 }}</td>
             </tr>
             {% endfor %}
         </tbody>

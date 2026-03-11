@@ -5,9 +5,9 @@ from .models import DroneOrder, StrikeReport
 
 @admin.register(StrikeReport)
 class StrikeReportAdmin(admin.ModelAdmin):
-    list_display = ('pilot', 'strike_date', 'target_description', 'reported_at')
-    list_filter = ('strike_date', 'pilot')
-    search_fields = ('pilot__username', 'target_description', 'result_description')
+    list_display = ('pilot', 'strike_date', 'crew', 'weapon_type', 'target_type', 'result_type', 'reported_at')
+    list_filter = ('strike_date', 'pilot', 'weapon_type', 'result_type')
+    search_fields = ('pilot__username', 'crew', 'notes')
     date_hierarchy = 'strike_date'
 
 

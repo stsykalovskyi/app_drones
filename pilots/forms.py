@@ -2,27 +2,60 @@ from django import forms
 from django.contrib.contenttypes.models import ContentType
 
 from equipment_accounting.models import FPVDroneType, OpticalDroneType
-from .models import DroneOrder, StrikeReport
+from .models import (
+    DroneOrder, StrikeReport,
+    CREW_CHOICES, WEAPON_TYPE_CHOICES, WEAPON_NAME_CHOICES,
+    AMMO_CHOICES, INITIATION_CHOICES, TARGET_CHOICES, RESULT_CHOICES,
+)
+
+_BLANK = [('', '— Оберіть —')]
+_SEL = {'class': 'form-input'}
 
 
 class StrikeReportForm(forms.ModelForm):
+    crew = forms.ChoiceField(
+        choices=_BLANK + CREW_CHOICES, label="Екіпаж",
+        widget=forms.Select(attrs=_SEL),
+    )
+    weapon_type = forms.ChoiceField(
+        choices=_BLANK + WEAPON_TYPE_CHOICES, label="Засіб",
+        widget=forms.Select(attrs=_SEL),
+    )
+    weapon_name = forms.ChoiceField(
+        choices=_BLANK + WEAPON_NAME_CHOICES, label="Назва засобу",
+        widget=forms.Select(attrs=_SEL),
+    )
+    ammo_type = forms.ChoiceField(
+        choices=_BLANK + AMMO_CHOICES, label="БК",
+        widget=forms.Select(attrs=_SEL),
+    )
+    initiation_type = forms.ChoiceField(
+        choices=_BLANK + INITIATION_CHOICES, label="Ініціація",
+        widget=forms.Select(attrs=_SEL),
+    )
+    target_type = forms.ChoiceField(
+        choices=_BLANK + TARGET_CHOICES, label="Ціль",
+        widget=forms.Select(attrs=_SEL),
+    )
+    result_type = forms.ChoiceField(
+        choices=_BLANK + RESULT_CHOICES, label="Результат",
+        widget=forms.Select(attrs=_SEL),
+    )
+
     class Meta:
         model = StrikeReport
         fields = [
-            'strike_date', 'target_description', 'result_description',
-            'drone_used', 'location_description', 'photo',
+            'strike_date', 'crew', 'weapon_type', 'weapon_name',
+            'ammo_type', 'initiation_type', 'target_type', 'result_type', 'notes', 'video',
         ]
         widgets = {
-            'strike_date': forms.DateInput(attrs={'type': 'date'}),
-            'result_description': forms.Textarea(attrs={'rows': 4}),
+            'strike_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-input'}),
+            'video': forms.FileInput(attrs={'class': 'form-input', 'accept': 'video/*'}),
         }
         labels = {
-            'strike_date': 'Дата удару',
-            'target_description': 'Опис цілі',
-            'result_description': 'Результат',
-            'drone_used': 'Дрон (необов\'язково)',
-            'location_description': 'Місце (необов\'язково)',
-            'photo': 'Фото (необов\'язково)',
+            'strike_date': 'Дата',
+            'notes': 'Примітки',
         }
 
 

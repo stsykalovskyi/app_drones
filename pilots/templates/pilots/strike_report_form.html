@@ -1,20 +1,157 @@
 {% extends "base.html" %}
-{% block title %}{{ title }}{% endblock %}
+
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .form-hero { margin-bottom: 1.5rem; }
+    .form-hero h1 {
+        font-size: clamp(1.3rem, 3vw, 1.7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+
+    .strike-form .field { margin-bottom: 1.25rem; }
+    .strike-form label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .strike-form .form-input {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .strike-form select.form-input {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.85rem center;
+        padding-right: 2.2rem;
+        cursor: pointer;
+    }
+    .strike-form .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .strike-form textarea.form-input {
+        resize: vertical;
+        min-height: 80px;
+    }
+    .strike-form .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.3rem 0 0;
+        font-size: 0.82rem;
+        color: #ef4444;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 1rem;
+    }
+    @media (max-width: 540px) {
+        .form-row { grid-template-columns: 1fr; }
+    }
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width:640px">
-    <h2 style="margin:0 0 1.5rem;font-size:1.25rem;font-weight:700">{{ title }}</h2>
-    <form method="post" enctype="multipart/form-data" novalidate>
+<div class="form-hero">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data" class="strike-form" novalidate>
         {% csrf_token %}
-        {% for field in form %}
-        <div class="form-group">
-            <label class="form-label">{{ field.label }}{% if field.field.required %} <span style="color:var(--accent)">*</span>{% endif %}</label>
-            {{ field }}
-            {% if field.errors %}<div class="form-error">{{ field.errors.0 }}</div>{% endif %}
+
+        <div class="form-row">
+            <div class="field">
+                <label for="{{ form.strike_date.id_for_label }}">Дата <span style="color:var(--accent)">*</span></label>
+                {{ form.strike_date }}
+                {% if form.strike_date.errors %}<ul class="errorlist">{% for e in form.strike_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div class="field">
+                <label for="{{ form.crew.id_for_label }}">Екіпаж <span style="color:var(--accent)">*</span></label>
+                {{ form.crew }}
+                {% if form.crew.errors %}<ul class="errorlist">{% for e in form.crew.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
         </div>
-        {% endfor %}
-        <div style="display:flex;gap:.75rem;margin-top:1.5rem">
-            <button type="submit" class="btn btn-primary">Зберегти звіт</button>
-            <a href="{% url 'pilots:strike_report_list' %}" class="btn btn-secondary">Скасувати</a>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="{{ form.weapon_type.id_for_label }}">Засіб <span style="color:var(--accent)">*</span></label>
+                {{ form.weapon_type }}
+                {% if form.weapon_type.errors %}<ul class="errorlist">{% for e in form.weapon_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div class="field">
+                <label for="{{ form.weapon_name.id_for_label }}">Назва засобу <span style="color:var(--accent)">*</span></label>
+                {{ form.weapon_name }}
+                {% if form.weapon_name.errors %}<ul class="errorlist">{% for e in form.weapon_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="{{ form.ammo_type.id_for_label }}">БК <span style="color:var(--accent)">*</span></label>
+                {{ form.ammo_type }}
+                {% if form.ammo_type.errors %}<ul class="errorlist">{% for e in form.ammo_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div class="field">
+                <label for="{{ form.initiation_type.id_for_label }}">Ініціація <span style="color:var(--accent)">*</span></label>
+                {{ form.initiation_type }}
+                {% if form.initiation_type.errors %}<ul class="errorlist">{% for e in form.initiation_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="{{ form.target_type.id_for_label }}">Ціль <span style="color:var(--accent)">*</span></label>
+                {{ form.target_type }}
+                {% if form.target_type.errors %}<ul class="errorlist">{% for e in form.target_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div class="field">
+                <label for="{{ form.result_type.id_for_label }}">Результат <span style="color:var(--accent)">*</span></label>
+                {{ form.result_type }}
+                {% if form.result_type.errors %}<ul class="errorlist">{% for e in form.result_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="{{ form.notes.id_for_label }}">Примітки</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<ul class="errorlist">{% for e in form.notes.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.video.id_for_label }}">Відео</label>
+            {{ form.video }}
+            <span style="display:block;font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem">{{ form.video.help_text }}</span>
+            {% if form.video.errors %}<ul class="errorlist">{% for e in form.video.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Зберегти звіт</button>
+            <a href="{% url 'pilots:strike_report_list' %}" class="button ghost">Скасувати</a>
         </div>
     </form>
 </div>
