@@ -1,3 +1,4 @@
+import logging
 import re
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
@@ -6,35 +7,33 @@ from allauth.socialaccount.signals import social_account_added
 from django.contrib.auth import get_user_model
 from app_drones.telegram_utils import send_telegram_message, send_admin_message
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
 @receiver(user_signed_up)
 def set_new_user_inactive_and_notify_telegram(sender, request, user, **kwargs):
-    # This signal is sent right after a new user signs up (local or social)
-    
-    # For now, we set all newly signed up users (local or social) to inactive
-    if not user.is_superuser: # Never deactivate superusers
-        user.is_active = False
-        user.save()
+    try:
+        if not user.is_superuser:
+            user.is_active = False
+            user.save()
 
-    # Повідомляємо в Telegram про новий запит
-    full_name = f"{user.first_name} {user.last_name}".strip() or "Без імені"
-    email = user.email
-    username = user.username
-    social_info = ""
-    if kwargs.get('sociallogin'):
-        provider = kwargs.get('sociallogin').account.provider
-        social_info = f" (через {provider.capitalize()})"
+        full_name = f"{user.first_name} {user.last_name}".strip() or "Без імені"
+        social_info = ""
+        if kwargs.get('sociallogin'):
+            provider = kwargs.get('sociallogin').account.provider
+            social_info = f" (через {provider.capitalize()})"
 
-    message = (
-        f"<b>🔔 Новий запит на доступ до системи!</b>\n\n"
-        f"👤 Користувач: {full_name}\n"
-        f"📧 Email: {email}\n"
-        f"🆔 Username: @{username}{social_info}\n\n"
-        f"⚠️ Користувач деактивований до підтвердження адміністратором."
-    )
-    send_telegram_message(message)
+        message = (
+            f"<b>🔔 Новий запит на доступ до системи!</b>\n\n"
+            f"👤 Користувач: {full_name}\n"
+            f"📧 Email: {user.email}\n"
+            f"🆔 Username: @{user.username}{social_info}\n\n"
+            f"⚠️ Користувач деактивований до підтвердження адміністратором."
+        )
+        send_telegram_message(message)
+    except Exception:
+        logger.exception("user_signed_up signal failed for user %s", user.pk)
 
 
 def _parse_ua(ua: str) -> str:
@@ -74,26 +73,28 @@ def _get_ip(request) -> str:
 
 @receiver(user_logged_in)
 def notify_admin_on_login(sender, request, user, **kwargs):
-    from django.utils import timezone
     try:
-        profile = user.profile
-        name = profile.display_name
+        from django.utils import timezone
+        try:
+            name = user.profile.display_name
+        except Exception:
+            name = user.get_full_name() or user.username
+
+        now = timezone.localtime(timezone.now())
+        date_str = now.strftime('%d.%m.%Y %H:%M')
+        ip = _get_ip(request)
+        ua = _parse_ua(request.META.get('HTTP_USER_AGENT', ''))
+
+        message = (
+            f"🔐 <b>Вхід до системи</b>\n\n"
+            f"👤 {name} (@{user.username})\n"
+            f"🕐 {date_str}\n"
+            f"🌐 IP: <code>{ip}</code>\n"
+            f"📱 {ua}"
+        )
+        send_admin_message(message)
     except Exception:
-        name = user.get_full_name() or user.username
-
-    now = timezone.localtime(timezone.now())
-    date_str = now.strftime('%d.%m.%Y %H:%M')
-    ip = _get_ip(request)
-    ua = _parse_ua(request.META.get('HTTP_USER_AGENT', ''))
-
-    message = (
-        f"🔐 <b>Вхід до системи</b>\n\n"
-        f"👤 {name} (@{user.username})\n"
-        f"🕐 {date_str}\n"
-        f"🌐 IP: <code>{ip}</code>\n"
-        f"📱 {ua}"
-    )
-    send_admin_message(message)
+        logger.exception("user_logged_in signal failed for user %s", user.pk)
 
 
 @receiver(social_account_added)

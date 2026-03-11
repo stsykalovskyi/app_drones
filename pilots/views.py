@@ -81,7 +81,8 @@ def drone_order_create(request):
         'model', 'purpose', 'power_template', 'video_template'
     ).prefetch_related('control_frequencies').order_by('model__name', 'prop_size')
 
-    # Group ALL drone types (FPV + Optical) by DronePurpose name
+    # Group drone types by DronePurpose name.
+    # For "FPV" purpose, split into "FPV Радіо" (FPVDroneType) and "FPV Оптика" (OpticalDroneType).
     from collections import defaultdict
     purpose_map = defaultdict(list)
 
@@ -89,12 +90,16 @@ def drone_order_create(request):
         count = ready_counts.get((fpv_ct.id, t.pk), 0)
         if count:
             purpose = t.purpose.name if t.purpose_id else 'Без призначення'
+            if purpose == 'FPV':
+                purpose = 'FPV Радіо'
             purpose_map[purpose].append({'type': t, 'count': count, 'key': f'{fpv_ct.id}_{t.pk}'})
 
     for t in opt_qs:
         count = ready_counts.get((opt_ct.id, t.pk), 0)
         if count:
             purpose = t.purpose.name if t.purpose_id else 'Без призначення'
+            if purpose == 'FPV':
+                purpose = 'FPV Оптика'
             purpose_map[purpose].append({'type': t, 'count': count, 'key': f'{opt_ct.id}_{t.pk}'})
 
     # Sort: named purposes alphabetically, "Без призначення" last

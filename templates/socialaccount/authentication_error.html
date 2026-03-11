@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  {% include 'partials/auth_styles.html' %}
+{% endblock %}
+
+{% block site_header %}{% endblock %}
+
+{% block content %}
+  <section class="auth-wrapper">
+    <div class="auth-grid">
+      <div class="intel-panel">
+        <h2>Помилка авторизації</h2>
+        <p>Під час входу через сторонній сервіс сталася помилка. Можливі причини: сесію скасовано, час очікування вичерпано або відмовлено в доступі.</p>
+        <ul class="intel-metrics">
+          <li>
+            <span class="label">Статус</span>
+            <div>Помилка</div>
+          </li>
+          <li>
+            <span class="label">Дія</span>
+            <div>Спробуйте ще раз</div>
+          </li>
+        </ul>
+        <p class="callout">Якщо ви щойно зареєструвались — ваш обліковий запис очікує підтвердження адміністратором.</p>
+      </div>
+
+      <div class="auth-card">
+        <h3>Не вдалося увійти</h3>
+        <p class="callout">Спробуйте увійти повторно або зверніться до адміністратора системи.</p>
+        <a href="{% url 'login' %}" class="primary-btn">Спробувати знову</a>
+        <div class="supporting-links">
+          <a href="{% url 'login' %}">Увійти через пароль</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
