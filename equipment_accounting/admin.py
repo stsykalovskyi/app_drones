@@ -5,7 +5,6 @@ from .models import (
     Component,
     DroneModel,
     DronePurpose,
-    DroneRole,
     FPVDroneType,
     Frequency,
     Manufacturer,
@@ -37,11 +36,6 @@ class DronePurposeAdmin(ModelAdmin):
     list_display = ("name", "created_at")
     search_fields = ("name",)
 
-
-@admin.register(DroneRole)
-class DroneRoleAdmin(ModelAdmin):
-    list_display = ("name", "created_at")
-    search_fields = ("name",)
 
 
 @admin.register(Frequency)

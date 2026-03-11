@@ -7,7 +7,7 @@ from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     OtherComponentType, Location, Position,
-    DroneModel, DronePurpose, DroneRole, Frequency, Manufacturer,
+    DroneModel, DronePurpose, Frequency, Manufacturer,
 )
 
 INPUT_CSS = {"class": "form-input"}
@@ -127,7 +127,7 @@ class UAVInstanceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["drone_type"].choices = _build_drone_type_choices()
-        self.fields["role"].queryset = DroneRole.objects.all()
+        self.fields["role"].queryset = DronePurpose.objects.all()
         self.fields["role"].label = "Призначення"
         self.fields["role"].empty_label = "— Без призначення —"
         self.fields["role"].required = False
@@ -156,13 +156,6 @@ class UAVInstanceForm(forms.ModelForm):
                     name='Виробник'
                 ).pk
             except Location.DoesNotExist:
-                pass
-        # Default призначення to "FPV" when none is set
-        if not self.instance.role_id:
-            try:
-                default_pk = DroneRole.objects.values_list('pk', flat=True).get(name='FPV')
-                self.initial['role'] = default_pk
-            except DroneRole.DoesNotExist:
                 pass
 
     def clean_drone_type(self):

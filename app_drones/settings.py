@@ -321,13 +321,6 @@ UNFOLD = {
                         ),
                     },
                     {
-                        "title": "Ролі БПЛА",
-                        "icon": "military_tech",
-                        "link": reverse_lazy(
-                            "admin:equipment_accounting_dronerole_changelist"
-                        ),
-                    },
-                    {
                         "title": "Частоти",
                         "icon": "wifi",
                         "link": reverse_lazy(

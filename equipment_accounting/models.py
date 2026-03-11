@@ -378,22 +378,6 @@ class Component(models.Model):
         return f"Інше: {self.other_type}"
 
 
-# ============== РОЛІ БПЛА ==============
-
-class DroneRole(models.Model):
-    """Тактична роль БПЛА (носій, мінувальник, перехоплювач, тощо)."""
-    name = models.CharField(max_length=100, unique=True, verbose_name="Назва")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
-
-    class Meta:
-        verbose_name = "Роль БПЛА"
-        verbose_name_plural = "Ролі БПЛА"
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
-
-
 # ============== ІНВЕНТАРНІ ЕКЗЕМПЛЯРИ ==============
 
 class UAVInstance(models.Model):
@@ -442,7 +426,7 @@ class UAVInstance(models.Model):
         verbose_name="Очікувана локація",
     )
     role = models.ForeignKey(
-        DroneRole,
+        'DronePurpose',
         null=True, blank=True,
         on_delete=models.SET_NULL,
         related_name='uavs',

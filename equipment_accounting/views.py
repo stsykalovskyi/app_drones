@@ -23,7 +23,7 @@ from .models import (
     UAVInstance, Component, PowerTemplate, VideoTemplate,
     FPVDroneType, OpticalDroneType,
     OtherComponentType, Location, UAVMovement,
-    Manufacturer, DroneModel, UAVPhoto, DroneRole, Position,
+    Manufacturer, DroneModel, UAVPhoto, DronePurpose, Position,
     UAVStatusLog,
 )
 
@@ -581,7 +581,7 @@ def equipment_list(request):
         "kit_choices": list(UAVInstance.KIT_LABELS.items()),
         "purpose_filter": purpose_filter,
         "role_filter": role_filter,
-        "drone_roles": DroneRole.objects.all(),
+        "drone_roles": DronePurpose.objects.all(),
         "location_filter": location_filter,
         "date_from": date_from,
         "date_to": date_to,
@@ -835,7 +835,7 @@ def drone_stats(request):
         'model', 'video_template',
     )}
     all_locations = list(Location.objects.all().order_by('name'))
-    all_roles     = list(DroneRole.objects.all().order_by('name'))
+    all_roles     = list(DronePurpose.objects.all().order_by('name'))
 
     # ── Parse filters ────────────────────────────────────────────────
     # _f sentinel: if present the form was submitted; otherwise use defaults
@@ -1112,7 +1112,7 @@ def uav_export_excel(request):
             dt = fpv_type_map.get(uav.object_id)
             if not dt:
                 continue
-            section_key = ('Ніч' if dt.has_thermal else 'День') if role_name == 'Ударні' else role_name
+            section_key = ('Ніч' if dt.has_thermal else 'День') if role_name == 'Ударний' else role_name
             type_label = _fmt_drone_type_name(dt, 'Радіо')
             type_key = ('fpv', dt.pk)
         elif uav.content_type_id == opt_ct.pk:
@@ -1309,7 +1309,7 @@ def _build_role_groups(uav_objs, fpv_ct, opt_ct, fpv_types, opt_types):
         if uav.content_type_id == fpv_ct.pk:
             dt = fpv_types.get(uav.object_id)
             role_name = uav.role.name if uav.role_id else '—'
-            if role_name == 'Ударні' and dt is not None:
+            if role_name == 'Ударний' and dt is not None:
                 sub_label = 'Ніч' if dt.has_thermal else 'День'
             else:
                 sub_label = None

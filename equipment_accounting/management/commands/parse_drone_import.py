@@ -25,7 +25,7 @@ from django.contrib.auth.models import User
 
 from equipment_accounting.models import (
     Manufacturer, DroneModel, DronePurpose, Frequency, VideoTemplate, PowerTemplate,
-    FPVDroneType, OpticalDroneType, UAVInstance, Component, Location, DroneRole,
+    FPVDroneType, OpticalDroneType, UAVInstance, Component, Location,
 )
 
 DEFAULT_FILE = "temp/drone_types_verify.txt"
@@ -508,23 +508,6 @@ class Command(BaseCommand):
         if superadmin is None:
             self.stdout.write(self.style.WARNING("  Суперадміна не знайдено — created_by буде порожнім."))
 
-        PURPOSE_TO_ROLE = {
-            "Носій":          "Носій",
-            "Мінувальник":    "Мінувальник",
-            "Перехоплювач":   "Перехоплювач",
-            "Бомбардувальник":"Бомбардувальник",
-            "Донаведення":    "FPV",
-        }
-        roles_by_name = {r.name: r for r in DroneRole.objects.all()}
-
-        def _role_for(row) -> DroneRole | None:
-            purpose_name = row["purpose"].name if row["purpose"] else None
-            if purpose_name == "Ударний":
-                role_name = "FPV"
-            else:
-                role_name = PURPOSE_TO_ROLE.get(purpose_name)
-            return roles_by_name.get(role_name)
-
         total_created = total_skipped = total_missing = 0
 
         label = "ІМПОРТ" if commit else "DRY-RUN"
@@ -561,7 +544,6 @@ class Command(BaseCommand):
                 continue
 
             if commit:
-                role = _role_for(r)
                 uav_status = "deferred" if r["deferred"] else "inspection"
                 new_uavs = UAVInstance.objects.bulk_create([
                     UAVInstance(
@@ -569,7 +551,7 @@ class Command(BaseCommand):
                         object_id=drone_type.pk,
                         status=uav_status,
                         current_location=workshop,
-                        role=role,
+                        role=r["purpose"],
                         created_by=superadmin,
                         notes=r["notes"] or "",
                     )
@@ -592,7 +574,7 @@ class Command(BaseCommand):
                         ))
                 Component.objects.bulk_create(components)
                 kit_label = "батарея + котушка" if r["kind"] == "optical" else "батарея"
-                role_label = role.name if role else "—"
+                role_label = r["purpose"].name if r["purpose"] else "—"
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"  ✓ створено {to_create}  {model_label}"
