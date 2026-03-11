@@ -67,11 +67,16 @@ jobs:
               python manage.py run_telegram_bot >> /var/log/tgbot.log 2>&1
             "
 
-            # Restart WhatsApp monitor in a detached screen session (headless)
-            screen -S wamon -X quit || true
-            screen -dmS wamon bash -c "
-              cd /root/MyProjects/python/app_drones
-              source .venv/bin/activate
-              python manage.py run_whatsapp_monitor --group "ВИТРАТА" >> /var/log/wamon.log 2>&1
-            "
+            # Start WhatsApp sender only if not already running
+            if screen -list | grep -q "wasender"; then
+              echo "wasender already running — skipping start"
+            else
+              screen -dmS wasender bash -c "
+                cd /root/MyProjects/python/app_drones
+                source .venv/bin/activate
+                python manage.py run_whatsapp_sender >> /var/log/wasender.log 2>&1
+              "
+              echo "wasender started"
+            fi
+
           EOF

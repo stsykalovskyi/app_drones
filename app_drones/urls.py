@@ -49,7 +49,6 @@ urlpatterns += [
     path('equipment-accounting/', include('equipment_accounting.urls')), # New line
     path('expenses/', include('expense_log.urls')),
     path('user-management/', include('user_management.urls')),
-    path('strikes/', include('whatsapp_monitor.urls')),
 ]
 
 # Обробники помилок
