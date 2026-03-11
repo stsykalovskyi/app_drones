@@ -1,6 +1,7 @@
 """
-Create the "FPV" DronePurpose and reassign all UAVInstances
-whose current role is "Ударний" to the new "FPV" purpose.
+Create the "FPV" DronePurpose and reassign all "Ударний" entries to it:
+  - UAVInstances with role="Ударний"
+  - FPVDroneType / OpticalDroneType with purpose="Ударний"
 
 Usage:
   python manage.py set_fpv_purpose            # dry-run
@@ -9,11 +10,13 @@ Usage:
 
 from django.core.management.base import BaseCommand
 
-from equipment_accounting.models import DronePurpose, UAVInstance
+from equipment_accounting.models import (
+    DronePurpose, FPVDroneType, OpticalDroneType, UAVInstance,
+)
 
 
 class Command(BaseCommand):
-    help = 'Create DronePurpose "FPV" and reassign Ударний UAVs to it'
+    help = 'Create DronePurpose "FPV" and reassign all Ударний entries to it'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -31,20 +34,31 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR('DronePurpose "Ударний" not found — nothing to do.'))
             return
 
-        qs = UAVInstance.objects.filter(role=ударний).exclude(status='deleted')
-        count = qs.count()
+        uav_count = UAVInstance.objects.filter(role=ударний).exclude(status='deleted').count()
+        fpv_type_count = FPVDroneType.objects.filter(purpose=ударний).count()
+        opt_type_count = OpticalDroneType.objects.filter(purpose=ударний).count()
 
-        if count == 0:
-            self.stdout.write('No UAVInstances with role "Ударний" found.')
+        self.stdout.write(f'UAVInstances (active):  {uav_count}')
+        self.stdout.write(f'FPVDroneTypes:          {fpv_type_count}')
+        self.stdout.write(f'OpticalDroneTypes:      {opt_type_count}')
+
+        if uav_count == 0 and fpv_type_count == 0 and opt_type_count == 0:
+            self.stdout.write('Nothing to update.')
             return
 
         if commit:
             fpv, created = DronePurpose.objects.get_or_create(name='FPV')
             action = 'Created' if created else 'Found existing'
             self.stdout.write(self.style.SUCCESS(f'{action} DronePurpose "FPV" (pk={fpv.pk})'))
-            updated = qs.update(role=fpv)
-            self.stdout.write(self.style.SUCCESS(f'Updated {updated} UAVInstances: Ударний → FPV'))
+
+            if uav_count:
+                updated = UAVInstance.objects.filter(role=ударний).exclude(status='deleted').update(role=fpv)
+                self.stdout.write(self.style.SUCCESS(f'Updated {updated} UAVInstances: Ударний → FPV'))
+            if fpv_type_count:
+                updated = FPVDroneType.objects.filter(purpose=ударний).update(purpose=fpv)
+                self.stdout.write(self.style.SUCCESS(f'Updated {updated} FPVDroneTypes: Ударний → FPV'))
+            if opt_type_count:
+                updated = OpticalDroneType.objects.filter(purpose=ударний).update(purpose=fpv)
+                self.stdout.write(self.style.SUCCESS(f'Updated {updated} OpticalDroneTypes: Ударний → FPV'))
         else:
-            self.stdout.write(f'Would create DronePurpose "FPV" (if not exists)')
-            self.stdout.write(f'Would reassign {count} UAVInstances from "Ударний" → "FPV"')
             self.stdout.write(self.style.WARNING('Dry-run — use --commit to apply.'))
