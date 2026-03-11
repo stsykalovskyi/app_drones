@@ -102,8 +102,12 @@ def drone_order_create(request):
                 purpose = 'FPV Оптика'
             purpose_map[purpose].append({'type': t, 'count': count, 'key': f'{opt_ct.id}_{t.pk}'})
 
-    # Sort: named purposes alphabetically, "Без призначення" last
-    named = sorted((k, v) for k, v in purpose_map.items() if k != 'Без призначення')
+    _ORDER = {'FPV Радіо': 0, 'FPV Оптика': 1}
+    # Sort: FPV Радіо → FPV Оптика → rest alphabetically, "Без призначення" last
+    named = sorted(
+        ((k, v) for k, v in purpose_map.items() if k != 'Без призначення'),
+        key=lambda kv: (_ORDER.get(kv[0], 2), kv[0]),
+    )
     bez = [('Без призначення', purpose_map['Без призначення'])] if 'Без призначення' in purpose_map else []
     sections = [{'label': k, 'cards': v} for k, v in named + bez]
 
