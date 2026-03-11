@@ -24,20 +24,19 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         return user
 
     def on_authentication_error(self, request, provider, error=None, exception=None, extra_context=None):
-        session_key = request.session.session_key
         session_states = request.session.get('socialaccount_states', {})
-        state_id_in_get = request.GET.get('state', '(missing)')
         logger.error(
-            "Social auth error | provider=%s | error=%s | exception=%s"
+            "Social auth error | provider=%s | error=%s"
             "\n  session_key=%s | states_in_session=%s | state_in_GET=%s"
-            "\n  GET params=%s\n%s",
+            "\n  sessionid_cookie=%s | HTTP_HOST=%s | HTTP_REFERER=%s\n%s",
             getattr(provider, 'id', provider),
             error,
-            exception,
-            session_key,
+            request.session.session_key,
             list(session_states.keys()),
-            state_id_in_get,
-            dict(request.GET),
+            request.GET.get('state', '(missing)'),
+            request.COOKIES.get('sessionid', '(missing)'),
+            request.META.get('HTTP_HOST', '?'),
+            request.META.get('HTTP_REFERER', '?'),
             traceback.format_exc() if exception else '(no traceback)',
         )
         super().on_authentication_error(request, provider, error=error, exception=exception, extra_context=extra_context)
