@@ -24,7 +24,12 @@
             var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:light)').matches?'light':'dark');
             d.setAttribute('data-theme',t);
             if(localStorage.getItem('sidebar-pinned')==='1')d.classList.add('sidebar-pinned');
-            d.classList.add('sidebar-loading');
+            /* pre-hide closed submenus before first render to avoid flash */
+            var css='';
+            ['submenu-equipment','submenu-stats'].forEach(function(id){
+                if(localStorage.getItem('submenu-state:'+id)==='0')css+='#'+id+'{display:none}';
+            });
+            if(css){var s=document.createElement('style');s.textContent=css;document.head.appendChild(s);window._navInitStyle=s;}
         })();
     </script>
     <style>
@@ -215,8 +220,6 @@
             overflow-y: auto;
             overflow-x: hidden;
         }
-
-        html.sidebar-loading .sidebar-nav { visibility: hidden; }
 
         .sidebar-nav::-webkit-scrollbar {
             width: 0;
@@ -956,14 +959,15 @@
                 </svg>
             </button>
         </div>
+        {% with uname=request.resolver_match.url_name aname=request.resolver_match.app_name tab=request.GET.tab %}
         <ul class="sidebar-nav">
-            <li><a href="{% url 'home' %}">
+            <li><a href="{% url 'home' %}"{% if uname == 'home' %} class="active"{% endif %}>
                 <svg class="nav-icon" viewBox="0 0 24 24">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                     <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
                 <span class="nav-label">Головна</span></a></li>
-            <li><a href="{% url 'documentation:documentation_page' %}">
+            <li><a href="{% url 'documentation:documentation_page' %}"{% if aname == 'documentation' %} class="active"{% endif %}>
                 <svg class="nav-icon" viewBox="0 0 24 24">
                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
@@ -971,7 +975,7 @@
                 <span class="nav-label">Документація</span></a></li>
             {% if perms.equipment_accounting.view_uavinstance or perms.equipment_accounting.add_uavinstance or perms.equipment_accounting.change_uavinstance or perms.equipment_accounting.delete_uavinstance %}
                 <li>
-                    <a href="{% url 'equipment_accounting:equipment_list' %}">
+                    <a href="{% url 'equipment_accounting:equipment_list' %}"{% if uname == 'uav_movements' or uname == 'uav_status_log' or uname == 'equipment_list' and tab %} class="active"{% endif %}>
                         <svg class="nav-icon" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="3"/>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -980,39 +984,39 @@
                         <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                     </a>
                     <ul class="submenu" id="submenu-equipment">
-                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones">
+                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones"{% if uname == 'equipment_list' and tab == 'drones' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                             <span class="nav-label">БПЛА</span></a></li>
                         {% if perms.equipment_accounting.view_component or perms.equipment_accounting.add_component or perms.equipment_accounting.change_component or perms.equipment_accounting.delete_component %}
-                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=components">
+                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=components"{% if uname == 'equipment_list' and tab == 'components' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                             <span class="nav-label">Комплектуючі</span></a></li>
                         {% endif %}
                         {% if perms.equipment_accounting.view_manufacturer or perms.equipment_accounting.add_manufacturer or perms.equipment_accounting.change_manufacturer or perms.equipment_accounting.delete_manufacturer or perms.equipment_accounting.view_dronemodel or perms.equipment_accounting.add_dronemodel or perms.equipment_accounting.change_dronemodel or perms.equipment_accounting.delete_dronemodel or perms.equipment_accounting.view_fpvdronetype or perms.equipment_accounting.add_fpvdronetype or perms.equipment_accounting.change_fpvdronetype or perms.equipment_accounting.delete_fpvdronetype or perms.equipment_accounting.view_opticaldronetype or perms.equipment_accounting.add_opticaldronetype or perms.equipment_accounting.change_opticaldronetype or perms.equipment_accounting.delete_opticaldronetype %}
-                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=types">
+                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=types"{% if uname == 'equipment_list' and tab == 'types' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>
                             <span class="nav-label">Типи БПЛА</span></a></li>
                         {% endif %}
                         {% if perms.equipment_accounting.view_powertemplate or perms.equipment_accounting.add_powertemplate or perms.equipment_accounting.change_powertemplate or perms.equipment_accounting.delete_powertemplate or perms.equipment_accounting.view_videotemplate or perms.equipment_accounting.add_videotemplate or perms.equipment_accounting.change_videotemplate or perms.equipment_accounting.delete_videotemplate %}
-                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=templates">
+                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=templates"{% if uname == 'equipment_list' and tab == 'templates' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                             <span class="nav-label">Шаблони</span></a></li>
                         {% endif %}
                         {% if perms.equipment_accounting.view_location or perms.equipment_accounting.add_location or perms.equipment_accounting.change_location or perms.equipment_accounting.delete_location or perms.equipment_accounting.view_position or perms.equipment_accounting.add_position or perms.equipment_accounting.change_position or perms.equipment_accounting.delete_position %}
-                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=locations">
+                        <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=locations"{% if uname == 'equipment_list' and tab == 'locations' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             <span class="nav-label">Локації</span></a></li>
                         {% endif %}
-                        <li><a href="{% url 'equipment_accounting:uav_movements' %}">
+                        <li><a href="{% url 'equipment_accounting:uav_movements' %}"{% if uname == 'uav_movements' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                             <span class="nav-label">Переміщення</span></a></li>
-                        <li><a href="{% url 'equipment_accounting:uav_status_log' %}">
+                        <li><a href="{% url 'equipment_accounting:uav_status_log' %}"{% if uname == 'uav_status_log' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="12" y1="17" x2="8" y2="17"/></svg>
                             <span class="nav-label">Зміни статусів</span></a></li>
                     </ul>
                 </li>
                 <li>
-                    <a href="{% url 'equipment_accounting:component_stats' %}">
+                    <a href="{% url 'equipment_accounting:component_stats' %}"{% if uname == 'component_stats' or uname == 'drone_location_stats' or uname == 'drone_stats' %} class="active"{% endif %}>
                         <svg class="nav-icon" viewBox="0 0 24 24">
                             <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
                         </svg>
@@ -1020,20 +1024,20 @@
                         <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                     </a>
                     <ul class="submenu" id="submenu-stats">
-                        <li><a href="{% url 'equipment_accounting:component_stats' %}">
+                        <li><a href="{% url 'equipment_accounting:component_stats' %}"{% if uname == 'component_stats' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                             <span class="nav-label">Комплектуючі</span></a></li>
-                        <li><a href="{% url 'equipment_accounting:drone_location_stats' %}">
+                        <li><a href="{% url 'equipment_accounting:drone_location_stats' %}"{% if uname == 'drone_location_stats' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                             <span class="nav-label">БПЛА по локаціях</span></a></li>
-                        <li><a href="{% url 'equipment_accounting:drone_stats' %}">
+                        <li><a href="{% url 'equipment_accounting:drone_stats' %}"{% if uname == 'drone_stats' %} class="active"{% endif %}>
                             <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
                             <span class="nav-label">Деталізація БПЛА</span></a></li>
                     </ul>
                 </li>
             {% endif %}
             {% if perms.expense_log.view_expense or perms.expense_log.add_expense or perms.expense_log.change_expense or perms.expense_log.delete_expense %}
-                <li><a href="{% url 'expense_log:expense_list' %}">
+                <li><a href="{% url 'expense_log:expense_list' %}"{% if aname == 'expense_log' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
                         <line x1="12" y1="1" x2="12" y2="23"/>
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
@@ -1041,7 +1045,7 @@
                     <span class="nav-label">Фінанси</span></a></li>
             {% endif %}
             {% if user.is_superuser %}
-                <li><a href="{% url 'admin:index' %}">
+                <li><a href="{% url 'admin:index' %}"{% if aname == 'admin' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     </svg>
@@ -1068,7 +1072,7 @@
                 </button>
             </li>
             {% if user.is_authenticated %}
-                <li><a href="{% url 'user_management:profile' %}">
+                <li><a href="{% url 'user_management:profile' %}"{% if uname == 'profile' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
@@ -1091,6 +1095,7 @@
                     <span class="nav-label">Вхід</span></a></li>
             {% endif %}
         </ul>
+        {% endwith %}
     </aside>
 {% endblock %}
 
@@ -1183,40 +1188,8 @@
                 localStorage.setItem(key, closed ? '0' : '1');
             });
         });
-
-        /* active nav highlight */
-        var path = location.pathname;
-        var search = location.search;
-        document.querySelectorAll('.sidebar-nav a[href]').forEach(function(a) {
-            var href = a.getAttribute('href');
-            if (!href || href === '#') return;
-            var hasQuery = href.indexOf('?') !== -1;
-            var isActive;
-            if (hasQuery) {
-                // Submenu links with ?tab=: match only when the URL actually has a tab param
-                var hrefTab = href.split('tab=')[1];
-                var tabIdx = search.indexOf('tab=');
-                var urlTab = tabIdx !== -1 ? search.slice(tabIdx + 4).split('&')[0] : null;
-                isActive = urlTab !== null && path.startsWith(href.split('?')[0]) && hrefTab === urlTab;
-            } else if (a.closest('.submenu')) {
-                // Submenu links without query: exact path match to avoid prefix collisions
-                isActive = path === href;
-            } else {
-                // Top-level links with a submenu: active state is set by child-detection below
-                var parentLi = a.closest('li');
-                var hasSubmenu = parentLi && parentLi.querySelector(':scope > .submenu');
-                isActive = !hasSubmenu && (href === '/' ? path === '/' : path.startsWith(href));
-            }
-            if (isActive) a.classList.add('active');
-        });
-
-        /* Highlight parent nav item when an active submenu child exists */
-        document.querySelectorAll('.sidebar-nav > li').forEach(function(li) {
-            if (li.querySelector('.submenu a.active')) {
-                var parentLink = li.querySelector(':scope > a');
-                if (parentLink) parentLink.classList.add('active');
-            }
-        });
+        /* remove the pre-render hide style now that submenu-closed classes are applied */
+        if (window._navInitStyle) { window._navInitStyle.remove(); window._navInitStyle = null; }
 
         /* mobile menu */
         var mobileBtn = document.querySelector('[data-mobile-toggle]');
@@ -1235,8 +1208,6 @@
             overlay.addEventListener('click', closeMobile);
         }
 
-        /* reveal sidebar nav now that all states are applied */
-        html.classList.remove('sidebar-loading');
     })();
 </script>
 <script>
