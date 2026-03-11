@@ -1,5 +1,6 @@
 import logging
 import re
+from django.core.cache import cache
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
 from allauth.account.signals import user_signed_up
@@ -74,6 +75,17 @@ def _get_ip(request) -> str:
 @receiver(user_logged_in)
 def notify_admin_on_login(sender, request, user, **kwargs):
     try:
+        # Cache the new session key for duplicate-Cloudflare-request recovery.
+        # pre_social_login sets request._oauth_state_id before login() cycles
+        # the session. By the time this signal fires the new key is active.
+        state_id = getattr(request, '_oauth_state_id', None)
+        if state_id and request.session.session_key:
+            from django.conf import settings
+            ttl = 30
+            cache.set(f'oauth_session_{state_id}', request.session.session_key, timeout=ttl)
+            next_url = request.session.get('_oauth_next') or settings.LOGIN_REDIRECT_URL
+            cache.set(f'oauth_next_{state_id}', next_url, timeout=ttl)
+
         from django.utils import timezone
         try:
             name = user.profile.display_name
