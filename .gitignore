@@ -42,3 +42,6 @@ credentials/
 
 #
 temp/
+
+# WhatsApp browser session (contains auth cookies, never commit)
+whatsapp_session/
