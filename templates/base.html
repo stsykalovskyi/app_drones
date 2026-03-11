@@ -18,6 +18,14 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{% block twitter_title %}Майстерня{% endblock %}">
     <meta name="twitter:description" content="{% block twitter_description %}Система обліку майна{% endblock %}">
+    <script>
+        (function(){
+            var d=document.documentElement;
+            var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:light)').matches?'light':'dark');
+            d.setAttribute('data-theme',t);
+            if(localStorage.getItem('sidebar-pinned')==='1')d.classList.add('sidebar-pinned');
+        })();
+    </script>
     <style>
         /* ── theme tokens ── */
         :root {
@@ -134,7 +142,7 @@
             overflow: hidden;
         }
 
-        body.sidebar-pinned .sidebar {
+        html.sidebar-pinned .sidebar {
             width: var(--sidebar-exp);
         }
 
@@ -148,7 +156,7 @@
             border-bottom: 1px solid var(--border);
         }
 
-        body.sidebar-pinned .sidebar-header {
+        html.sidebar-pinned .sidebar-header {
             justify-content: space-between;
         }
 
@@ -161,7 +169,7 @@
             overflow: hidden;
         }
 
-        body.sidebar-pinned .sidebar-brand {
+        html.sidebar-pinned .sidebar-brand {
             display: flex;
         }
 
@@ -191,7 +199,7 @@
             transition: opacity 0.2s ease 0.05s;
         }
 
-        body.sidebar-pinned .sidebar-brand span {
+        html.sidebar-pinned .sidebar-brand span {
             opacity: 1;
         }
 
@@ -247,7 +255,7 @@
             transition: opacity 0.2s ease 0.05s;
         }
 
-        body.sidebar-pinned .nav-label {
+        html.sidebar-pinned .nav-label {
             opacity: 1;
         }
 
@@ -297,11 +305,11 @@
             display: none;
         }
 
-        body.sidebar-pinned .collapse-icon-open {
+        html.sidebar-pinned .collapse-icon-open {
             display: none;
         }
 
-        body.sidebar-pinned .collapse-icon-close {
+        html.sidebar-pinned .collapse-icon-close {
             display: block;
         }
 
@@ -353,7 +361,26 @@
             margin: 0;
         }
 
-        body:not(.sidebar-pinned) .submenu { display: none; }
+        html:not(.sidebar-pinned) .submenu { display: none; }
+        html.sidebar-pinned .sidebar-nav > li.submenu-closed > .submenu { display: none; }
+
+        /* Submenu chevron */
+        .submenu-chevron {
+            margin-left: auto;
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+            transition: transform 0.25s var(--ease), opacity 0.2s;
+        }
+        html.sidebar-pinned .submenu-chevron { opacity: 0.5; }
+        html.sidebar-pinned .sidebar-nav > li:hover .submenu-chevron { opacity: 0.9; }
+        .sidebar-nav > li.submenu-closed .submenu-chevron { transform: rotate(-90deg); }
 
         .submenu li a {
             padding-left: 40px;
@@ -427,7 +454,7 @@
             transition: margin-left 0.3s var(--ease);
         }
 
-        body.sidebar-pinned .app-main {
+        html.sidebar-pinned .app-main {
             margin-left: var(--sidebar-exp);
         }
 
@@ -867,7 +894,7 @@
                 padding-top: 48px;
             }
 
-            body.sidebar-pinned .app-main {
+            html.sidebar-pinned .app-main {
                 margin-left: 0;
             }
         }
@@ -947,6 +974,7 @@
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                         </svg>
                         <span class="nav-label">Облік майна</span>
+                        <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                     </a>
                     <ul class="submenu" id="submenu-equipment">
                         <li><a href="{% url 'equipment_accounting:equipment_list' %}?tab=drones">
@@ -986,6 +1014,7 @@
                             <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
                         </svg>
                         <span class="nav-label">Статистика</span>
+                        <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                     </a>
                     <ul class="submenu" id="submenu-stats">
                         <li><a href="{% url 'equipment_accounting:component_stats' %}">
@@ -1121,17 +1150,36 @@
         });
 
         /* sidebar pin */
-        if (localStorage.getItem(SIDEBAR_KEY) === '1') {
-            body.classList.add('sidebar-pinned');
-        }
-
+        /* sidebar-pinned is already applied to <html> by the head script;
+           nothing to do on init — just wire up the toggle button */
         var pinBtn = document.querySelector('[data-pin-toggle]');
         if (pinBtn) {
             pinBtn.addEventListener('click', function () {
-                body.classList.toggle('sidebar-pinned');
-                localStorage.setItem(SIDEBAR_KEY, body.classList.contains('sidebar-pinned') ? '1' : '0');
+                html.classList.toggle('sidebar-pinned');
+                localStorage.setItem(SIDEBAR_KEY, html.classList.contains('sidebar-pinned') ? '1' : '0');
             });
         }
+
+        /* collapsible submenus */
+        var SUBMENU_KEY = 'submenu-state:';
+        document.querySelectorAll('.sidebar-nav > li').forEach(function(li) {
+            var submenu = li.querySelector(':scope > .submenu');
+            if (!submenu || !submenu.id) return;
+            var key = SUBMENU_KEY + submenu.id;
+            /* default: open; close only if explicitly saved */
+            if (localStorage.getItem(key) === '0') {
+                li.classList.add('submenu-closed');
+            }
+            var parentA = li.querySelector(':scope > a');
+            var chevron = parentA && parentA.querySelector('.submenu-chevron');
+            if (!parentA || !chevron) return;
+            parentA.addEventListener('click', function(e) {
+                if (!html.classList.contains('sidebar-pinned')) return;
+                e.preventDefault();
+                var closed = li.classList.toggle('submenu-closed');
+                localStorage.setItem(key, closed ? '0' : '1');
+            });
+        });
 
         /* active nav highlight */
         var path = location.pathname;
@@ -1212,7 +1260,7 @@
 <script>
 (function () {
     var sidebar = document.querySelector('.sidebar');
-    var body = document.body;
+    var html = document.documentElement;
 
     // Create flyout element once
     var flyout = document.createElement('ul');
@@ -1222,7 +1270,7 @@
     var hideTimer = null;
 
     function isCollapsed() {
-        return !body.classList.contains('sidebar-pinned') && window.innerWidth > 768;
+        return !html.classList.contains('sidebar-pinned') && window.innerWidth > 768;
     }
 
     function cancelHide() {
