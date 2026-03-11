@@ -31,7 +31,7 @@ def set_new_user_inactive_and_notify_telegram(sender, request, user, **kwargs):
             f"🆔 Username: @{user.username}{social_info}\n\n"
             f"⚠️ Користувач деактивований до підтвердження адміністратором."
         )
-        send_telegram_message(message)
+        # send_telegram_message(message)
     except Exception:
         logger.exception("user_signed_up signal failed for user %s", user.pk)
 
@@ -92,7 +92,7 @@ def notify_admin_on_login(sender, request, user, **kwargs):
             f"🌐 IP: <code>{ip}</code>\n"
             f"📱 {ua}"
         )
-        send_admin_message(message)
+        # send_admin_message(message)
     except Exception:
         logger.exception("user_logged_in signal failed for user %s", user.pk)
 
