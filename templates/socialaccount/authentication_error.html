@@ -26,8 +26,8 @@
           </li>
         </ul>
         <p class="callout">Якщо ви щойно зареєструвались — ваш обліковий запис очікує підтвердження адміністратором.</p>
-        {% if exception %}<p class="callout" style="color:var(--danger,#ef4444);font-size:0.8rem">{{ exception }}</p>{% endif %}
-        {% if error %}<p class="callout" style="font-size:0.8rem">Код: {{ error }}</p>{% endif %}
+        {% if auth_error.exception %}<p class="callout" style="color:var(--danger,#ef4444);font-size:0.8rem">{{ auth_error.exception }}</p>{% endif %}
+        {% if auth_error.code %}<p class="callout" style="font-size:0.8rem">Код: {{ auth_error.code }}</p>{% endif %}
       </div>
 
       <div class="auth-card">
