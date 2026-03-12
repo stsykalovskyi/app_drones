@@ -189,3 +189,82 @@ class WhatsAppBaseCommand(BaseCommand):
         page.keyboard.press('Enter')
         time.sleep(1.0)
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
+
+    def _send_file(self, page, file_path: str):
+        """Attach and send a local media file (video/image) via WhatsApp Web."""
+        # 1. Open the attach menu
+        CLIP_SELS = [
+            '[data-testid="clip"]',
+            'button[aria-label*="ttach"]',
+            'span[data-icon="plus"]',
+        ]
+        for sel in CLIP_SELS:
+            try:
+                page.wait_for_selector(sel, timeout=5_000).click()
+                break
+            except Exception:
+                continue
+        else:
+            raise RuntimeError('Attach button not found')
+        time.sleep(0.8)
+
+        # 2. Set the file — try file-chooser interception first,
+        #    then fall back to set_input_files directly on the hidden input.
+        FILE_INPUT_SELS = [
+            'input[type="file"][accept*="video"]',
+            'input[type="file"][accept*="image"]',
+            'input[type="file"]',
+        ]
+        attached = False
+        try:
+            with page.expect_file_chooser(timeout=8_000) as fc_info:
+                for sel in FILE_INPUT_SELS:
+                    el = page.query_selector(sel)
+                    if el:
+                        page.evaluate('el => el.click()', el)
+                        break
+            fc_info.value.set_files(file_path)
+            attached = True
+        except Exception:
+            pass
+
+        if not attached:
+            for sel in FILE_INPUT_SELS:
+                el = page.query_selector(sel)
+                if el:
+                    el.set_input_files(file_path)
+                    attached = True
+                    break
+
+        if not attached:
+            raise RuntimeError('File input not found on WhatsApp Web page')
+
+        # 3. Wait for preview / thumbnail to render
+        try:
+            page.wait_for_selector(
+                '[data-testid="media-caption-input"],'
+                '[data-testid="send"]',
+                timeout=15_000,
+            )
+        except Exception:
+            pass
+        time.sleep(2)
+
+        # 4. Click Send
+        SEND_SELS = [
+            '[data-testid="send"]',
+            '[data-testid="compose-btn-send"]',
+            'button[aria-label*="Send"]',
+            'span[data-icon="send"]',
+        ]
+        for sel in SEND_SELS:
+            try:
+                page.wait_for_selector(sel, timeout=8_000).click()
+                break
+            except Exception:
+                continue
+        else:
+            raise RuntimeError('Send button not found after attaching file')
+
+        time.sleep(3)
+        self.stdout.write(self.style.SUCCESS(f'Sent file: {file_path!r}'))

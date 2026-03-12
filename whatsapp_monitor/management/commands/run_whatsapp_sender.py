@@ -14,7 +14,7 @@ import time
 import logging
 from datetime import datetime, timezone
 
-from django.db import transaction
+from django.db import models, transaction
 
 from .base import WhatsAppBaseCommand, PAGE_TIMEOUT
 from whatsapp_monitor.models import OutgoingMessage
@@ -90,7 +90,10 @@ class Command(WhatsAppBaseCommand):
                         self._open_group(page, msg.group_name)
                         current_group = msg.group_name
 
-                    self._send_message(page, msg.message_text)
+                    if msg.media_path:
+                        self._send_file(page, msg.media_path)
+                    if msg.message_text:
+                        self._send_message(page, msg.message_text)
 
                     msg.status  = OutgoingMessage.Status.SENT
                     msg.sent_at = datetime.now(tz=timezone.utc)
@@ -134,13 +137,18 @@ class Command(WhatsAppBaseCommand):
             ctx.close()
 
     def _fetch_next(self, poll_interval: int):
-        """Atomically claim the oldest pending message. Returns None if queue is empty."""
+        """Atomically claim the oldest pending message whose send_after has passed."""
         try:
             with transaction.atomic():
+                now = datetime.now(tz=timezone.utc)
                 msg = (
                     OutgoingMessage.objects
                     .select_for_update(skip_locked=True)
                     .filter(status=OutgoingMessage.Status.PENDING)
+                    .filter(
+                        models.Q(send_after__isnull=True) |
+                        models.Q(send_after__lte=now)
+                    )
                     .first()
                 )
                 if msg is None:

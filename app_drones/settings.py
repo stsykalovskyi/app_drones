@@ -428,3 +428,8 @@ GEMINI_CLI_CLIENT_ID = os.environ.get("GEMINI_CLI_CLIENT_ID", "")
 GEMINI_CLI_CLIENT_SECRET = os.environ.get("GEMINI_CLI_CLIENT_SECRET", "")
 DOCS_FOLDER = BASE_DIR / "docs"
 
+# WhatsApp integration
+WHATSAPP_STRIKE_GROUP = os.environ.get("WHATSAPP_STRIKE_GROUP", "")
+# Seconds to wait after enqueuing a video before enqueuing the text message
+WHATSAPP_VIDEO_UPLOAD_DELAY = int(os.environ.get("WHATSAPP_VIDEO_UPLOAD_DELAY", "30"))
+

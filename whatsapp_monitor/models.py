@@ -9,7 +9,11 @@ class OutgoingMessage(models.Model):
         FAILED  = 'failed',  'Помилка'
 
     group_name   = models.CharField(max_length=255)
-    message_text = models.TextField()
+    message_text = models.TextField(blank=True)
+    media_path   = models.CharField(max_length=500, blank=True,
+                                    verbose_name='Шлях до файлу (відео/фото)')
+    send_after   = models.DateTimeField(null=True, blank=True, db_index=True,
+                                        verbose_name='Надіслати не раніше')
     status       = models.CharField(
         max_length=10, choices=Status.choices,
         default=Status.PENDING, db_index=True,
