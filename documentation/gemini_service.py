@@ -243,18 +243,11 @@ def ask_gemini(question: str, is_superuser: bool = False) -> str:
     docs_context = _load_docs_context()
 
     if is_superuser:
-        project_context = _load_project_context()
-        context_parts = []
         if docs_context:
-            context_parts.append(f"БАЗА ЗНАНЬ (docs/):\n{docs_context}")
-        if project_context:
-            context_parts.append(f"ФАЙЛИ ПРОЕКТУ:\n{project_context}")
-        combined = '\n\n'.join(context_parts)
-        if combined:
             stdin_text = (
-                "Ти — асистент майстерні БПЛА з повним доступом до проекту.\n"
-                "Відповідай на будь-які питання, використовуючи наведені файли проекту "
-                f"та загальні знання.\n\n{combined}"
+                "Ти — асистент майстерні БПЛА з повним доступом.\n"
+                "Відповідай на будь-які питання, використовуючи наведену документацію та загальні знання.\n\n"
+                f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
             )
         else:
             stdin_text = "Ти — асистент майстерні БПЛА з повним доступом. Відповідай на основі загальних знань."
