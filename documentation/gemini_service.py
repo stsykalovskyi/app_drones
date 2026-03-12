@@ -116,6 +116,52 @@ def _get_valid_token() -> str | None:
     return None
 
 
+_SKIP_DIRS = {
+    '.git', '.venv', 'venv', '__pycache__', 'node_modules',
+    'migrations', 'staticfiles', 'static', 'media', 'docs',
+    '.github', 'backups', 'whatsapp_session',
+}
+_PROJECT_EXTENSIONS = {'.py', '.html', '.txt', '.md'}
+_MAX_FILE_BYTES = 50_000  # skip very large files
+_MAX_PROJECT_BYTES = 400_000  # total context cap
+
+
+def _load_project_context() -> str:
+    """Read project source files (Python, HTML, txt, md) for superadmin context."""
+    base = Path(settings.BASE_DIR)
+    parts = []
+    total = 0
+
+    for file_path in sorted(base.rglob('*')):
+        if not file_path.is_file():
+            continue
+        # skip excluded dirs
+        if any(part in _SKIP_DIRS for part in file_path.parts):
+            continue
+        if file_path.name.startswith('.'):
+            continue
+        if file_path.suffix.lower() not in _PROJECT_EXTENSIONS:
+            continue
+        if file_path.stat().st_size > _MAX_FILE_BYTES:
+            continue
+
+        try:
+            text = file_path.read_text(encoding='utf-8', errors='ignore').strip()
+        except Exception:
+            continue
+        if not text:
+            continue
+
+        rel = file_path.relative_to(base)
+        entry = f"=== {rel} ===\n{text}"
+        if total + len(entry) > _MAX_PROJECT_BYTES:
+            break
+        parts.append(entry)
+        total += len(entry)
+
+    return '\n\n'.join(parts)
+
+
 def _load_docs_context() -> str:
     """Read all supported files from DOCS_FOLDER recursively and return combined text."""
     docs_path = Path(getattr(settings, 'DOCS_FOLDER', settings.BASE_DIR / 'docs'))
@@ -181,17 +227,24 @@ def ask_gemini(question: str, is_superuser: bool = False) -> str:
     docs_context = _load_docs_context()
 
     if is_superuser:
+        project_context = _load_project_context()
+        context_parts = []
         if docs_context:
+            context_parts.append(f"БАЗА ЗНАНЬ (docs/):\n{docs_context}")
+        if project_context:
+            context_parts.append(f"ФАЙЛИ ПРОЕКТУ:\n{project_context}")
+        combined = '\n\n'.join(context_parts)
+        if combined:
             system_text = (
-                "Ти — асистент майстерні БПЛА з повним доступом.\n"
-                "Відповідай на будь-які питання, використовуючи наведену документацію "
+                "Ти — асистент майстерні БПЛА з повним доступом до проекту.\n"
+                "Відповідай на будь-які питання, використовуючи наведені файли проекту "
                 "та загальні знання.\n\n"
-                f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
+                f"{combined}"
             )
         else:
             system_text = (
                 "Ти — асистент майстерні БПЛА з повним доступом.\n"
-                "База знань порожня. Відповідай на основі загальних знань."
+                "Відповідай на основі загальних знань."
             )
     else:
         if not docs_context:
