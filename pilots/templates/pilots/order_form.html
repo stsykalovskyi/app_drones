@@ -307,10 +307,7 @@
             {% if card.type.has_thermal %}<span class="badge-thermal">THERMAL</span>{% endif %}
         </div>
 
-        <div class="drone-card__row" style="margin-top:auto;padding-top:0.3rem">
-            <span class="drone-card__row-label">В наявності:</span>
-            <span class="avail-count {% if card.count >= 3 %}good{% else %}warn{% endif %}">{{ card.count }} шт.</span>
-        </div>
+
     </div>
 
     <div class="drone-card__footer">

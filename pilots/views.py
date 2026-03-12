@@ -8,18 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import OrderStatusForm, StrikeReportForm
 from .models import DroneOrder, StrikeReport
 
-MASTER_GROUPS = {'майстер', 'командир майстерні'}
-
-
-def _is_master(user):
-    return user.is_superuser or user.groups.filter(name__in=MASTER_GROUPS).exists()
-
-
 def master_required(view_func):
     @wraps(view_func)
     @login_required
     def _wrapped(request, *args, **kwargs):
-        if _is_master(request.user):
+        if request.user.has_perm('pilots.change_droneorder'):
             return view_func(request, *args, **kwargs)
         raise PermissionDenied
     return _wrapped
@@ -46,7 +39,7 @@ def strike_report_create(request):
 
 @login_required
 def strike_report_list(request):
-    if _is_master(request.user):
+    if request.user.has_perm('pilots.change_strikereport'):
         reports = StrikeReport.objects.select_related('pilot', 'pilot__profile').all()
     else:
         reports = StrikeReport.objects.select_related('pilot', 'pilot__profile').filter(
@@ -112,7 +105,9 @@ def drone_order_create(request):
     sections = [{'label': k, 'cards': v} for k, v in named + bez]
 
     if request.method == 'POST':
+        import uuid as _uuid
         notes = request.POST.get('notes', '')
+        batch = _uuid.uuid4()
         created = 0
         for key, val in request.POST.items():
             if not key.startswith('qty_'):
@@ -142,6 +137,7 @@ def drone_order_create(request):
                 object_id=obj_id,
                 quantity=qty,
                 notes=notes,
+                batch_id=batch,
             )
             created += 1
 
@@ -159,7 +155,7 @@ def drone_order_create(request):
 
 @login_required
 def drone_order_list(request):
-    if _is_master(request.user):
+    if request.user.has_perm('pilots.change_droneorder'):
         orders = DroneOrder.objects.select_related(
             'pilot', 'pilot__profile', 'content_type', 'handled_by'
         ).all()
@@ -176,30 +172,39 @@ def drone_order_list(request):
 
 @master_required
 def workshop_orders(request):
-    orders = DroneOrder.objects.select_related(
+    from collections import OrderedDict
+    qs = DroneOrder.objects.select_related(
         'pilot', 'pilot__profile', 'content_type', 'handled_by'
-    ).filter(status__in=['pending', 'in_progress', 'ready']).order_by('status', '-created_at')
+    ).filter(status__in=['pending', 'in_progress', 'ready']).order_by(
+        'pilot__id', '-created_at'
+    )
 
-    # Group by drone type for inventory overview
-    from django.contrib.contenttypes.models import ContentType
-    from equipment_accounting.models import FPVDroneType, OpticalDroneType, UAVInstance
+    # Group: pilot → batch → orders
+    pilots = OrderedDict()
+    for order in qs:
+        pid = order.pilot_id
+        if pid not in pilots:
+            pilots[pid] = {'pilot': order.pilot, 'batches': OrderedDict()}
+        bid = str(order.batch_id) if order.batch_id else f'__{order.pk}'
+        batches = pilots[pid]['batches']
+        if bid not in batches:
+            batches[bid] = {
+                'created_at': order.created_at,
+                'notes': order.notes,
+                'orders': [],
+            }
+        batches[bid]['orders'].append(order)
 
-    # Count available drones in workshop by type
-    inventory = {}
-    for ct_model in [FPVDroneType, OpticalDroneType]:
-        ct = ContentType.objects.get_for_model(ct_model)
-        for dtype in ct_model.objects.select_related('model').all():
-            available = UAVInstance.objects.filter(
-                content_type=ct,
-                object_id=dtype.pk,
-                status='ready',
-            ).count()
-            key = f'{ct.id}:{dtype.pk}'
-            inventory[key] = {'type': str(dtype), 'available': available}
+    # Convert inner dicts to lists
+    pilot_groups = []
+    for pg in pilots.values():
+        pilot_groups.append({
+            'pilot': pg['pilot'],
+            'batches': list(pg['batches'].values()),
+        })
 
     return render(request, 'pilots/workshop_orders.html', {
-        'orders': orders,
-        'inventory': inventory,
+        'pilot_groups': pilot_groups,
         'title': 'Обробка замовлень',
     })
 

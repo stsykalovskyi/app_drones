@@ -147,6 +147,7 @@ class DroneOrder(models.Model):
     object_id = models.PositiveIntegerField(null=True, blank=True)
     drone_type_obj = GenericForeignKey('content_type', 'object_id')
 
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True, verbose_name="Партія")
     quantity = models.PositiveIntegerField(default=1, verbose_name="Кількість")
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES,
