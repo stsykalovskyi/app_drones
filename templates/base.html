@@ -909,9 +909,9 @@
             /* push nav below the fixed mobile header (48px) */
             .sidebar-nav { padding-top: 8px; margin-top: 48px; }
 
-            /* submenus visible on mobile like pinned sidebar */
-            .submenu { display: block; }
-            .sidebar-nav > li.submenu-closed > .submenu { display: none; }
+            /* submenus visible on mobile — override the global html:not(.sidebar-pinned) rule */
+            html:not(.sidebar-pinned) .submenu { display: block; }
+            .sidebar-nav > li.submenu-closed > .submenu { display: none !important; }
             .submenu-chevron { opacity: 0.5; }
             .sidebar-nav > li:hover .submenu-chevron { opacity: 0.9; }
         }
