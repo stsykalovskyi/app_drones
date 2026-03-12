@@ -1033,6 +1033,7 @@
                         <span class="nav-label">Задати питання</span></a></li>
                 </ul>
             </li>
+            {% if user.is_authenticated %}
             <li>
                 <a href="{% url 'pilots:strike_report_list' %}"{% if aname == 'pilots' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
@@ -1050,6 +1051,7 @@
                         <span class="nav-label">Замовлення дронів</span></a></li>
                 </ul>
             </li>
+            {% endif %}
             {% if 'майстер' in user_groups or 'командир майстерні' in user_groups or user.is_superuser %}
             <li><a href="{% url 'pilots:workshop_orders' %}"{% if uname == 'workshop_orders' or uname == 'workshop_order_update' %} class="active"{% endif %}>
                 <svg class="nav-icon" viewBox="0 0 24 24">
