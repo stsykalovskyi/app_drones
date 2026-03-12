@@ -1033,7 +1033,7 @@
                         <span class="nav-label">Задати питання</span></a></li>
                 </ul>
             </li>
-            {% if user.is_authenticated %}
+            {% if perms.pilots.view_droneorder %}
             <li>
                 <a href="{% url 'pilots:strike_report_list' %}"{% if aname == 'pilots' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
