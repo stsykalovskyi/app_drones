@@ -45,6 +45,9 @@ jobs:
             git checkout master
             git reset --hard origin/master
 
+            # Install/update Python dependencies
+            docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && pip install -q -r /app/requirements.txt"
+
             # Apply database migrations
             docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py migrate --no-input"
 
