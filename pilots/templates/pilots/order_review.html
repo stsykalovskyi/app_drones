@@ -23,17 +23,119 @@
         font-weight: 800;
         margin: 0;
         flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── card grid (same as order_form) ── */
+    .drone-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1.5rem;
+    }
+    .drone-card {
+        background: var(--surface);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        border: 1.5px solid var(--accent);
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .drone-card__photo {
+        aspect-ratio: 16/9;
+        background: var(--bg-sub);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        font-size: 2.2rem;
+    }
+    .drone-card__photo img { width: 100%; height: 100%; object-fit: cover; }
+    .drone-card__body {
+        padding: 0.7rem 0.75rem 0.4rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.28rem;
+    }
+    .drone-card__name { font-size: 0.92rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.2rem; }
+    .drone-card__row { display: flex; gap: 0.35rem; font-size: 0.76rem; align-items: flex-start; }
+    .drone-card__row-label { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .drone-card__row-val { color: var(--text); font-weight: 500; word-break: break-word; }
+    .badge-thermal {
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.45rem; border-radius: 99px;
+        background: rgba(245,158,11,0.15); color: #f59e0b; letter-spacing: 0.04em;
+    }
+    .badge-category {
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.45rem; border-radius: 99px;
+        background: var(--accent-dim); color: var(--accent); letter-spacing: 0.04em;
+    }
+
+    /* ── footer ── */
+    .drone-card__footer {
+        padding: 0.55rem 0.75rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+    }
+    .avail-label { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
+    .avail-count { font-weight: 700; }
+    .avail-count.good { color: #22c55e; }
+    .avail-count.warn { color: #f59e0b; }
+
+    .qty-stepper { display: flex; align-items: center; gap: 0.3rem; }
+    .stepper-btn {
+        width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--border);
+        background: none; color: var(--text); cursor: pointer; font-size: 0.95rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s;
+    }
+    .stepper-btn:hover { background: var(--accent-dim); }
+    .stepper-btn:disabled { opacity: 0.25; cursor: default; pointer-events: none; }
+    .qty-display {
+        min-width: 2rem; text-align: center;
+        font-size: 1rem; font-weight: 800; color: var(--accent);
+    }
+    .drone-card__topbar {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0.4rem 0.5rem 0;
+    }
+    .btn-remove-card {
+        width: 1.6rem; height: 1.6rem; border-radius: 50%; border: none;
+        background: var(--accent-dim); color: var(--accent);
+        cursor: pointer; font-size: 0.8rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s;
+    }
+    .btn-remove-card:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+    @media (max-width: 600px) {
+        .review-topbar { margin: -1rem -1rem 1.25rem; padding: 0.6rem 0.75rem; }
+        .drone-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    }
+    @media (max-width: 360px) {
+        .drone-grid { grid-template-columns: 1fr; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<form method="post" action="{% url 'pilots:order_review' %}">
+<form method="post" action="{% url 'pilots:order_review' %}" id="review-form">
 {% csrf_token %}
 <input type="hidden" name="confirm" value="1">
-{% for item in items %}
-<input type="hidden" name="qty_{{ item.key }}" value="{{ item.qty }}">
-{% endfor %}
 <input type="hidden" name="notes" value="{{ notes }}">
 
 <div class="review-topbar">
@@ -43,23 +145,69 @@
     <a href="{% url 'pilots:drone_order_list' %}" class="button ghost">Скасувати</a>
 </div>
 
-<div class="table-wrap" style="margin-bottom:1.5rem">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Тип БПЛА</th>
-                <th>К-сть</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.name }}</td>
-                <td>{{ item.qty }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="drone-grid">
+{% for item in items %}
+{% with t=item.type freqs=item.freqs %}
+<div class="drone-card">
+
+    <div class="drone-card__topbar">
+        <button type="button" class="btn-remove-card" title="Видалити з замовлення">✕</button>
+    </div>
+
+    <div class="drone-card__photo">
+        {% if t.photo %}<img src="{{ t.photo.url }}" alt="{{ t.model.name }}">{% else %}✈{% endif %}
+    </div>
+
+    <div class="drone-card__body">
+        <div class="drone-card__name">{{ t.model.name }} {{ t.prop_size }}"</div>
+        <div class="drone-card__row">
+            <span class="drone-card__row-label">Пропелер:</span>
+            <span class="drone-card__row-val">{{ t.prop_size }}"</span>
+        </div>
+        {% if freqs %}
+        <div class="drone-card__row">
+            <span class="drone-card__row-label">Частоти:</span>
+            <span class="drone-card__row-val">{% for f in freqs %}{{ f }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+        {% if t.video_frequency %}
+        <div class="drone-card__row">
+            <span class="drone-card__row-label">Відео:</span>
+            <span class="drone-card__row-val">{{ t.video_frequency }}</span>
+        </div>
+        {% endif %}
+        {% if t.video_template %}
+        <div class="drone-card__row">
+            <span class="drone-card__row-label">Відео:</span>
+            <span class="drone-card__row-val">{{ t.video_template }}</span>
+        </div>
+        {% endif %}
+        {% if t.purpose %}
+        <div class="drone-card__row">
+            <span class="drone-card__row-label">Призначення:</span>
+            <span class="drone-card__row-val">{{ t.purpose.name }}</span>
+        </div>
+        {% endif %}
+        <div class="drone-card__row" style="gap:0.4rem;flex-wrap:wrap;margin-top:0.1rem">
+            {% if t.video_frequency %}<span class="badge-category">Радіо</span>{% endif %}
+            {% if t.video_template %}<span class="badge-category">Оптика</span>{% endif %}
+            {% if t.has_thermal %}<span class="badge-thermal">THERMAL</span>{% endif %}
+        </div>
+    </div>
+
+    <div class="drone-card__footer" data-max="{{ item.max }}">
+        <span class="avail-label">В наявності: <span class="avail-count {% if item.max >= 3 %}good{% else %}warn{% endif %}">{{ item.max }}</span></span>
+        <div class="qty-stepper">
+            <button type="button" class="stepper-btn s-dec">−</button>
+            <span class="qty-display">{{ item.qty }}</span>
+            <button type="button" class="stepper-btn s-inc"{% if item.qty >= item.max %} disabled{% endif %}>+</button>
+        </div>
+        <input type="hidden" name="qty_{{ item.key }}" value="{{ item.qty }}" class="qty-hidden">
+    </div>
+
+</div>
+{% endwith %}
+{% endfor %}
 </div>
 
 {% if notes %}
@@ -71,9 +219,54 @@
 
 </form>
 <script>
-// Clear cart from localStorage on successful confirm
-document.querySelector('form').addEventListener('submit', function () {
-    localStorage.removeItem('drone_cart');
-});
+(function () {
+    var STORAGE_KEY = 'drone_cart';
+    function loadCart() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) { return {}; } }
+    function saveCart(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
+
+    function cartKey(hidden) {
+        // hidden.name = "qty_<ct_id>_<obj_id>" → cart key = "<ct_id>_<obj_id>"
+        return hidden.name.replace(/^qty_/, '');
+    }
+
+    document.getElementById('review-form').addEventListener('click', function (e) {
+        if (e.target.closest('.btn-remove-card')) {
+            var card = e.target.closest('.drone-card');
+            var hidden = card.querySelector('.qty-hidden');
+            if (hidden) {
+                var cart = loadCart();
+                delete cart[cartKey(hidden)];
+                saveCart(cart);
+            }
+            card.remove();
+            return;
+        }
+        var footer = e.target.closest('.drone-card__footer');
+        if (!footer) return;
+        var max     = parseInt(footer.dataset.max, 10);
+        var display = footer.querySelector('.qty-display');
+        var hidden  = footer.querySelector('.qty-hidden');
+        var qty     = parseInt(display.textContent, 10);
+
+        if (e.target.closest('.s-dec')) {
+            qty = Math.max(1, qty - 1);
+        } else if (e.target.closest('.s-inc')) {
+            qty = Math.min(max, qty + 1);
+        } else {
+            return;
+        }
+        display.textContent = qty;
+        hidden.value = qty;
+        footer.querySelector('.s-inc').disabled = qty >= max;
+        var cart = loadCart();
+        cart[cartKey(hidden)] = qty;
+        saveCart(cart);
+    });
+
+    // Clear cart from localStorage on confirm
+    document.getElementById('review-form').addEventListener('submit', function () {
+        localStorage.removeItem('drone_cart');
+    });
+})();
 </script>
 {% endblock %}

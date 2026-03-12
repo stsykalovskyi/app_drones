@@ -38,6 +38,21 @@
     }
     .order-counter.has-items { color: var(--accent); }
 
+    /* ── selected summary table ── */
+    .order-summary {
+        display: none;
+        margin-bottom: 1.5rem;
+    }
+    .order-summary.visible { display: block; }
+    .order-summary h2 {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.6rem;
+    }
+
     .section-header {
         display: flex;
         align-items: center;
@@ -65,7 +80,6 @@
         grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
         gap: 0.85rem;
     }
-
     .drone-card {
         background: var(--surface);
         -webkit-backdrop-filter: blur(12px);
@@ -81,7 +95,6 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
     }
-
     .drone-card__photo {
         aspect-ratio: 16/9;
         background: var(--bg-sub);
@@ -92,12 +105,7 @@
         color: var(--text-muted);
         font-size: 2.2rem;
     }
-    .drone-card__photo img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
+    .drone-card__photo img { width: 100%; height: 100%; object-fit: cover; }
     .drone-card__body {
         padding: 0.7rem 0.75rem 0.4rem;
         flex: 1;
@@ -105,49 +113,22 @@
         flex-direction: column;
         gap: 0.28rem;
     }
-    .drone-card__name {
-        font-size: 0.92rem;
-        font-weight: 700;
-        line-height: 1.3;
-        margin-bottom: 0.2rem;
-    }
-    .drone-card__row {
-        display: flex;
-        gap: 0.35rem;
-        font-size: 0.76rem;
-        align-items: flex-start;
-    }
-    .drone-card__row-label {
-        color: var(--text-muted);
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .drone-card__row-val {
-        color: var(--text);
-        font-weight: 500;
-        word-break: break-word;
-    }
+    .drone-card__name { font-size: 0.92rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.2rem; }
+    .drone-card__row { display: flex; gap: 0.35rem; font-size: 0.76rem; align-items: flex-start; }
+    .drone-card__row-label { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .drone-card__row-val { color: var(--text); font-weight: 500; word-break: break-word; }
     .badge-thermal {
-        display: inline-block;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 0.1rem 0.45rem;
-        border-radius: 99px;
-        background: rgba(245, 158, 11, 0.15);
-        color: #f59e0b;
-        letter-spacing: 0.04em;
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.45rem; border-radius: 99px;
+        background: rgba(245,158,11,0.15); color: #f59e0b; letter-spacing: 0.04em;
     }
     .badge-category {
-        display: inline-block;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 0.1rem 0.45rem;
-        border-radius: 99px;
-        background: var(--accent-dim);
-        color: var(--accent);
-        letter-spacing: 0.04em;
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.45rem; border-radius: 99px;
+        background: var(--accent-dim); color: var(--accent); letter-spacing: 0.04em;
     }
 
+    /* ── footer ── */
     .drone-card__footer {
         padding: 0.55rem 0.75rem;
         border-top: 1px solid var(--border);
@@ -156,83 +137,55 @@
         justify-content: space-between;
         gap: 0.5rem;
         min-height: 2.75rem;
+        flex-wrap: wrap;
     }
-    .avail-label {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        flex-shrink: 0;
-    }
+    .avail-label { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
     .avail-count { font-weight: 700; }
     .avail-count.good { color: #22c55e; }
     .avail-count.warn { color: #f59e0b; }
 
-    /* ── state: idle ── */
-    .qty-idle {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
+    /* idle: stepper + Додати */
+    .qty-idle { display: flex; align-items: center; gap: 0.5rem; flex: 1; justify-content: space-between; }
+    .stepper-group { display: flex; align-items: center; gap: 0.25rem; }
+    .stepper-btn {
+        width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--border);
+        background: none; color: var(--text); cursor: pointer; font-size: 0.95rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s;
     }
-    .qty-input-small {
-        width: 3rem;
-        padding: 0.28rem 0.4rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        background: var(--input-bg);
-        color: var(--text);
-        font-size: 0.88rem;
-        font-family: inherit;
-        text-align: center;
-        outline: none;
-        transition: border-color 0.2s;
+    .stepper-btn:hover { background: var(--accent-dim); }
+    .stepper-input {
+        width: 2.4rem; padding: 0.25rem 0.3rem; text-align: center;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--input-bg); color: var(--text); font-size: 0.88rem; font-family: inherit;
+        outline: none; transition: border-color 0.2s;
     }
-    .qty-input-small:focus { border-color: var(--accent); }
-    .qty-btn-add {
-        width: 1.75rem;
-        height: 1.75rem;
-        border-radius: 50%;
-        border: none;
-        cursor: pointer;
-        font-size: 1.1rem;
-        font-weight: 700;
-        line-height: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--accent);
-        color: var(--btn-text);
-        transition: opacity 0.15s, transform 0.1s;
+    .stepper-input:focus { border-color: var(--accent); }
+    .stepper-input::-webkit-outer-spin-button,
+    .stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .stepper-input[type=number] { -moz-appearance: textfield; }
+    .btn-add {
+        padding: 0.3rem 0.65rem; border: none; border-radius: var(--radius-sm);
+        background: var(--accent); color: var(--btn-text);
+        font-size: 0.8rem; font-weight: 700; cursor: pointer;
+        white-space: nowrap; transition: opacity 0.15s;
     }
-    .qty-btn-add:active { transform: scale(0.9); }
+    .btn-add:hover { opacity: 0.85; }
 
-    /* ── state: added ── */
-    .qty-added {
-        display: none;
-        align-items: center;
-        gap: 0.35rem;
+    /* added: show qty + remove */
+    .qty-added { display: none; align-items: center; gap: 0.4rem; }
+    .qty-added-badge {
+        font-size: 0.85rem; font-weight: 700; color: var(--accent);
+        background: var(--accent-dim); padding: 0.2rem 0.55rem; border-radius: 99px;
     }
-    .qty-stepper-btn {
-        width: 1.6rem;
-        height: 1.6rem;
-        border-radius: 50%;
-        border: none;
-        cursor: pointer;
-        font-size: 1rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: opacity 0.15s, transform 0.1s;
+    .btn-remove {
+        width: 1.4rem; height: 1.4rem; border-radius: 50%; border: none;
+        background: var(--accent-dim); color: var(--accent);
+        cursor: pointer; font-size: 0.85rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s;
     }
-    .qty-stepper-btn:active { transform: scale(0.9); }
-    .qty-stepper-btn.dec { background: var(--accent-dim); color: var(--accent); }
-    .qty-stepper-btn.inc { background: var(--accent-dim); color: var(--accent); }
-    .qty-added-val {
-        min-width: 1.6rem;
-        text-align: center;
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--accent);
-    }
+    .btn-remove:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
 
     @media (max-width: 600px) {
         .order-topbar { margin: -1rem -1rem 1.25rem; padding: 0.6rem 0.75rem; }
@@ -255,6 +208,19 @@
     <a href="{% url 'pilots:drone_order_list' %}" class="button ghost">Скасувати</a>
 </div>
 
+{# ── Selected summary ── #}
+<div class="order-summary" id="order-summary">
+    <h2>Вибрано для замовлення</h2>
+    <div class="table-wrap" style="margin:0">
+        <table class="data-table" style="margin:0">
+            <thead>
+                <tr><th>Тип БПЛА</th><th style="width:5rem">Кількість</th><th style="width:2rem"></th></tr>
+            </thead>
+            <tbody id="summary-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
 {% if not sections %}
 <div class="card" style="text-align:center;color:var(--text-muted);padding:3rem">
     В наявності немає готових дронів для замовлення.
@@ -262,57 +228,50 @@
 {% endif %}
 
 {% for section in sections %}
-<div class="section-header">
-    <h2>{{ section.label }}</h2>
-</div>
+<div class="section-header"><h2>{{ section.label }}</h2></div>
 <div class="drone-grid">
 {% for card in section.cards %}
-<div class="drone-card" id="card-{{ card.key }}">
+
+{# Build full display name for JS #}
+{% with freqs=card.type.control_frequencies.all %}
+<div class="drone-card" id="card-{{ card.key }}"
+     data-key="{{ card.key }}"
+     data-fullname="{{ card.type.model.name }} {{ card.type.prop_size }}&quot;{% if freqs %} | {% for f in freqs %}{{ f }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% if card.type.video_frequency %} | {{ card.type.video_frequency }}{% endif %}{% if card.type.video_template %} | {{ card.type.video_template }}{% endif %}">
 
     <div class="drone-card__photo">
-        {% if card.type.photo %}
-        <img src="{{ card.type.photo.url }}" alt="{{ card.type.model.name }}">
-        {% else %}
-        ✈
-        {% endif %}
+        {% if card.type.photo %}<img src="{{ card.type.photo.url }}" alt="{{ card.type.model.name }}">{% else %}✈{% endif %}
     </div>
 
     <div class="drone-card__body">
         <div class="drone-card__name">{{ card.type.model.name }} {{ card.type.prop_size }}"</div>
-
         <div class="drone-card__row">
             <span class="drone-card__row-label">Пропелер:</span>
             <span class="drone-card__row-val">{{ card.type.prop_size }}"</span>
         </div>
-
-        {% with freqs=card.type.control_frequencies.all %}{% if freqs %}
+        {% if freqs %}
         <div class="drone-card__row">
             <span class="drone-card__row-label">Частоти:</span>
             <span class="drone-card__row-val">{% for f in freqs %}{{ f }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
         </div>
-        {% endif %}{% endwith %}
-
+        {% endif %}
         {% if card.type.video_frequency %}
         <div class="drone-card__row">
             <span class="drone-card__row-label">Відео:</span>
             <span class="drone-card__row-val">{{ card.type.video_frequency }}</span>
         </div>
         {% endif %}
-
         {% if card.type.video_template %}
         <div class="drone-card__row">
             <span class="drone-card__row-label">Відео:</span>
             <span class="drone-card__row-val">{{ card.type.video_template }}</span>
         </div>
         {% endif %}
-
         {% if card.type.purpose %}
         <div class="drone-card__row">
             <span class="drone-card__row-label">Призначення:</span>
             <span class="drone-card__row-val">{{ card.type.purpose.name }}</span>
         </div>
         {% endif %}
-
         <div class="drone-card__row" style="gap:0.4rem;flex-wrap:wrap;margin-top:0.1rem">
             {% if card.type.video_frequency %}<span class="badge-category">Радіо</span>{% endif %}
             {% if card.type.video_template %}<span class="badge-category">Оптика</span>{% endif %}
@@ -320,21 +279,25 @@
         </div>
     </div>
 
-    <div class="drone-card__footer" data-key="{{ card.key }}" data-max="{{ card.count }}">
+    <div class="drone-card__footer" data-max="{{ card.count }}">
         <span class="avail-label">В наявності: <span class="avail-count {% if card.count >= 3 %}good{% else %}warn{% endif %}">{{ card.count }}</span></span>
         <div class="qty-idle">
-            <input type="number" class="qty-input-small" value="1" min="1" max="{{ card.count }}">
-            <button type="button" class="qty-btn-add" title="Додати до замовлення">+</button>
+            <div class="stepper-group">
+                <button type="button" class="stepper-btn s-dec">−</button>
+                <input type="number" class="stepper-input" value="0" min="0" max="{{ card.count }}">
+                <button type="button" class="stepper-btn s-inc">+</button>
+            </div>
+            <button type="button" class="btn-add">Додати</button>
         </div>
         <div class="qty-added">
-            <button type="button" class="qty-stepper-btn dec">−</button>
-            <span class="qty-added-val">0</span>
-            <button type="button" class="qty-stepper-btn inc">+</button>
+            <span class="qty-added-badge"></span>
+            <button type="button" class="btn-remove" title="Прибрати">✕</button>
         </div>
         <input type="hidden" name="qty_{{ card.key }}" value="0" class="qty-hidden">
     </div>
 
 </div>
+{% endwith %}
 {% endfor %}
 </div>
 {% endfor %}
@@ -348,80 +311,107 @@
     function saveCart(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
 
     var cart = loadCart();
-    var counter = document.getElementById('order-counter');
+    var counter  = document.getElementById('order-counter');
     var submitBtn = document.getElementById('btn-submit');
+    var summary  = document.getElementById('order-summary');
+    var tbody    = document.getElementById('summary-tbody');
 
-    function updateCounter() {
+    function syncSummary() {
+        tbody.innerHTML = '';
         var total = 0;
-        document.querySelectorAll('.qty-hidden').forEach(function (inp) {
-            total += parseInt(inp.value, 10) || 0;
+        document.querySelectorAll('.drone-card').forEach(function (card) {
+            var key = card.dataset.key;
+            var qty = parseInt(card.querySelector('.qty-hidden').value, 10) || 0;
+            if (!qty) return;
+            total += qty;
+            var tr = document.createElement('tr');
+            tr.dataset.key = key;
+            tr.innerHTML =
+                '<td>' + card.dataset.fullname + '</td>' +
+                '<td>' + qty + ' шт.</td>' +
+                '<td><button type="button" class="btn-remove-row" data-key="' + key + '" title="Прибрати" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:0">✕</button></td>';
+            tbody.appendChild(tr);
         });
         counter.textContent = total + '\u00a0шт.';
         counter.classList.toggle('has-items', total > 0);
         submitBtn.disabled = total === 0;
+        summary.classList.toggle('visible', total > 0);
     }
 
-    function applyQty(footer, qty) {
-        var key = footer.dataset.key;
+    function applyQty(card, qty) {
+        var key = card.dataset.key;
+        var footer = card.querySelector('.drone-card__footer');
         var max = parseInt(footer.dataset.max, 10);
         qty = Math.max(0, Math.min(qty, max));
 
-        footer.querySelector('.qty-hidden').value = qty;
-        var card = footer.closest('.drone-card');
+        card.querySelector('.qty-hidden').value = qty;
         var idle  = footer.querySelector('.qty-idle');
         var added = footer.querySelector('.qty-added');
-        var val   = footer.querySelector('.qty-added-val');
-        var inc   = footer.querySelector('.inc');
+        var badge = footer.querySelector('.qty-added-badge');
 
         if (qty > 0) {
             idle.style.display  = 'none';
             added.style.display = 'flex';
-            val.textContent = qty;
-            inc.style.opacity = qty >= max ? '0.35' : '1';
+            badge.textContent   = qty + ' шт.';
             card.classList.add('selected');
             cart[key] = qty;
         } else {
             idle.style.display  = 'flex';
             added.style.display = 'none';
-            footer.querySelector('.qty-input-small').value = 1;
+            footer.querySelector('.stepper-input').value = 0;
             card.classList.remove('selected');
             delete cart[key];
         }
         saveCart(cart);
-        updateCounter();
+        syncSummary();
     }
 
     // Restore from localStorage
-    document.querySelectorAll('.drone-card__footer').forEach(function (footer) {
-        var saved = cart[footer.dataset.key];
-        if (saved) applyQty(footer, saved);
+    document.querySelectorAll('.drone-card').forEach(function (card) {
+        var saved = cart[card.dataset.key];
+        if (saved) applyQty(card, saved);
     });
 
+    // Catalog interactions
     document.getElementById('order-form').addEventListener('click', function (e) {
-        // "+" add button
-        var addBtn = e.target.closest('.qty-btn-add');
-        if (addBtn) {
-            var footer = addBtn.closest('.drone-card__footer');
-            var input  = footer.querySelector('.qty-input-small');
-            applyQty(footer, parseInt(input.value, 10) || 1);
+        // stepper −
+        if (e.target.closest('.s-dec')) {
+            var input = e.target.closest('.qty-idle').querySelector('.stepper-input');
+            input.value = Math.max(0, (parseInt(input.value, 10) || 0) - 1);
             return;
         }
-        // stepper dec
-        var dec = e.target.closest('.dec');
-        if (dec) {
-            var footer = dec.closest('.drone-card__footer');
-            applyQty(footer, parseInt(footer.querySelector('.qty-hidden').value, 10) - 1);
+        // stepper +
+        if (e.target.closest('.s-inc')) {
+            var footer = e.target.closest('.drone-card__footer');
+            var input  = footer.querySelector('.stepper-input');
+            input.value = Math.min(parseInt(footer.dataset.max, 10), (parseInt(input.value, 10) || 0) + 1);
             return;
         }
-        // stepper inc
-        var inc = e.target.closest('.inc');
-        if (inc) {
-            var footer = inc.closest('.drone-card__footer');
-            applyQty(footer, parseInt(footer.querySelector('.qty-hidden').value, 10) + 1);
+        // Додати
+        if (e.target.closest('.btn-add')) {
+            var footer = e.target.closest('.drone-card__footer');
+            var card   = e.target.closest('.drone-card');
+            var qty    = parseInt(footer.querySelector('.stepper-input').value, 10) || 0;
+            if (qty <= 0) return;
+            applyQty(card, qty);
+            return;
+        }
+        // ✕ on card
+        if (e.target.closest('.btn-remove')) {
+            applyQty(e.target.closest('.drone-card'), 0);
+            return;
         }
     });
 
-    updateCounter();
+    // ✕ in summary table
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-remove-row');
+        if (!btn) return;
+        var card = document.getElementById('card-' + btn.dataset.key);
+        if (card) applyQty(card, 0);
+    });
+
+    syncSummary();
 })();
 </script>
 {% endblock %}

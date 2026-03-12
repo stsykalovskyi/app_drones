@@ -167,17 +167,40 @@ def order_review(request):
         return redirect('pilots:drone_order_list')
 
     # Build review items
+    from equipment_accounting.models import FPVDroneType, OpticalDroneType, UAVInstance
+    fpv_ct = CT.objects.get_for_model(FPVDroneType)
+    opt_ct = CT.objects.get_for_model(OpticalDroneType)
+
+    ready_counts = {}
+    for uav in UAVInstance.objects.filter(status='ready').values('content_type_id', 'object_id'):
+        k = (uav['content_type_id'], uav['object_id'])
+        ready_counts[k] = ready_counts.get(k, 0) + 1
+
     items = []
     for ct_id, obj_id, qty in _parse_qty_post(request.POST):
         try:
-            ct = CT.objects.get(id=ct_id)
-            obj = ct.get_object_for_this_type(id=obj_id)
+            if ct_id == fpv_ct.id:
+                obj = FPVDroneType.objects.select_related(
+                    'model', 'purpose', 'video_frequency'
+                ).prefetch_related('control_frequencies').get(id=obj_id)
+            elif ct_id == opt_ct.id:
+                obj = OpticalDroneType.objects.select_related(
+                    'model', 'purpose', 'video_template'
+                ).prefetch_related('control_frequencies').get(id=obj_id)
+            else:
+                ct = CT.objects.get(id=ct_id)
+                obj = ct.get_object_for_this_type(id=obj_id)
         except Exception:
             continue
+
+        freqs = list(obj.control_frequencies.all()) if hasattr(obj, 'control_frequencies') else []
+        max_count = ready_counts.get((ct_id, obj_id), qty)
         items.append({
             'key': f'{ct_id}_{obj_id}',
-            'name': str(obj),
-            'qty': qty,
+            'qty': min(qty, max_count),
+            'max': max_count,
+            'type': obj,
+            'freqs': freqs,
         })
 
     if not items:
@@ -193,16 +216,38 @@ def order_review(request):
 
 @login_required
 def drone_order_list(request):
-    if request.user.has_perm('pilots.change_droneorder'):
-        orders = DroneOrder.objects.select_related(
-            'pilot', 'pilot__profile', 'content_type', 'handled_by'
-        ).all()
-    else:
-        orders = DroneOrder.objects.select_related(
-            'pilot', 'pilot__profile', 'content_type', 'handled_by'
-        ).filter(pilot=request.user)
+    from collections import OrderedDict
+    qs = DroneOrder.objects.select_related(
+        'pilot', 'pilot__profile', 'content_type', 'handled_by'
+    ).filter(pilot=request.user).order_by('-created_at')
+
+    # Group by batch_id; orders without batch treated as individual batches
+    batches = OrderedDict()
+    for order in qs:
+        bid = str(order.batch_id) if order.batch_id else f'__{order.pk}'
+        if bid not in batches:
+            batches[bid] = {
+                'created_at': order.created_at,
+                'notes': order.notes,
+                'orders': [],
+            }
+        batches[bid]['orders'].append(order)
+
+    # Compute aggregate status per batch (worst = pending > in_progress > ready > delivered > cancelled)
+    STATUS_RANK = {'pending': 0, 'in_progress': 1, 'ready': 2, 'delivered': 3, 'cancelled': 4}
+    STATUS_COLORS = DroneOrder.STATUS_COLORS
+    batch_list = []
+    for b in batches.values():
+        statuses = [o.status for o in b['orders']]
+        agg = min(statuses, key=lambda s: STATUS_RANK.get(s, 99))
+        b['agg_status'] = agg
+        b['agg_status_display'] = dict(DroneOrder.STATUS_CHOICES).get(agg, agg)
+        b['agg_status_color'] = STATUS_COLORS.get(agg, 'info')
+        batch_list.append(b)
+
     return render(request, 'pilots/order_list.html', {
-        'orders': orders, 'title': 'Мої замовлення',
+        'batch_list': batch_list,
+        'title': 'Мої замовлення',
     })
 
 
