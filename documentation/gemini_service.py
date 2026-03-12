@@ -23,7 +23,7 @@ _CLI_PROJECTS_PATH = Path.home() / '.gemini' / 'projects.json'
 
 # Code Assist API (same as Gemini CLI uses)
 _CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:generateContent'
-_MODEL = 'gemini-2.5-flash'
+_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
 
 _cached_project_id: Optional[str] = None
 
@@ -257,36 +257,41 @@ def ask_gemini(question: str, is_superuser: bool = False) -> str:
             f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
         )
 
-    body = {
-        "model": _MODEL,
-        "project": project_id,
-        "request": {
-            "contents": [{"role": "user", "parts": [{"text": question}]}],
-            "systemInstruction": {"parts": [{"text": system_text}]},
-            "generationConfig": {"temperature": 0.7, "topP": 0.95},
-        },
+    request_body = {
+        "contents": [{"role": "user", "parts": [{"text": question}]}],
+        "systemInstruction": {"parts": [{"text": system_text}]},
+        "generationConfig": {"temperature": 0.7, "topP": 0.95},
     }
 
-    try:
-        resp = httpx.post(
-            _CODE_ASSIST_URL,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        # Response wraps standard Gemini response in "response" key
-        inner = data.get('response', data)
-        candidates = inner.get('candidates', [])
-        if candidates:
-            parts = candidates[0].get('content', {}).get('parts', [])
-            return ''.join(p.get('text', '') for p in parts).strip()
-        return "Відповідь порожня."
-    except httpx.HTTPStatusError as e:
-        return f"Помилка API ({e.response.status_code}): {e.response.text[:300]}"
-    except Exception as exc:
-        return f"Помилка: {exc}"
+    last_error = "Невідома помилка"
+    for model in _MODELS:
+        body = {"model": model, "project": project_id, "request": request_body}
+        try:
+            resp = httpx.post(
+                _CODE_ASSIST_URL,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+                timeout=30,
+            )
+            if resp.status_code == 429:
+                last_error = f"Помилка API (429): модель {model} недоступна"
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            inner = data.get('response', data)
+            candidates = inner.get('candidates', [])
+            if candidates:
+                parts = candidates[0].get('content', {}).get('parts', [])
+                return ''.join(p.get('text', '') for p in parts).strip()
+            return "Відповідь порожня."
+        except httpx.HTTPStatusError as e:
+            last_error = f"Помилка API ({e.response.status_code}): {e.response.text[:200]}"
+            if e.response.status_code != 429:
+                return last_error
+        except Exception as exc:
+            return f"Помилка: {exc}"
+
+    return last_error
