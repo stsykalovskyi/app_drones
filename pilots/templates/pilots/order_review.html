@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .review-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--surface);
+        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin: -1.5rem -1.5rem 1.5rem;
+    }
+    .review-topbar h1 {
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin: 0;
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'pilots:order_review' %}">
+{% csrf_token %}
+<input type="hidden" name="confirm" value="1">
+{% for item in items %}
+<input type="hidden" name="qty_{{ item.key }}" value="{{ item.qty }}">
+{% endfor %}
+<input type="hidden" name="notes" value="{{ notes }}">
+
+<div class="review-topbar">
+    <h1>{{ title }}</h1>
+    <button type="submit" class="button">Замовити</button>
+    <a href="{% url 'pilots:drone_order_create' %}" class="button ghost">← Змінити вибір</a>
+    <a href="{% url 'pilots:drone_order_list' %}" class="button ghost">Скасувати</a>
+</div>
+
+<div class="table-wrap" style="margin-bottom:1.5rem">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Тип БПЛА</th>
+                <th>К-сть</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.qty }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if notes %}
+<div class="card" style="font-size:.9rem">
+    <span style="color:var(--text-muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Примітки</span>
+    <p style="margin:.4rem 0 0">{{ notes }}</p>
+</div>
+{% endif %}
+
+</form>
+<script>
+// Clear cart from localStorage on successful confirm
+document.querySelector('form').addEventListener('submit', function () {
+    localStorage.removeItem('drone_cart');
+});
+</script>
+{% endblock %}

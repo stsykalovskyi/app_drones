@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Користувачі{% endblock %}
+
+{% block content %}
+<h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">Користувачі</h1>
+
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Позивний / Ім'я</th>
+                <th>Username</th>
+                <th>Групи</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.profile.display_name|default:u.username }}</td>
+                <td style="color:var(--text-secondary)">{{ u.username }}</td>
+                <td>
+                    {% for g in u.groups.all %}
+                    <span class="badge badge-info">{{ g.name }}</span>
+                    {% empty %}—{% endfor %}
+                </td>
+                <td>
+                    <a href="{% url 'user_management:impersonate_start' u.pk %}"
+                       style="padding:.3rem .75rem;background:var(--btn-bg);color:var(--btn-text);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;text-decoration:none;white-space:nowrap"
+                       onclick="var href=this.href; showModal('confirm-modal','Увійти як {{ u.profile.display_name|default:u.username|escapejs }}','Переглядати сайт від імені цього користувача?',function(){location.href=href;}); return false;">
+                        Увійти як
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Користувачів немає.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -270,7 +270,7 @@
                         <span class="tl-user">{{ batch.user_name }}</span>
                         <span class="tl-cnt">{{ batch.uav_objs|length }}</span>
                         {% if user.is_superuser %}
-                        <form method="post" action="{% url 'equipment_accounting:movement_batch_delete' %}" onsubmit="return confirm('Видалити ці переміщення?');" style="display:contents;">
+                        <form method="post" action="{% url 'equipment_accounting:movement_batch_delete' %}" data-confirm="Видалити ці переміщення?" style="display:contents;">
                             {% csrf_token %}
                             {% for mid in batch.movement_ids %}<input type="hidden" name="movement_ids" value="{{ mid }}">{% endfor %}
                             <button type="submit" class="btn-delete-batch" title="Видалити">

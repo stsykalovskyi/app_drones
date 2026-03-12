@@ -104,29 +104,49 @@ def drone_order_create(request):
     bez = [('Без призначення', purpose_map['Без призначення'])] if 'Без призначення' in purpose_map else []
     sections = [{'label': k, 'cards': v} for k, v in named + bez]
 
-    if request.method == 'POST':
+    return render(request, 'pilots/order_form.html', {
+        'sections': sections,
+        'title': 'Замовити дрони',
+    })
+
+
+def _parse_qty_post(post):
+    """Parse qty_<ct_id>_<obj_id> fields from POST. Returns list of (ct_id, obj_id, qty)."""
+    from django.contrib.contenttypes.models import ContentType as CT
+    result = []
+    for key, val in post.items():
+        if not key.startswith('qty_'):
+            continue
+        parts = key.split('_')
+        if len(parts) != 3:
+            continue
+        try:
+            qty = int(val)
+            ct_id = int(parts[1])
+            obj_id = int(parts[2])
+        except (ValueError, TypeError):
+            continue
+        if qty <= 0:
+            continue
+        result.append((ct_id, obj_id, qty))
+    return result
+
+
+@login_required
+def order_review(request):
+    from django.contrib.contenttypes.models import ContentType as CT
+
+    if request.method != 'POST':
+        return redirect('pilots:drone_order_create')
+
+    notes = request.POST.get('notes', '')
+
+    # Confirm → create orders
+    if 'confirm' in request.POST:
         import uuid as _uuid
-        notes = request.POST.get('notes', '')
         batch = _uuid.uuid4()
         created = 0
-        for key, val in request.POST.items():
-            if not key.startswith('qty_'):
-                continue
-            try:
-                qty = int(val)
-            except (ValueError, TypeError):
-                continue
-            if qty <= 0:
-                continue
-            parts = key.split('_')
-            if len(parts) != 3:
-                continue
-            try:
-                ct_id = int(parts[1])
-                obj_id = int(parts[2])
-            except ValueError:
-                continue
-            from django.contrib.contenttypes.models import ContentType as CT
+        for ct_id, obj_id, qty in _parse_qty_post(request.POST):
             try:
                 ct = CT.objects.get(id=ct_id)
             except CT.DoesNotExist:
@@ -140,16 +160,34 @@ def drone_order_create(request):
                 batch_id=batch,
             )
             created += 1
-
         if created:
             messages.success(request, f'Замовлення відправлено до майстерні ({created} поз.).')
-            return redirect('pilots:drone_order_list')
         else:
             messages.warning(request, 'Не вибрано жодного дрона.')
+        return redirect('pilots:drone_order_list')
 
-    return render(request, 'pilots/order_form.html', {
-        'sections': sections,
-        'title': 'Замовити дрони',
+    # Build review items
+    items = []
+    for ct_id, obj_id, qty in _parse_qty_post(request.POST):
+        try:
+            ct = CT.objects.get(id=ct_id)
+            obj = ct.get_object_for_this_type(id=obj_id)
+        except Exception:
+            continue
+        items.append({
+            'key': f'{ct_id}_{obj_id}',
+            'name': str(obj),
+            'qty': qty,
+        })
+
+    if not items:
+        messages.warning(request, 'Не вибрано жодного дрона.')
+        return redirect('pilots:drone_order_create')
+
+    return render(request, 'pilots/order_review.html', {
+        'items': items,
+        'notes': notes,
+        'title': 'Підтвердження замовлення',
     })
 
 
@@ -221,3 +259,14 @@ def workshop_order_update(request, pk):
             updated.save()
             messages.success(request, 'Статус оновлено.')
     return redirect('pilots:workshop_orders')
+
+
+@master_required
+def workshop_orders_archive(request):
+    qs = DroneOrder.objects.select_related(
+        'pilot', 'pilot__profile', 'content_type', 'handled_by'
+    ).filter(status__in=['delivered', 'cancelled']).order_by('-updated_at')
+    return render(request, 'pilots/workshop_orders_archive.html', {
+        'orders': qs,
+        'title': 'Завершені замовлення',
+    })

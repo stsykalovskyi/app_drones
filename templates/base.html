@@ -953,6 +953,44 @@
             pointer-events: none;
             user-select: none;
         }
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); box-shadow: var(--shadow-elevated);
+            padding: 1.5rem; max-width: 400px; width: 90%;
+            transform: scale(0.9); transition: transform 0.2s ease;
+        }
+        .modal-overlay.visible .modal-box { transform: scale(1); }
+        .modal-box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .modal-box p { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
+        .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+        .modal-actions button {
+            padding: 0.5rem 1rem; border-radius: var(--radius-sm);
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .modal-actions .btn-cancel {
+            border: 1px solid var(--border); background: none; color: var(--text);
+        }
+        .modal-actions .btn-cancel:hover { background: var(--accent-dim); }
+        .modal-actions .btn-confirm-danger {
+            border: none; background: #ef4444; color: #fff;
+        }
+        .modal-actions .btn-confirm-danger:hover { background: #dc2626; }
+        .modal-actions .btn-confirm-warn {
+            border: none; background: var(--accent); color: var(--btn-text);
+        }
+        .modal-actions .btn-confirm-warn:hover { opacity: 0.9; }
     </style>
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -1043,21 +1081,38 @@
                     <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                 </a>
                 <ul class="submenu" id="submenu-pilots">
+                    {% if perms.pilots.view_droneorder %}
                     <li><a href="{% url 'pilots:strike_report_list' %}"{% if uname == 'strike_report_list' or uname == 'strike_report_create' %} class="active"{% endif %}>
                         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                         <span class="nav-label">Результати ударів</span></a></li>
                     <li><a href="{% url 'pilots:drone_order_list' %}"{% if uname == 'drone_order_list' or uname == 'drone_order_create' %} class="active"{% endif %}>
                         <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                         <span class="nav-label">Замовлення дронів</span></a></li>
+                    {% endif %}
                 </ul>
             </li>
             {% endif %}
             {% if perms.pilots.change_droneorder %}
-            <li><a href="{% url 'pilots:workshop_orders' %}"{% if uname == 'workshop_orders' or uname == 'workshop_order_update' %} class="active"{% endif %}>
-                <svg class="nav-icon" viewBox="0 0 24 24">
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                </svg>
-                <span class="nav-label">Обробка замовлень</span></a></li>
+            <li>
+                <a href="{% url 'pilots:workshop_orders' %}"{% if uname == 'workshop_orders' or uname == 'workshop_order_update' or uname == 'workshop_orders_archive' %} class="active"{% endif %}>
+                    <svg class="nav-icon" viewBox="0 0 24 24">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    <span class="nav-label">Замовлення</span>
+                    <svg class="submenu-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </a>
+                <ul class="submenu" id="submenu-workshop">
+                    <li><a href="{% url 'pilots:workshop_orders' %}"{% if uname == 'workshop_orders' or uname == 'workshop_order_update' %} class="active"{% endif %}>
+                        <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span class="nav-label">Активні</span>
+                        {% if active_orders_count %}<span class="badge badge-warning" style="margin-left:auto">{{ active_orders_count }}</span>{% endif %}
+                    </a></li>
+                    <li><a href="{% url 'pilots:workshop_orders_archive' %}"{% if uname == 'workshop_orders_archive' %} class="active"{% endif %}>
+                        <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                        <span class="nav-label">Завершені</span>
+                    </a></li>
+                </ul>
+            </li>
             {% endif %}
             {% if perms.equipment_accounting.view_uavinstance or perms.equipment_accounting.add_uavinstance or perms.equipment_accounting.change_uavinstance or perms.equipment_accounting.delete_uavinstance %}
                 <li>
@@ -1131,11 +1186,31 @@
                     <span class="nav-label">Фінанси</span></a></li>
             {% endif %}
             {% if user.is_superuser %}
+                <li><a href="{% url 'user_management:user_list' %}"{% if uname == 'user_list' %} class="active"{% endif %}>
+                    <svg class="nav-icon" viewBox="0 0 24 24">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span class="nav-label">Імперсоналізація</span></a></li>
                 <li><a href="{% url 'admin:index' %}"{% if aname == 'admin' %} class="active"{% endif %}>
                     <svg class="nav-icon" viewBox="0 0 24 24">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     </svg>
                     <span class="nav-label">Адмінка</span></a></li>
+            {% endif %}
+            {% if request.is_impersonating %}
+                <li>
+                    <a href="{% url 'user_management:impersonate_stop' %}" style="color:var(--accent)">
+                        <svg class="nav-icon" viewBox="0 0 24 24">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                            <polyline points="16 17 21 12 16 7"/>
+                            <line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        <span class="nav-label">Вийти з режиму</span>
+                    </a>
+                </li>
             {% endif %}
             <li class="spacer"></li>
             <li>
@@ -1187,6 +1262,13 @@
 
 <div class="app-main">
     <main>
+        {% if request.is_impersonating %}
+        <div style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:.6rem 1rem;border-radius:var(--radius-sm);margin-bottom:1.25rem;display:flex;align-items:center;gap:1rem;font-size:.9rem;font-weight:600">
+            <svg viewBox="0 0 24 24" style="width:1.1rem;height:1.1rem;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Режим перегляду від імені: {{ display_name }}
+            <a href="{% url 'user_management:impersonate_stop' %}" style="margin-left:auto;color:var(--accent);text-decoration:underline;font-weight:700">← Повернутись</a>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 </div>
@@ -1436,6 +1518,7 @@
 
         var a = e.target.closest('a[href]');
         if (!a) return;
+        if (e.defaultPrevented) return;
         var href = a.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
         if (a.hasAttribute('download') || a.target === '_blank') return;
@@ -1461,9 +1544,67 @@
 
     // Expose for programmatic navigation (window.location.href assignments)
     window._npStart = start;
+    window._npDone  = done;
 
     window.addEventListener('pageshow', function () { if (active) done(); });
 })();
 </script>
+<script>
+/* ── Global modal helper ── */
+function showModal(id, title, message, onConfirm) {
+    var overlay = document.getElementById(id);
+    overlay.querySelector('h3').textContent = title;
+    overlay.querySelector('p').textContent = message;
+    overlay.classList.add('visible');
+    var confirmBtn = overlay.querySelector('.btn-confirm-danger, .btn-confirm-warn');
+    var cancelBtn = overlay.querySelector('.btn-cancel');
+    function close() { overlay.classList.remove('visible'); cleanup(); if (window._npDone) window._npDone(); }
+    function doConfirm() { close(); if (onConfirm) onConfirm(); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onOverlay(e) { if (e.target === overlay) close(); }
+    function cleanup() {
+        cancelBtn.removeEventListener('click', close);
+        if (confirmBtn) confirmBtn.removeEventListener('click', doConfirm);
+        document.removeEventListener('keydown', onKey);
+        overlay.removeEventListener('click', onOverlay);
+    }
+    cancelBtn.addEventListener('click', close);
+    if (confirmBtn) confirmBtn.addEventListener('click', doConfirm);
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', onOverlay);
+}
+/* Forms with data-confirm attribute */
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    var msg = form.dataset.confirm;
+    if (!msg) return;
+    e.preventDefault();
+    showModal('confirm-modal', 'Підтвердження', msg, function () {
+        form.dataset.confirm = '';
+        form.submit();
+    });
+});
+</script>
+{# Generic confirm modal #}
+<div class="modal-overlay" id="confirm-modal">
+    <div class="modal-box">
+        <h3></h3>
+        <p></p>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel">Скасувати</button>
+            <button type="button" class="btn-confirm-danger">Підтвердити</button>
+        </div>
+    </div>
+</div>
+{# Generic warn modal #}
+<div class="modal-overlay" id="warn-modal">
+    <div class="modal-box">
+        <h3></h3>
+        <p></p>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel">Зрозуміло</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

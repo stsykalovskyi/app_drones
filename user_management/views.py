@@ -1,12 +1,15 @@
 from django.contrib import messages
-from django.contrib.auth import authenticate, update_session_auth_hash
+from django.contrib.auth import authenticate, get_user_model, login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LoginView
-from django.shortcuts import redirect, render
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import AvatarForm, ProfileForm
 from .models import Profile
+
+User = get_user_model()
 
 
 class CustomLoginView(LoginView):
@@ -101,3 +104,39 @@ def approval_pending_view(request):
     Renders a page informing the user that their account is pending approval.
     """
     return render(request, "user_management/approval_pending.html")
+
+
+@login_required
+def user_list_view(request):
+    if not request.real_user.is_superuser:
+        raise PermissionDenied
+    users = (
+        User.objects.select_related('profile')
+        .filter(is_active=True)
+        .exclude(is_superuser=True)
+        .order_by('profile__callsign', 'username')
+    )
+    return render(request, "user_management/user_list.html", {'users': users})
+
+
+@login_required
+def impersonate_start(request, user_id):
+    if not request.real_user.is_superuser:
+        raise PermissionDenied
+    target = get_object_or_404(User, pk=user_id)
+    if target.is_superuser:
+        raise PermissionDenied
+    original_pk = request.real_user.pk
+    login(request, target, backend='django.contrib.auth.backends.ModelBackend')
+    request.session['_impersonate'] = original_pk
+    return redirect('home')
+
+
+@login_required
+def impersonate_stop(request):
+    original_id = request.session.pop('_impersonate', None)
+    if not original_id:
+        return redirect('home')
+    original = get_object_or_404(User, pk=original_id)
+    login(request, original, backend='django.contrib.auth.backends.ModelBackend')
+    return redirect('home')

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
+
+{% if orders %}
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Пілот</th>
+                <th>Тип БПЛА</th>
+                <th>К-сть</th>
+                <th>Статус</th>
+                <th>Оброблено</th>
+                <th>Примітки пілота</th>
+                <th>Примітки майстра</th>
+                <th>Дата</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td>{{ o.pk }}</td>
+                <td>{{ o.pilot.profile.display_name|default:o.pilot.username }}</td>
+                <td>{{ o.drone_type_name }}</td>
+                <td>{{ o.quantity }}</td>
+                <td><span class="badge badge-{{ o.status_color }}">{{ o.get_status_display }}</span></td>
+                <td>{{ o.handled_by.profile.display_name|default:o.handled_by.username|default:"—" }}</td>
+                <td>{{ o.notes|default:"—"|truncatechars:80 }}</td>
+                <td>{{ o.master_notes|default:"—"|truncatechars:80 }}</td>
+                <td>{{ o.updated_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;color:var(--text-secondary);padding:3rem">
+    Завершених замовлень немає.
+</div>
+{% endif %}
+{% endblock %}

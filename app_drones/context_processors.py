@@ -8,3 +8,18 @@ def user_groups(request):
             "display_name": display_name,
         }
     return {"user_groups": set(), "display_name": ""}
+
+
+def pending_orders_count(request):
+    """Count of active drone orders — shown in navbar badge for masters."""
+    if (
+        hasattr(request, "user")
+        and request.user.is_authenticated
+        and request.user.has_perm("pilots.change_droneorder")
+    ):
+        from pilots.models import DroneOrder
+        count = DroneOrder.objects.filter(
+            status__in=["pending", "in_progress", "ready"]
+        ).count()
+        return {"active_orders_count": count}
+    return {"active_orders_count": 0}

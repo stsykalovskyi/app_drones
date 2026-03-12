@@ -38,37 +38,6 @@
     }
     .order-counter.has-items { color: var(--accent); }
 
-    .order-notes {
-        margin-bottom: 2rem;
-    }
-    .order-notes label {
-        display: block;
-        font-size: 0.78rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-muted);
-        margin-bottom: 0.4rem;
-    }
-    .order-notes textarea {
-        width: 100%;
-        padding: 0.65rem 0.85rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        background: var(--input-bg);
-        color: var(--text);
-        font-size: 0.9rem;
-        font-family: inherit;
-        resize: vertical;
-        min-height: 64px;
-        outline: none;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .order-notes textarea:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-
     .section-header {
         display: flex;
         align-items: center;
@@ -88,15 +57,6 @@
         flex: 1;
         height: 1px;
         background: var(--border);
-    }
-
-    .purpose-header {
-        font-size: 0.76rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-muted);
-        margin: 1.1rem 0 0.5rem;
     }
 
     /* ── card grid ── */
@@ -187,34 +147,91 @@
         color: var(--accent);
         letter-spacing: 0.04em;
     }
-    .avail-count { font-weight: 700; }
-    .avail-count.good { color: #22c55e; }
-    .avail-count.warn { color: #f59e0b; }
 
     .drone-card__footer {
         padding: 0.55rem 0.75rem;
         border-top: 1px solid var(--border);
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 0.5rem;
+        min-height: 2.75rem;
     }
-    .qty-input {
-        width: 58px;
-        padding: 0.38rem 0.5rem;
+    .avail-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+    .avail-count { font-weight: 700; }
+    .avail-count.good { color: #22c55e; }
+    .avail-count.warn { color: #f59e0b; }
+
+    /* ── state: idle ── */
+    .qty-idle {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .qty-input-small {
+        width: 3rem;
+        padding: 0.28rem 0.4rem;
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         background: var(--input-bg);
         color: var(--text);
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-family: inherit;
         text-align: center;
         outline: none;
         transition: border-color 0.2s;
     }
-    .qty-input:focus { border-color: var(--accent); }
-    .qty-label {
-        font-size: 0.8rem;
-        color: var(--text-muted);
+    .qty-input-small:focus { border-color: var(--accent); }
+    .qty-btn-add {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent);
+        color: var(--btn-text);
+        transition: opacity 0.15s, transform 0.1s;
+    }
+    .qty-btn-add:active { transform: scale(0.9); }
+
+    /* ── state: added ── */
+    .qty-added {
+        display: none;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .qty-stepper-btn {
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.15s, transform 0.1s;
+    }
+    .qty-stepper-btn:active { transform: scale(0.9); }
+    .qty-stepper-btn.dec { background: var(--accent-dim); color: var(--accent); }
+    .qty-stepper-btn.inc { background: var(--accent-dim); color: var(--accent); }
+    .qty-added-val {
+        min-width: 1.6rem;
+        text-align: center;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--accent);
     }
 
     @media (max-width: 600px) {
@@ -228,19 +245,14 @@
 {% endblock %}
 
 {% block content %}
-<form method="post" id="order-form" novalidate>
+<form method="post" action="{% url 'pilots:order_review' %}" id="order-form" novalidate>
 {% csrf_token %}
 
 <div class="order-topbar">
     <h1>{{ title }}</h1>
-    <span class="order-counter" id="order-counter">0 поз.</span>
-    <button type="submit" class="button">Замовити</button>
+    <span class="order-counter" id="order-counter">0 шт.</span>
+    <button type="submit" class="button" id="btn-submit" disabled>Оформити</button>
     <a href="{% url 'pilots:drone_order_list' %}" class="button ghost">Скасувати</a>
-</div>
-
-<div class="order-notes">
-    <label for="id_notes">Примітки до замовлення</label>
-    <textarea name="notes" id="id_notes" placeholder="Необов'язково…"></textarea>
 </div>
 
 {% if not sections %}
@@ -306,16 +318,20 @@
             {% if card.type.video_template %}<span class="badge-category">Оптика</span>{% endif %}
             {% if card.type.has_thermal %}<span class="badge-thermal">THERMAL</span>{% endif %}
         </div>
-
-
     </div>
 
-    <div class="drone-card__footer">
-        <input class="qty-input" type="number"
-               name="qty_{{ card.key }}" id="qty-{{ card.key }}"
-               min="0" max="{{ card.count }}" value="0"
-               data-card="card-{{ card.key }}">
-        <span class="qty-label">шт.</span>
+    <div class="drone-card__footer" data-key="{{ card.key }}" data-max="{{ card.count }}">
+        <span class="avail-label">В наявності: <span class="avail-count {% if card.count >= 3 %}good{% else %}warn{% endif %}">{{ card.count }}</span></span>
+        <div class="qty-idle">
+            <input type="number" class="qty-input-small" value="1" min="1" max="{{ card.count }}">
+            <button type="button" class="qty-btn-add" title="Додати до замовлення">+</button>
+        </div>
+        <div class="qty-added">
+            <button type="button" class="qty-stepper-btn dec">−</button>
+            <span class="qty-added-val">0</span>
+            <button type="button" class="qty-stepper-btn inc">+</button>
+        </div>
+        <input type="hidden" name="qty_{{ card.key }}" value="0" class="qty-hidden">
     </div>
 
 </div>
@@ -327,21 +343,85 @@
 
 <script>
 (function () {
-    const inputs = document.querySelectorAll('.qty-input');
-    const counter = document.getElementById('order-counter');
-    function update() {
-        let total = 0;
-        inputs.forEach(inp => {
-            const qty = parseInt(inp.value, 10) || 0;
-            const card = document.getElementById(inp.dataset.card);
-            if (qty > 0) { total++; card && card.classList.add('selected'); }
-            else { card && card.classList.remove('selected'); }
+    var STORAGE_KEY = 'drone_cart';
+    function loadCart() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) { return {}; } }
+    function saveCart(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
+
+    var cart = loadCart();
+    var counter = document.getElementById('order-counter');
+    var submitBtn = document.getElementById('btn-submit');
+
+    function updateCounter() {
+        var total = 0;
+        document.querySelectorAll('.qty-hidden').forEach(function (inp) {
+            total += parseInt(inp.value, 10) || 0;
         });
-        counter.textContent = total + '\u00a0поз.';
+        counter.textContent = total + '\u00a0шт.';
         counter.classList.toggle('has-items', total > 0);
+        submitBtn.disabled = total === 0;
     }
-    inputs.forEach(inp => inp.addEventListener('input', update));
-    update();
+
+    function applyQty(footer, qty) {
+        var key = footer.dataset.key;
+        var max = parseInt(footer.dataset.max, 10);
+        qty = Math.max(0, Math.min(qty, max));
+
+        footer.querySelector('.qty-hidden').value = qty;
+        var card = footer.closest('.drone-card');
+        var idle  = footer.querySelector('.qty-idle');
+        var added = footer.querySelector('.qty-added');
+        var val   = footer.querySelector('.qty-added-val');
+        var inc   = footer.querySelector('.inc');
+
+        if (qty > 0) {
+            idle.style.display  = 'none';
+            added.style.display = 'flex';
+            val.textContent = qty;
+            inc.style.opacity = qty >= max ? '0.35' : '1';
+            card.classList.add('selected');
+            cart[key] = qty;
+        } else {
+            idle.style.display  = 'flex';
+            added.style.display = 'none';
+            footer.querySelector('.qty-input-small').value = 1;
+            card.classList.remove('selected');
+            delete cart[key];
+        }
+        saveCart(cart);
+        updateCounter();
+    }
+
+    // Restore from localStorage
+    document.querySelectorAll('.drone-card__footer').forEach(function (footer) {
+        var saved = cart[footer.dataset.key];
+        if (saved) applyQty(footer, saved);
+    });
+
+    document.getElementById('order-form').addEventListener('click', function (e) {
+        // "+" add button
+        var addBtn = e.target.closest('.qty-btn-add');
+        if (addBtn) {
+            var footer = addBtn.closest('.drone-card__footer');
+            var input  = footer.querySelector('.qty-input-small');
+            applyQty(footer, parseInt(input.value, 10) || 1);
+            return;
+        }
+        // stepper dec
+        var dec = e.target.closest('.dec');
+        if (dec) {
+            var footer = dec.closest('.drone-card__footer');
+            applyQty(footer, parseInt(footer.querySelector('.qty-hidden').value, 10) - 1);
+            return;
+        }
+        // stepper inc
+        var inc = e.target.closest('.inc');
+        if (inc) {
+            var footer = inc.closest('.drone-card__footer');
+            applyQty(footer, parseInt(footer.querySelector('.qty-hidden').value, 10) + 1);
+        }
+    });
+
+    updateCounter();
 })();
 </script>
 {% endblock %}
