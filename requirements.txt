@@ -17,3 +17,4 @@ playwright
 qrcode
 google-generativeai
 google-genai
+google-auth-oauthlib
