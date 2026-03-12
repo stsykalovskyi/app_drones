@@ -1437,6 +1437,11 @@
         var href = a.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
         if (a.hasAttribute('download') || a.target === '_blank') return;
+        // Skip parent nav items that toggle submenus instead of navigating
+        if (a.querySelector('.submenu-chevron')) {
+            var pinned = document.documentElement.classList.contains('sidebar-pinned');
+            if (pinned || window.innerWidth <= 768) return;
+        }
         try {
             var url = new URL(href, location.href);
             if (url.origin !== location.origin) return;
