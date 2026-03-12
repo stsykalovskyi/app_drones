@@ -1,42 +1,157 @@
 {% extends "base.html" %}
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title }} — Майстерня{% endblock %}
+
+{% block head %}
+<style>
+    .orders-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .orders-topbar h1 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+    }
+
+    /* ── batch card ── */
+    .batch-card {
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: 1rem;
+        transition: border-color 0.2s;
+    }
+    .batch-card__header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+    }
+    .batch-card__date {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 0;
+    }
+    .batch-card__date strong {
+        color: var(--text);
+        font-weight: 700;
+    }
+
+    /* ── items list ── */
+    .batch-items {
+        display: flex;
+        flex-direction: column;
+    }
+    .batch-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+    }
+    .batch-item:last-child {
+        border-bottom: none;
+    }
+    .batch-item__name {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text);
+    }
+    .batch-item__qty {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+    .batch-item__qty span {
+        color: var(--text);
+    }
+
+    /* ── notes footer ── */
+    .batch-card__notes {
+        padding: 0.55rem 1rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        background: var(--bg-sub);
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+    .batch-card__notes-label {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.72rem;
+        white-space: nowrap;
+        padding-top: 0.05rem;
+    }
+    .batch-card__notes-text { color: var(--text); }
+
+    .empty-state {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 4rem 1rem;
+        font-size: 0.95rem;
+    }
+    .empty-state__icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
-    <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ title }}</h1>
-    <a href="{% url 'pilots:drone_order_create' %}" class="button">+ Замовити дрон</a>
+<div class="orders-topbar">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'pilots:drone_order_create' %}" class="button">+ Замовити</a>
 </div>
 
-{% if orders %}
-<div class="table-wrap">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Тип БПЛА</th>
-                <th>К-сть</th>
-                <th>Статус</th>
-                <th>Примітки</th>
-                <th>Майстер</th>
-                <th>Замовлено</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for o in orders %}
-            <tr>
-                <td>{{ o.pk }}</td>
-                <td>{{ o.drone_type_name }}</td>
-                <td>{{ o.quantity }}</td>
-                <td><span class="badge badge-{{ o.status_color }}">{{ o.get_status_display }}</span></td>
-                <td>{{ o.notes|default:"—"|truncatechars:60 }}</td>
-                <td>{% if o.handled_by %}{{ o.handled_by.profile.display_name|default:o.handled_by.username }}{% else %}—{% endif %}</td>
-                <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if batch_list %}
+{% for batch in batch_list %}
+<div class="batch-card">
+
+    <div class="batch-card__header">
+        <div class="batch-card__date">
+            <strong>{{ batch.created_at|date:"d.m.Y" }}</strong>
+            &nbsp;{{ batch.created_at|date:"H:i" }}
+        </div>
+        <span class="badge badge-{{ batch.agg_status_color }}">{{ batch.agg_status_display }}</span>
+    </div>
+
+    <div class="batch-items">
+        {% for o in batch.orders %}
+        <div class="batch-item">
+            <div class="batch-item__name">{{ o.drone_type_name }}</div>
+            <div class="batch-item__qty"><span>{{ o.quantity }}</span> шт.</div>
+            {% if batch.orders|length > 1 %}
+            <span class="badge badge-{{ o.status_color }}">{{ o.get_status_display }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if batch.notes %}
+    <div class="batch-card__notes">
+        <span class="batch-card__notes-label">Примітки</span>
+        <span class="batch-card__notes-text">{{ batch.notes }}</span>
+    </div>
+    {% endif %}
+
 </div>
+{% endfor %}
+
 {% else %}
-<div class="card" style="text-align:center;color:var(--text-secondary);padding:3rem">
+<div class="empty-state">
+    <div class="empty-state__icon">📋</div>
     Замовлень поки немає.
 </div>
 {% endif %}
