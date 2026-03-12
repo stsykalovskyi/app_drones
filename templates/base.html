@@ -903,6 +903,12 @@
             html.sidebar-pinned .app-main {
                 margin-left: 0;
             }
+
+            /* submenus visible on mobile like pinned sidebar */
+            .submenu { display: block; }
+            .sidebar-nav > li.submenu-closed > .submenu { display: none; }
+            .submenu-chevron { opacity: 0.5; }
+            .sidebar-nav > li:hover .submenu-chevron { opacity: 0.9; }
         }
     </style>
     {% block head %}{% endblock %}
@@ -1260,7 +1266,7 @@
             var chevron = parentA && parentA.querySelector('.submenu-chevron');
             if (!parentA || !chevron) return;
             parentA.addEventListener('click', function(e) {
-                if (!html.classList.contains('sidebar-pinned')) return;
+                if (!html.classList.contains('sidebar-pinned') && window.innerWidth > 768) return;
                 e.preventDefault();
                 var closed = li.classList.toggle('submenu-closed');
                 localStorage.setItem(key, closed ? '0' : '1');
