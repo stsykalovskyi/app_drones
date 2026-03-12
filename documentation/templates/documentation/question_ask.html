@@ -49,7 +49,8 @@
         {% csrf_token %}
         <label style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:.5rem">Ваше питання</label>
         <textarea name="question_text" rows="4" class="ask-textarea"
-          placeholder="Введіть питання до бази знань…">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
+          placeholder="Введіть питання до бази знань…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
         <button type="submit" class="ask-btn">Запитати Gemini</button>
       </form>
     </div>
