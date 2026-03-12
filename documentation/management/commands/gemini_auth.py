@@ -39,8 +39,12 @@ class Command(BaseCommand):
         }
 
         flow = InstalledAppFlow.from_client_config(client_config, _SCOPES)
-        self.stdout.write('Open this URL in your browser to authorize:\n')
-        creds = flow.run_console()
+        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        self.stdout.write(f'\nOpen this URL in your browser:\n\n  {auth_url}\n')
+        code = input('\nPaste the authorization code here: ').strip()
+        flow.fetch_token(code=code)
+        creds = flow.credentials
 
         token_file = _token_path()
         token_file.write_text(creds.to_json())
