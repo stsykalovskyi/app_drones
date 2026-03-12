@@ -422,5 +422,7 @@ UNFOLD = {
 
 # Gemini API
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_CLI_CLIENT_ID = os.environ.get("GEMINI_CLI_CLIENT_ID", "")
+GEMINI_CLI_CLIENT_SECRET = os.environ.get("GEMINI_CLI_CLIENT_SECRET", "")
 DOCS_FOLDER = BASE_DIR / "docs"
 

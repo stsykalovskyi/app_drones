@@ -11,9 +11,9 @@ from pathlib import Path
 
 from django.conf import settings
 
-# OAuth client shared with the official Gemini CLI
-_CLI_CLIENT_ID = 'GEMINI_CLI_CLIENT_ID_PLACEHOLDER'
-_CLI_CLIENT_SECRET = 'GEMINI_CLI_CLIENT_SECRET_PLACEHOLDER'
+# OAuth client shared with the official Gemini CLI (set via env vars)
+_CLI_CLIENT_ID = getattr(settings, 'GEMINI_CLI_CLIENT_ID', '')
+_CLI_CLIENT_SECRET = getattr(settings, 'GEMINI_CLI_CLIENT_SECRET', '')
 _SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
 
 # Gemini CLI stores its token and project here
