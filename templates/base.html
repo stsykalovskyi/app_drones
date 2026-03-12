@@ -1360,7 +1360,8 @@
             var chevron = parentA && parentA.querySelector('.submenu-chevron');
             if (!parentA || !chevron) return;
             parentA.addEventListener('click', function(e) {
-                if (!html.classList.contains('sidebar-pinned') && window.innerWidth > 768) return;
+                var isMobile = window.matchMedia('(max-width: 768px)').matches;
+                if (!isMobile && !html.classList.contains('sidebar-pinned')) return;
                 e.preventDefault();
                 var closed = li.classList.toggle('submenu-closed');
                 localStorage.setItem(key, closed ? '0' : '1');
