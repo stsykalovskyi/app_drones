@@ -211,19 +211,34 @@ def _load_docs_context() -> str:
     return '\n\n'.join(parts)
 
 
+def _find_gemini_bin() -> Optional[str]:
+    """Locate the gemini CLI binary."""
+    import shutil
+    found = shutil.which('gemini')
+    if found:
+        return found
+    # Common NVM / npm global locations
+    for candidate in [
+        Path.home() / '.nvm' / 'versions' / 'node' / 'v24.11.1' / 'bin' / 'gemini',
+        Path('/usr/local/bin/gemini'),
+        Path('/usr/bin/gemini'),
+    ]:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
 def ask_gemini(question: str, is_superuser: bool = False) -> str:
-    """Send question to Gemini via Cloud Code endpoint (same as Gemini CLI).
+    """Send question to Gemini by invoking the gemini CLI as a subprocess.
 
     Regular users: answers restricted strictly to the docs/ knowledge base.
     Superusers: unrestricted — Gemini may use general knowledge as well.
     """
-    import httpx
+    import subprocess
 
-    token = _get_valid_token()
-    if not token:
-        return "Gemini не авторизовано. Запустіть: python manage.py gemini_auth"
-
-    project_id = _get_project_id(token)
+    gemini_bin = _find_gemini_bin()
+    if not gemini_bin:
+        return "Gemini CLI не знайдено. Встановіть: npm install -g @google/gemini-cli"
 
     docs_context = _load_docs_context()
 
@@ -236,62 +251,37 @@ def ask_gemini(question: str, is_superuser: bool = False) -> str:
             context_parts.append(f"ФАЙЛИ ПРОЕКТУ:\n{project_context}")
         combined = '\n\n'.join(context_parts)
         if combined:
-            system_text = (
+            stdin_text = (
                 "Ти — асистент майстерні БПЛА з повним доступом до проекту.\n"
                 "Відповідай на будь-які питання, використовуючи наведені файли проекту "
-                "та загальні знання.\n\n"
-                f"{combined}"
+                f"та загальні знання.\n\n{combined}"
             )
         else:
-            system_text = (
-                "Ти — асистент майстерні БПЛА з повним доступом.\n"
-                "Відповідай на основі загальних знань."
-            )
+            stdin_text = "Ти — асистент майстерні БПЛА з повним доступом. Відповідай на основі загальних знань."
     else:
         if not docs_context:
             return "База знань порожня. Зверніться до адміністратора."
-        system_text = (
+        stdin_text = (
             "Ти — асистент майстерні БПЛА. Відповідай ВИКЛЮЧНО на основі наданої документації. "
             "Якщо відповідь не міститься в документації — повідом, що ця інформація відсутня в базі знань. "
             "Не використовуй жодних загальних знань поза межами документації.\n\n"
             f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
         )
 
-    request_body = {
-        "contents": [{"role": "user", "parts": [{"text": question}]}],
-        "systemInstruction": {"parts": [{"text": system_text}]},
-        "generationConfig": {"temperature": 0.7, "topP": 0.95},
-    }
-
-    last_error = "Невідома помилка"
-    for model in _MODELS:
-        body = {"model": model, "project": project_id, "request": request_body}
-        try:
-            resp = httpx.post(
-                _CODE_ASSIST_URL,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                },
-                json=body,
-                timeout=30,
-            )
-            if resp.status_code == 429:
-                last_error = f"Помилка API (429): модель {model} недоступна"
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-            inner = data.get('response', data)
-            candidates = inner.get('candidates', [])
-            if candidates:
-                parts = candidates[0].get('content', {}).get('parts', [])
-                return ''.join(p.get('text', '') for p in parts).strip()
-            return "Відповідь порожня."
-        except httpx.HTTPStatusError as e:
-            last_error = f"Помилка API ({e.response.status_code}): {e.response.text[:200]}"
-            if e.response.status_code != 429:
-                return last_error
-        except Exception as exc:
-            return f"Помилка: {exc}"
-
-    return last_error
+    try:
+        result = subprocess.run(
+            [gemini_bin, '--prompt', question, '--output-format', 'text'],
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        output = result.stdout.strip()
+        if result.returncode != 0 and not output:
+            err = result.stderr.strip()[:300]
+            return f"Помилка Gemini CLI: {err}"
+        return output or "Відповідь порожня."
+    except subprocess.TimeoutExpired:
+        return "Gemini не відповів вчасно. Спробуйте ще раз."
+    except Exception as exc:
+        return f"Помилка: {exc}"
