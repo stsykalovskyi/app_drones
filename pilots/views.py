@@ -20,59 +20,68 @@ def master_required(view_func):
 
 # ── Strike reports ────────────────────────────────────────────────────────────
 
-def _enqueue_strike_report(report):
-    """Enqueue WhatsApp message(s) for a strike report, if configured."""
-    from django.conf import settings
-    from whatsapp_monitor.models import OutgoingMessage
+def _enqueue_strike_report_bg(report_id):
+    """
+    Run in a background thread: fetch the saved report and enqueue WhatsApp messages.
+    Uses a fresh DB connection so it never blocks the request thread.
+    """
+    import os
+    import logging
     from datetime import datetime, timezone, timedelta
+    from django.conf import settings
+    from django.db import connection
 
-    group = getattr(settings, 'WHATSAPP_STRIKE_GROUP', '')
-    if not group:
-        return
-
-    pilot_name = ''
+    logger = logging.getLogger(__name__)
     try:
-        pilot_name = report.pilot.profile.full_name or report.pilot.get_full_name() or report.pilot.username
-    except Exception:
-        pilot_name = report.pilot.get_full_name() or report.pilot.username
+        # Close the inherited connection so Django opens a fresh one in this thread
+        connection.close()
 
-    lines = [
-        f'Екіпаж: {report.crew}',
-        f'Дата: {report.strike_date}',
-        f'Засіб: {report.weapon_type} — {report.weapon_name}',
-        f'БК: {report.ammo_type}',
-        f'Ініціація: {report.initiation_type}',
-        f'Ціль: {report.target_type}',
-        f'Результат: {report.result_type}',
-    ]
-    if report.notes:
-        lines.append(f'Примітки: {report.notes}')
-    text = '\n'.join(lines)
+        from pilots.models import StrikeReport
+        from whatsapp_monitor.models import OutgoingMessage
 
-    now = datetime.now(tz=timezone.utc)
-    video_delay = getattr(settings, 'WHATSAPP_VIDEO_UPLOAD_DELAY', 30)
+        group = getattr(settings, 'WHATSAPP_STRIKE_GROUP', '')
+        if not group:
+            return
 
-    if report.video:
-        # Send video first (no text), then text after delay
-        import os
-        video_abs = os.path.join(settings.MEDIA_ROOT, report.video.name)
-        OutgoingMessage.objects.create(
-            group_name=group,
-            media_path=video_abs,
-            message_text='',
-            send_after=None,
-        )
-        OutgoingMessage.objects.create(
-            group_name=group,
-            message_text=text,
-            send_after=now + timedelta(seconds=video_delay),
-        )
-    else:
-        OutgoingMessage.objects.create(
-            group_name=group,
-            message_text=text,
-            send_after=None,
-        )
+        report = StrikeReport.objects.select_related('pilot', 'pilot__profile').get(pk=report_id)
+
+        lines = [
+            f'Екіпаж: {report.crew}',
+            f'Дата: {report.strike_date}',
+            f'Засіб: {report.weapon_type} — {report.weapon_name}',
+            f'БК: {report.ammo_type}',
+            f'Ініціація: {report.initiation_type}',
+            f'Ціль: {report.target_type}',
+            f'Результат: {report.result_type}',
+        ]
+        if report.notes:
+            lines.append(f'Примітки: {report.notes}')
+        text = '\n'.join(lines)
+
+        now = datetime.now(tz=timezone.utc)
+        video_delay = getattr(settings, 'WHATSAPP_VIDEO_UPLOAD_DELAY', 30)
+
+        if report.video:
+            video_abs = os.path.join(str(settings.MEDIA_ROOT), report.video.name)
+            OutgoingMessage.objects.create(
+                group_name=group,
+                media_path=video_abs,
+                message_text='',
+                send_after=None,
+            )
+            OutgoingMessage.objects.create(
+                group_name=group,
+                message_text=text,
+                send_after=now + timedelta(seconds=video_delay),
+            )
+        else:
+            OutgoingMessage.objects.create(
+                group_name=group,
+                message_text=text,
+                send_after=None,
+            )
+    except Exception as e:
+        logger.error('_enqueue_strike_report_bg failed for report #%s: %s', report_id, e)
 
 
 @login_required
@@ -83,10 +92,12 @@ def strike_report_create(request):
             report = form.save(commit=False)
             report.pilot = request.user
             report.save()
-            try:
-                _enqueue_strike_report(report)
-            except Exception:
-                pass
+            import threading
+            threading.Thread(
+                target=_enqueue_strike_report_bg,
+                args=(report.pk,),
+                daemon=True,
+            ).start()
             messages.success(request, 'Звіт збережено.')
             return redirect('pilots:strike_report_list')
     else:
