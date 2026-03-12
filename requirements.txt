@@ -18,3 +18,5 @@ qrcode
 google-generativeai
 google-genai
 google-auth-oauthlib
+pypdf
+python-docx

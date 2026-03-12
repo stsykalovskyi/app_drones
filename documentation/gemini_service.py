@@ -117,33 +117,50 @@ def _get_valid_token() -> str | None:
 
 
 def _load_docs_context() -> str:
+    """Read all supported files from DOCS_FOLDER recursively and return combined text."""
     docs_path = Path(getattr(settings, 'DOCS_FOLDER', settings.BASE_DIR / 'docs'))
     if not docs_path.exists():
         return ""
 
     parts = []
     for file_path in sorted(docs_path.rglob('*')):
-        if not file_path.is_file():
+        if not file_path.is_file() or file_path.name.startswith('.'):
             continue
         suffix = file_path.suffix.lower()
+        rel_name = file_path.relative_to(docs_path)
+
         if suffix in ('.txt', '.md'):
             try:
                 text = file_path.read_text(encoding='utf-8', errors='ignore').strip()
                 if text:
-                    parts.append(f"=== {file_path.name} ===\n{text}")
+                    parts.append(f"=== {rel_name} ===\n{text}")
             except Exception:
                 pass
+
         elif suffix == '.pdf':
             try:
                 import pypdf
                 reader = pypdf.PdfReader(str(file_path))
                 text = '\n'.join(page.extract_text() or '' for page in reader.pages).strip()
                 if text:
-                    parts.append(f"=== {file_path.name} ===\n{text}")
+                    parts.append(f"=== {rel_name} ===\n{text}")
             except ImportError:
-                parts.append(f"=== {file_path.name} === [PDF — pypdf не встановлено]")
+                pass
             except Exception:
                 pass
+
+        elif suffix == '.docx':
+            try:
+                import docx
+                doc = docx.Document(str(file_path))
+                text = '\n'.join(p.text for p in doc.paragraphs if p.text.strip()).strip()
+                if text:
+                    parts.append(f"=== {rel_name} ===\n{text}")
+            except ImportError:
+                pass
+            except Exception:
+                pass
+
     return '\n\n'.join(parts)
 
 
