@@ -1,11 +1,12 @@
 """
-Authorize Gemini via browser OAuth flow (same credentials as @google/gemini-cli).
+Authorize Gemini via OAuth flow (same credentials as @google/gemini-cli).
 
 Usage:
     python manage.py gemini_auth
 
-Opens a browser window for Google login. Token is saved to .gemini_token.json
-and reused automatically. No client_secrets.json needed.
+Prints an authorization URL. Open it in any browser, approve access,
+paste the code back. Token is saved to .gemini_token.json and reused
+automatically. No client_secrets.json needed. Works on headless servers.
 """
 
 from django.core.management.base import BaseCommand
@@ -37,9 +38,9 @@ class Command(BaseCommand):
             }
         }
 
-        self.stdout.write('Opening browser for Google authentication...')
         flow = InstalledAppFlow.from_client_config(client_config, _SCOPES)
-        creds = flow.run_local_server(port=0)
+        self.stdout.write('Open this URL in your browser to authorize:\n')
+        creds = flow.run_console()
 
         token_file = _token_path()
         token_file.write_text(creds.to_json())
