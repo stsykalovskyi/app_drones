@@ -26,19 +26,17 @@ jobs:
           # write key safely, normalize CRLF
           umask 077
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
 
-          # validate key format (will fail if invalid)
-          ssh-keygen -lf ~/.ssh/id_deploy >/dev/null
-
-          # trust host key
-          ssh-keyscan -H 85.121.4.216 >> ~/.ssh/known_hosts
+          # trust host key (port 2244)
+          ssh-keyscan -H -p 2244 85.121.4.216 >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/id_deploy -o BatchMode=yes root@85.121.4.216 << 'EOF'
+          ssh -i ~/.ssh/id_deploy -p 2244 -o BatchMode=yes root@85.121.4.216 << 'EOF'
             set -euo pipefail
             cd /root/MyProjects/python/app_drones
 
