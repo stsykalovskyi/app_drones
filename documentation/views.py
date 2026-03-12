@@ -182,7 +182,7 @@ def question_ask(request):
                 'recent_questions': recent_questions,
             })
 
-        answer_text = ask_gemini(question_text)
+        answer_text = ask_gemini(question_text, is_superuser=request.user.is_superuser)
         question = Question.objects.create(
             user=request.user,
             question_text=question_text,

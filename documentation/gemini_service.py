@@ -164,8 +164,12 @@ def _load_docs_context() -> str:
     return '\n\n'.join(parts)
 
 
-def ask_gemini(question: str) -> str:
-    """Send question to Gemini via Cloud Code endpoint (same as Gemini CLI)."""
+def ask_gemini(question: str, is_superuser: bool = False) -> str:
+    """Send question to Gemini via Cloud Code endpoint (same as Gemini CLI).
+
+    Regular users: answers restricted strictly to the docs/ knowledge base.
+    Superusers: unrestricted — Gemini may use general knowledge as well.
+    """
     import httpx
 
     token = _get_valid_token()
@@ -175,15 +179,28 @@ def ask_gemini(question: str) -> str:
     project_id = _get_project_id(token)
 
     docs_context = _load_docs_context()
-    if docs_context:
-        system_text = (
-            "Ти — асистент майстерні БПЛА. Відповідай на питання виключно "
-            "на основі наданої документації. Якщо відповідь відсутня — так і скажи.\n\n"
-            f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
-        )
+
+    if is_superuser:
+        if docs_context:
+            system_text = (
+                "Ти — асистент майстерні БПЛА з повним доступом.\n"
+                "Відповідай на будь-які питання, використовуючи наведену документацію "
+                "та загальні знання.\n\n"
+                f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
+            )
+        else:
+            system_text = (
+                "Ти — асистент майстерні БПЛА з повним доступом.\n"
+                "База знань порожня. Відповідай на основі загальних знань."
+            )
     else:
+        if not docs_context:
+            return "База знань порожня. Зверніться до адміністратора."
         system_text = (
-            "Ти — асистент майстерні БПЛА. Відповідай на основі загальних знань про БПЛА."
+            "Ти — асистент майстерні БПЛА. Відповідай ВИКЛЮЧНО на основі наданої документації. "
+            "Якщо відповідь не міститься в документації — повідом, що ця інформація відсутня в базі знань. "
+            "Не використовуй жодних загальних знань поза межами документації.\n\n"
+            f"ДОКУМЕНТАЦІЯ:\n{docs_context}"
         )
 
     body = {
