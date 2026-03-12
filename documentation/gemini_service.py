@@ -23,7 +23,7 @@ _CLI_PROJECTS_PATH = Path.home() / '.gemini' / 'projects.json'
 
 # Code Assist API (same as Gemini CLI uses)
 _CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:generateContent'
-_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']
 
 _cached_project_id: Optional[str] = None
 
