@@ -1064,6 +1064,7 @@
 function uavFilterNav(param, value) {
     var p = new URLSearchParams(window.location.search);
     if (value) { p.set(param, value); } else { p.delete(param); }
+    window._npStart && window._npStart();
     window.location.href = '?' + p.toString();
 }
 // Force select visual state from URL (overrides browser form-restore quirks)

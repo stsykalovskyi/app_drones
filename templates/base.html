@@ -938,6 +938,15 @@
             50%  { opacity: 1; }
             100% { opacity: 0; }
         }
+        .app-main main {
+            transition: filter .2s ease, opacity .2s ease;
+        }
+        body.page-loading .app-main main {
+            filter: blur(3px);
+            opacity: 0.45;
+            pointer-events: none;
+            user-select: none;
+        }
     </style>
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -1369,6 +1378,7 @@
     var bar = document.getElementById('nprogress-bar');
     var trickleT = null, fadeT = null, resetT = null;
     var current = 0;
+    var active = false;
 
     function clearAll() {
         clearTimeout(trickleT);
@@ -1384,7 +1394,9 @@
     function start() {
         clearAll();
         set(0);
+        active = true;
         el.classList.add('active');
+        document.body.classList.add('page-loading');
         var steps = [.15, .1, .08, .06, .04, .03, .02];
         var i = 0;
         function tick() {
@@ -1397,7 +1409,10 @@
     }
 
     function done() {
+        if (!active) return;
         clearAll();
+        active = false;
+        document.body.classList.remove('page-loading');
         set(1);
         fadeT = setTimeout(function () {
             el.classList.remove('active');
@@ -1405,7 +1420,12 @@
         }, 200);
     }
 
+    // <a href> navigation
     document.addEventListener('click', function (e) {
+        // Tab/filter buttons that navigate via window.location
+        var btn = e.target.closest('button[data-tab], button[data-nav]');
+        if (btn) { start(); return; }
+
         var a = e.target.closest('a[href]');
         if (!a) return;
         var href = a.getAttribute('href');
@@ -1415,16 +1435,21 @@
             var url = new URL(href, location.href);
             if (url.origin !== location.origin) return;
             if (url.pathname === location.pathname && url.search === location.search) return;
-        } catch (e) { return; }
+        } catch (_) { return; }
         start();
     });
 
-    document.addEventListener('submit', function (e) {
-        if (e.target.method && e.target.method.toLowerCase() === 'get') return;
-        start();
-    });
+    // Form submits (GET and POST)
+    document.addEventListener('submit', function () { start(); });
 
-    window.addEventListener('pageshow', done);
+    // Programmatic form.submit() calls (don't fire submit event)
+    var _origSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () { start(); _origSubmit.call(this); };
+
+    // Expose for programmatic navigation (window.location.href assignments)
+    window._npStart = start;
+
+    window.addEventListener('pageshow', function () { if (active) done(); });
 })();
 </script>
 </body>
