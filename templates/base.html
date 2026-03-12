@@ -855,7 +855,7 @@
                 backdrop-filter: blur(32px) saturate(1.6);
                 border-bottom: 1px solid var(--border);
                 box-shadow: var(--shadow-sidebar);
-                z-index: 90;
+                z-index: 101;
                 transition: background 0.35s var(--ease), box-shadow 0.35s var(--ease);
             }
 
@@ -903,6 +903,9 @@
             html.sidebar-pinned .app-main {
                 margin-left: 0;
             }
+
+            /* hide sidebar brand on mobile — mobile-header already shows it */
+            .sidebar .sidebar-brand { display: none !important; }
 
             /* submenus visible on mobile like pinned sidebar */
             .submenu { display: block; }
@@ -1339,14 +1342,19 @@
         /* collapsible submenus */
         var SUBMENU_KEY = 'submenu-state:';
         document.querySelectorAll('.sidebar-nav > li').forEach(function(li) {
-            var submenu = li.querySelector(':scope > .submenu');
+            // find direct child submenu without :scope (wider browser support)
+            var submenu = null, parentA = null;
+            for (var i = 0; i < li.children.length; i++) {
+                var ch = li.children[i];
+                if (!submenu && ch.classList.contains('submenu')) submenu = ch;
+                if (!parentA && ch.tagName === 'A') parentA = ch;
+            }
             if (!submenu || !submenu.id) return;
             var key = SUBMENU_KEY + submenu.id;
             /* default: open; close only if explicitly saved */
             if (localStorage.getItem(key) === '0') {
                 li.classList.add('submenu-closed');
             }
-            var parentA = li.querySelector(':scope > a');
             var chevron = parentA && parentA.querySelector('.submenu-chevron');
             if (!parentA || !chevron) return;
             parentA.addEventListener('click', function(e) {
