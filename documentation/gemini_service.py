@@ -8,6 +8,7 @@ This endpoint has no free-tier quota exhaustion — it's the same one the CLI us
 import datetime
 import json
 from pathlib import Path
+from typing import Optional
 
 from django.conf import settings
 
@@ -24,7 +25,7 @@ _CLI_PROJECTS_PATH = Path.home() / '.gemini' / 'projects.json'
 _CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:generateContent'
 _MODEL = 'gemini-2.5-flash'
 
-_cached_project_id: str | None = None
+_cached_project_id: Optional[str] = None
 
 
 def _token_path() -> Path:
@@ -97,7 +98,7 @@ def _load_our_credentials():
         return None
 
 
-def _get_valid_token() -> str | None:
+def _get_valid_token() -> Optional[str]:
     """Return a valid OAuth access token string, refreshing if needed."""
     from google.auth.transport.requests import Request
 
