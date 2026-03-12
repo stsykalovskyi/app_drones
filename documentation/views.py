@@ -12,9 +12,6 @@ from .forms import CategoryForm, CommentForm, PageForm
 from .gemini_service import ask_gemini
 from .models import Category, Page, Question
 
-GROUP_NAME = "майстер"
-COMMANDER_GROUP = "командир майстерні"
-
 ALLOWED_TAGS = [
     "h1", "h2", "h3", "h4", "h5", "h6",
     "p", "br", "hr",
@@ -42,13 +39,10 @@ def render_markdown(text):
 
 
 def _is_editor(user):
-    return user.is_superuser or user.groups.filter(
-        name__in=[GROUP_NAME, COMMANDER_GROUP]
-    ).exists()
+    return user.has_perm('documentation.change_page')
 
 
 def editor_required(view_func):
-    """Allow access only to superusers, 'майстер' or 'командир майстерні'."""
     @wraps(view_func)
     @login_required
     def _wrapped(request, *args, **kwargs):

@@ -96,9 +96,6 @@ def _type_labels_for_qs(qs):
     return labels
 
 
-GROUP_NAME = "майстер"
-COMMANDER_GROUP = "командир майстерні"
-
 # UAV permission codenames
 PERM_ADD_UAV    = 'equipment_accounting.add_uavinstance'
 PERM_CHANGE_UAV = 'equipment_accounting.change_uavinstance'
@@ -141,25 +138,12 @@ PERM_CHANGE_POSITION = 'equipment_accounting.change_position'
 PERM_DELETE_POSITION = 'equipment_accounting.delete_position'
 
 
-def _is_master(user):
-    """True for superusers and legacy master/commander group members."""
-    return user.is_superuser or user.groups.filter(
-        name__in=[GROUP_NAME, COMMANDER_GROUP]
-    ).exists()
-
-
-def _can(user, perm):
-    """Check a specific permission, granting full access to master/commander users."""
-    return _is_master(user) or user.has_perm(perm)
-
-
 def master_required(view_func):
-    """Allow access to superusers, master/commander groups, or any UAV-permission holder."""
+    """Allow access to users with any UAV permission."""
     @wraps(view_func)
     @login_required
     def _wrapped(request, *args, **kwargs):
-        if (_is_master(request.user)
-                or request.user.has_perm('equipment_accounting.view_uavinstance')
+        if (request.user.has_perm('equipment_accounting.view_uavinstance')
                 or request.user.has_perm(PERM_ADD_UAV)
                 or request.user.has_perm(PERM_CHANGE_UAV)
                 or request.user.has_perm(PERM_DELETE_UAV)):
@@ -169,12 +153,12 @@ def master_required(view_func):
 
 
 def uav_perm_required(perm):
-    """Decorator: require a specific UAV permission (or master group membership)."""
+    """Decorator: require a specific UAV permission."""
     def decorator(view_func):
         @wraps(view_func)
         @login_required
         def _wrapped(request, *args, **kwargs):
-            if _can(request.user, perm):
+            if request.user.has_perm(perm):
                 return view_func(request, *args, **kwargs)
             raise PermissionDenied
         return _wrapped
@@ -206,293 +190,312 @@ def equipment_list(request):
     _fpv_ct_id = _fpv_ct.id
     _opt_ct_id = _opt_ct.id
 
-    # Annotate with EXISTS subqueries for kit status — replaces prefetch_related on main queryset
-    uavs = UAVInstance.objects.annotate(
-        _has_battery=Exists(Component.objects.filter(assigned_to_uav=OuterRef('pk'), kind='battery')),
-        _has_spool=Exists(Component.objects.filter(assigned_to_uav=OuterRef('pk'), kind='spool')),
-    ).exclude(status='deleted')
-
-    if location_filter:
-        uavs = uavs.filter(
-            Q(current_location_id=location_filter) |
-            Q(status='transit', pending_to_location_id=location_filter)
-        )
-
-    if status_filter:
-        uavs = uavs.filter(status=status_filter)
-
-    if category_filter == "fpv":
-        uavs = uavs.filter(content_type=_fpv_ct)
-    elif category_filter == "optical":
-        uavs = uavs.filter(content_type=_opt_ct)
-
-    if type_filter:
-        _type_q = Q()
-        for _pair in type_filter.split(','):
-            try:
-                _ct_s, _oid_s = _pair.strip().split('-')
-                _type_q |= Q(content_type_id=int(_ct_s), object_id=int(_oid_s))
-            except (ValueError, TypeError):
-                pass
-        if _type_q:
-            uavs = uavs.filter(_type_q)
-
-    if date_from:
-        try:
-            uavs = uavs.filter(created_at__date__gte=date.fromisoformat(date_from))
-        except ValueError:
-            pass
-
-    if date_to:
-        try:
-            uavs = uavs.filter(created_at__date__lte=date.fromisoformat(date_to))
-        except ValueError:
-            pass
-
-    if search_q:
-        fpv_ids = FPVDroneType.objects.filter(
-            Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
-        ).values_list('pk', flat=True)
-        opt_ids = OpticalDroneType.objects.filter(
-            Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
-        ).values_list('pk', flat=True)
-        uavs = uavs.filter(
-            Q(notes__icontains=search_q) |
-            Q(content_type=_fpv_ct, object_id__in=fpv_ids) |
-            Q(content_type=_opt_ct, object_id__in=opt_ids)
-        )
-
-    # Kit filter at DB level via EXISTS annotations
-    if kit_filter == UAVInstance.KIT_NONE:
-        uavs = uavs.filter(_has_battery=False, _has_spool=False)
-    elif kit_filter == UAVInstance.KIT_FULL:
-        uavs = uavs.filter(
-            Q(content_type=_opt_ct, _has_battery=True, _has_spool=True) |
-            Q(_has_battery=True) & ~Q(content_type=_opt_ct)
-        )
-    elif kit_filter == UAVInstance.KIT_PARTIAL:
-        uavs = uavs.exclude(
-            Q(_has_battery=False, _has_spool=False) |
-            Q(content_type=_opt_ct, _has_battery=True, _has_spool=True) |
-            Q(_has_battery=True) & ~Q(content_type=_opt_ct)
-        )
-
-    # Role filter
-    if role_filter.isdigit():
-        uavs = uavs.filter(role_id=int(role_filter))
-
-    # Mode filter (день/ніч based on has_thermal)
-    if mode_filter in ("day", "night"):
-        is_thermal = (mode_filter == "night")
-        _thermal_fpv = list(FPVDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
-        _thermal_opt = list(OpticalDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
-        uavs = uavs.filter(
-            Q(content_type=_fpv_ct, object_id__in=_thermal_fpv) |
-            Q(content_type=_opt_ct, object_id__in=_thermal_opt)
-        )
-
-    # Pre-fetch all drone types into dicts — avoids N+1 GenericFK access
-    _fpv_types = {dt.pk: dt for dt in FPVDroneType.objects.select_related(
-        "model", "video_frequency",
-    ).prefetch_related("control_frequencies").only(
-        "id", "prop_size", "has_thermal",
-        "video_frequency_id", "video_frequency__value", "video_frequency__unit",
-        "model__name",
-    )}
-    _opt_types = {dt.pk: dt for dt in OpticalDroneType.objects.select_related(
-        "model", "video_template",
-    ).only(
-        "id", "prop_size", "has_thermal",
-        "video_template_id", "video_template__max_distance",
-        "model__name",
-    )}
-
-    def _kit_from_ann(uav):
-        """Compute kit status from EXISTS annotations — no extra DB queries."""
-        if not uav._has_battery and not uav._has_spool:
-            return UAVInstance.KIT_NONE
-        if uav.content_type_id == _opt_ct_id:
-            if uav._has_battery and uav._has_spool:
-                return UAVInstance.KIT_FULL
-            return UAVInstance.KIT_PARTIAL
-        return UAVInstance.KIT_FULL if uav._has_battery else UAVInstance.KIT_PARTIAL
-
-    # Light query: only fields needed for group-building (no heavy select_related, no component rows)
-    uavs_light = uavs.select_related("role").only(
-        'id', 'content_type_id', 'object_id', 'status', 'role_id', 'created_at'
-    ).order_by('-created_at')
-
-    # Build badge groups, tracking UAV PKs per group (no full UAV objects yet)
-    _badge_seen = {}
-    badge_groups = []
-    _group_uav_ids = {}
-    _status_display = dict(UAVInstance.STATUS_CHOICES)
-
-    for _uav in uavs_light:
-        _kit = _kit_from_ann(_uav)
-        _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date(), _kit)
-        if _key not in _badge_seen:
-            _is_opt = _uav.content_type_id == _opt_ct_id
-            _dt = (_opt_types if _is_opt else _fpv_types).get(_uav.object_id)
-            _is_th = _dt.has_thermal if _dt else False
-            if not _is_opt:
-                _purpose = 'ніч' if _is_th else 'день'
-                _purpose_label = 'Ніч' if _is_th else 'День'
-            else:
-                _purpose = 'ударні'
-                _purpose_label = 'Ударні'
-            _g = {
-                '_key': _key,
-                'type_label': _make_list_type_label(_dt, _is_opt),
-                'category': 'Оптика' if _is_opt else 'Радіо',
-                'mode_label': 'Ніч' if _is_th else 'День',
-                'purpose': _purpose,
-                'purpose_label': _purpose_label,
-                'role_name': _uav.role.name if _uav.role_id else '—',
-                'date': _uav.created_at.date(),
-                'type_key': f"{_uav.content_type_id}-{_uav.object_id}",
-                'date_str': _uav.created_at.date().isoformat(),
-                'kit_status': _kit,
-                'kit_label': UAVInstance.KIT_LABELS[_kit],
-                'total': 0,
-                'status_counts': {},
-                'uavs': [],
-            }
-            _badge_seen[_key] = _g
-            badge_groups.append(_g)
-            _group_uav_ids[_key] = []
-        _bg = _badge_seen[_key]
-        _bg['total'] += 1
-        _bg['status_counts'][_uav.status] = _bg['status_counts'].get(_uav.status, 0) + 1
-        _group_uav_ids[_key].append(_uav.pk)
-
-    for _g in badge_groups:
-        _g['status_items'] = [
-            (s, _status_display.get(s, s), c)
-            for s, c in _g['status_counts'].items()
-        ]
-        _g['cnt_ready']      = _g['status_counts'].get('ready', 0)
-        _g['cnt_inspection'] = _g['status_counts'].get('inspection', 0)
-        _g['cnt_repair']     = _g['status_counts'].get('repair', 0)
-        _g['cnt_deferred']   = _g['status_counts'].get('deferred', 0)
-        _g['cnt_transit']    = _g['status_counts'].get('transit', 0)
-
-    # Fetch locations early — needed for qty_groups sort + labels
+    # Always needed: locations for the filter bar on every tab
     _locations = list(Location.objects.annotate(uav_count=Count('current_uavs')))
     _loc_dict = {loc.pk: loc for loc in _locations}
     position_location_ids = [loc.pk for loc in _locations if loc.name == 'Позиція']
 
-    # Quantity-mode groups — grouped by type + location
-    _STATUS_ORDER_QTY = ['ready', 'inspection', 'repair', 'deferred', 'given', 'transit']
-    _STATUS_LABELS_QTY = dict(UAVInstance.STATUS_CHOICES)
-    _ACTIONABLE_QTY = {'ready', 'inspection', 'repair', 'deferred', 'given'}
-    # Valid target actions per source status (excludes same status; 'given' only from 'ready')
-    _QTY_ACTIONS = {
-        'ready':      [('inspection', 'Перевірка'), ('repair', 'Ремонт'), ('deferred', 'Відкладено'), ('given', 'Віддати')],
-        'inspection': [('ready', 'Готовий'), ('repair', 'Ремонт'), ('deferred', 'Відкладено')],
-        'repair':     [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('deferred', 'Відкладено')],
-        'deferred':   [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('repair', 'Ремонт')],
-        'given':      [('ready', 'Готовий'), ('inspection', 'Перевірка')],
-    }
+    # Tab-specific defaults (overridden below per active tab)
+    badge_groups, qty_groups, page_obj = [], [], None
+    total_uavs, total_drones = 0, 0
+    status_counts, type_choices = {}, []
+    drone_roles, _positions, _pos_dict = [], [], {}
 
-    qty_raw = (
-        uavs
-        .values('content_type_id', 'object_id', 'current_location_id', 'position_id',
-                'pending_to_location_id', 'status')
-        .annotate(cnt=Count('pk'))
-    )
-    _qty_map = {}
-    for _row in qty_raw:
-        _qkey = (_row['content_type_id'], _row['object_id'],
-                 _row['current_location_id'], _row['position_id'],
-                 _row['pending_to_location_id'])
-        _qty_map.setdefault(_qkey, {})[_row['status']] = _row['cnt']
+    if tab == 'drones':
+        # Annotate with EXISTS subqueries for kit status — replaces prefetch_related on main queryset
+        uavs = UAVInstance.objects.annotate(
+            _has_battery=Exists(Component.objects.filter(assigned_to_uav=OuterRef('pk'), kind='battery')),
+            _has_spool=Exists(Component.objects.filter(assigned_to_uav=OuterRef('pk'), kind='spool')),
+        ).exclude(status='deleted')
 
-    _pos_loc_ids = set(position_location_ids)
+        if location_filter:
+            uavs = uavs.filter(
+                Q(current_location_id=location_filter) |
+                Q(status='transit', pending_to_location_id=location_filter)
+            )
 
-    def _loc_label(loc_id):
-        loc = _loc_dict.get(loc_id)
-        return loc.name if loc else '—'
+        if status_filter:
+            uavs = uavs.filter(status=status_filter)
 
-    qty_groups = []
-    for (_qct, _qobj, _qloc_id, _qpos_id, _qpend_id), _scounts in sorted(
-        _qty_map.items(),
-        key=lambda x: (
-            _make_qty_label(x[0][0], x[0][1], _fpv_ct_id, _fpv_types, _opt_types),
-            _loc_dict[x[0][2]].name if x[0][2] and x[0][2] in _loc_dict else '',
-        )
-    ):
-        _srows = []
-        for _s in _STATUS_ORDER_QTY:
-            _cnt = _scounts.get(_s, 0)
-            if _cnt:
-                _srows.append({
-                    'status': _s,
-                    'label': _STATUS_LABELS_QTY.get(_s, _s),
-                    'count': _cnt,
-                    'actionable': _s in _ACTIONABLE_QTY,
-                    'actions': _QTY_ACTIONS.get(_s, []),
-                })
-        if _srows:
-            _qloc = _loc_dict.get(_qloc_id)
-            _loc_name = _qloc.name if _qloc else '—'
-            qty_groups.append({
-                'ct_id': _qct,
-                'obj_id': _qobj,
-                'location_id': _qloc_id or '',
-                'location_name': _loc_name,
-                'position_id': _qpos_id or '',
-                'is_position_loc': _qloc_id in _pos_loc_ids,
-                'pending_to_location_name': _loc_label(_qpend_id) if _qpend_id else '',
-                'pending_to_is_position': bool(_qpend_id and _qpend_id in _pos_loc_ids),
-                'type_label': _make_qty_label(_qct, _qobj, _fpv_ct_id, _fpv_types, _opt_types),
-                'status_rows': _srows,
-                'total': sum(_scounts.values()),
-            })
+        if category_filter == "fpv":
+            uavs = uavs.filter(content_type=_fpv_ct)
+        elif category_filter == "optical":
+            uavs = uavs.filter(content_type=_opt_ct)
 
-    # Paginate at GROUP level — each page shows up to 20 drone-type groups
-    total_uavs = sum(_g['total'] for _g in badge_groups)
-    paginator = Paginator(badge_groups, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-    current_groups = list(page_obj)
+        if type_filter:
+            _type_q = Q()
+            for _pair in type_filter.split(','):
+                try:
+                    _ct_s, _oid_s = _pair.strip().split('-')
+                    _type_q |= Q(content_type_id=int(_ct_s), object_id=int(_oid_s))
+                except (ValueError, TypeError):
+                    pass
+            if _type_q:
+                uavs = uavs.filter(_type_q)
 
-    # Load full UAV details only for the current page's groups
-    current_uav_ids = [pk for _g in current_groups for pk in _group_uav_ids.get(_g['_key'], [])]
-    if current_uav_ids:
-        uavs_detail = {
-            uav.pk: uav
-            for uav in UAVInstance.objects.filter(pk__in=current_uav_ids)
-                .select_related("content_type", "current_location", "position", "role", "pending_to_location")
-                .prefetch_related(Prefetch("components", queryset=Component.objects.only("kind", "assigned_to_uav_id")))
+        if date_from:
+            try:
+                uavs = uavs.filter(created_at__date__gte=date.fromisoformat(date_from))
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                uavs = uavs.filter(created_at__date__lte=date.fromisoformat(date_to))
+            except ValueError:
+                pass
+
+        if search_q:
+            fpv_ids = FPVDroneType.objects.filter(
+                Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
+            ).values_list('pk', flat=True)
+            opt_ids = OpticalDroneType.objects.filter(
+                Q(model__name__icontains=search_q) | Q(model__manufacturer__name__icontains=search_q)
+            ).values_list('pk', flat=True)
+            uavs = uavs.filter(
+                Q(notes__icontains=search_q) |
+                Q(content_type=_fpv_ct, object_id__in=fpv_ids) |
+                Q(content_type=_opt_ct, object_id__in=opt_ids)
+            )
+
+        # Kit filter at DB level via EXISTS annotations
+        if kit_filter == UAVInstance.KIT_NONE:
+            uavs = uavs.filter(_has_battery=False, _has_spool=False)
+        elif kit_filter == UAVInstance.KIT_FULL:
+            uavs = uavs.filter(
+                Q(content_type=_opt_ct, _has_battery=True, _has_spool=True) |
+                Q(_has_battery=True) & ~Q(content_type=_opt_ct)
+            )
+        elif kit_filter == UAVInstance.KIT_PARTIAL:
+            uavs = uavs.exclude(
+                Q(_has_battery=False, _has_spool=False) |
+                Q(content_type=_opt_ct, _has_battery=True, _has_spool=True) |
+                Q(_has_battery=True) & ~Q(content_type=_opt_ct)
+            )
+
+        # Role filter
+        if role_filter.isdigit():
+            uavs = uavs.filter(role_id=int(role_filter))
+
+        # Mode filter (день/ніч based on has_thermal)
+        if mode_filter in ("day", "night"):
+            is_thermal = (mode_filter == "night")
+            _thermal_fpv = list(FPVDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
+            _thermal_opt = list(OpticalDroneType.objects.filter(has_thermal=is_thermal).values_list('pk', flat=True))
+            uavs = uavs.filter(
+                Q(content_type=_fpv_ct, object_id__in=_thermal_fpv) |
+                Q(content_type=_opt_ct, object_id__in=_thermal_opt)
+            )
+
+        # Pre-fetch all drone types into dicts — avoids N+1 GenericFK access
+        _fpv_types = {dt.pk: dt for dt in FPVDroneType.objects.select_related(
+            "model", "video_frequency",
+        ).prefetch_related("control_frequencies").only(
+            "id", "prop_size", "has_thermal",
+            "video_frequency_id", "video_frequency__value", "video_frequency__unit",
+            "model__name",
+        )}
+        _opt_types = {dt.pk: dt for dt in OpticalDroneType.objects.select_related(
+            "model", "video_template",
+        ).only(
+            "id", "prop_size", "has_thermal",
+            "video_template_id", "video_template__max_distance",
+            "model__name",
+        )}
+
+        def _kit_from_ann(uav):
+            """Compute kit status from EXISTS annotations — no extra DB queries."""
+            if not uav._has_battery and not uav._has_spool:
+                return UAVInstance.KIT_NONE
+            if uav.content_type_id == _opt_ct_id:
+                if uav._has_battery and uav._has_spool:
+                    return UAVInstance.KIT_FULL
+                return UAVInstance.KIT_PARTIAL
+            return UAVInstance.KIT_FULL if uav._has_battery else UAVInstance.KIT_PARTIAL
+
+        # Light query: only fields needed for group-building (no heavy select_related, no component rows)
+        uavs_light = uavs.select_related("role").only(
+            'id', 'content_type_id', 'object_id', 'status', 'role_id', 'created_at'
+        ).order_by('-created_at')
+
+        # Build badge groups, tracking UAV PKs per group (no full UAV objects yet)
+        _badge_seen = {}
+        _group_uav_ids = {}
+        _status_display = dict(UAVInstance.STATUS_CHOICES)
+
+        for _uav in uavs_light:
+            _kit = _kit_from_ann(_uav)
+            _key = (_uav.content_type_id, _uav.object_id, _uav.created_at.date(), _kit)
+            if _key not in _badge_seen:
+                _is_opt = _uav.content_type_id == _opt_ct_id
+                _dt = (_opt_types if _is_opt else _fpv_types).get(_uav.object_id)
+                _is_th = _dt.has_thermal if _dt else False
+                if not _is_opt:
+                    _purpose = 'ніч' if _is_th else 'день'
+                    _purpose_label = 'Ніч' if _is_th else 'День'
+                else:
+                    _purpose = 'ударні'
+                    _purpose_label = 'Ударні'
+                _g = {
+                    '_key': _key,
+                    'type_label': _make_list_type_label(_dt, _is_opt),
+                    'category': 'Оптика' if _is_opt else 'Радіо',
+                    'mode_label': 'Ніч' if _is_th else 'День',
+                    'purpose': _purpose,
+                    'purpose_label': _purpose_label,
+                    'role_name': _uav.role.name if _uav.role_id else '—',
+                    'date': _uav.created_at.date(),
+                    'type_key': f"{_uav.content_type_id}-{_uav.object_id}",
+                    'date_str': _uav.created_at.date().isoformat(),
+                    'kit_status': _kit,
+                    'kit_label': UAVInstance.KIT_LABELS[_kit],
+                    'total': 0,
+                    'status_counts': {},
+                    'uavs': [],
+                }
+                _badge_seen[_key] = _g
+                badge_groups.append(_g)
+                _group_uav_ids[_key] = []
+            _bg = _badge_seen[_key]
+            _bg['total'] += 1
+            _bg['status_counts'][_uav.status] = _bg['status_counts'].get(_uav.status, 0) + 1
+            _group_uav_ids[_key].append(_uav.pk)
+
+        for _g in badge_groups:
+            _g['status_items'] = [
+                (s, _status_display.get(s, s), c)
+                for s, c in _g['status_counts'].items()
+            ]
+            _g['cnt_ready']      = _g['status_counts'].get('ready', 0)
+            _g['cnt_inspection'] = _g['status_counts'].get('inspection', 0)
+            _g['cnt_repair']     = _g['status_counts'].get('repair', 0)
+            _g['cnt_deferred']   = _g['status_counts'].get('deferred', 0)
+            _g['cnt_transit']    = _g['status_counts'].get('transit', 0)
+
+        # Quantity-mode groups — grouped by type + location
+        _STATUS_ORDER_QTY = ['ready', 'inspection', 'repair', 'deferred', 'given', 'transit']
+        _STATUS_LABELS_QTY = dict(UAVInstance.STATUS_CHOICES)
+        _ACTIONABLE_QTY = {'ready', 'inspection', 'repair', 'deferred', 'given'}
+        _QTY_ACTIONS = {
+            'ready':      [('inspection', 'Перевірка'), ('repair', 'Ремонт'), ('deferred', 'Відкладено'), ('given', 'Віддати')],
+            'inspection': [('ready', 'Готовий'), ('repair', 'Ремонт'), ('deferred', 'Відкладено')],
+            'repair':     [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('deferred', 'Відкладено')],
+            'deferred':   [('ready', 'Готовий'), ('inspection', 'Перевірка'), ('repair', 'Ремонт')],
+            'given':      [('ready', 'Готовий'), ('inspection', 'Перевірка')],
         }
-        for _g in current_groups:
-            _g['uavs'] = [uavs_detail[pk] for pk in _group_uav_ids.get(_g['_key'], []) if pk in uavs_detail]
 
-    # Build drone type choices — reuse already-fetched type dicts (no extra queries).
-    # Deduplicate by label: if two types produce the same display label, keep only the first.
-    _tc_seen = set()
-    type_choices = []
-    for _dt in sorted(_fpv_types.values(), key=lambda d: _make_list_type_label(d, False)):
-        _lbl = '[Радіо] ' + _make_list_type_label(_dt, False)
-        if _lbl not in _tc_seen:
-            _tc_seen.add(_lbl)
-            type_choices.append((f"{_fpv_ct_id}-{_dt.pk}", _lbl))
-    for _dt in sorted(_opt_types.values(), key=lambda d: _make_list_type_label(d, True)):
-        _lbl = '[Оптика] ' + _make_list_type_label(_dt, True)
-        if _lbl not in _tc_seen:
-            _tc_seen.add(_lbl)
-            type_choices.append((f"{_opt_ct_id}-{_dt.pk}", _lbl))
-    type_choices.sort(key=lambda x: x[1])
+        qty_raw = (
+            uavs
+            .values('content_type_id', 'object_id', 'current_location_id', 'position_id',
+                    'pending_to_location_id', 'status')
+            .annotate(cnt=Count('pk'))
+        )
+        _qty_map = {}
+        for _row in qty_raw:
+            _qkey = (_row['content_type_id'], _row['object_id'],
+                     _row['current_location_id'], _row['position_id'],
+                     _row['pending_to_location_id'])
+            _qty_map.setdefault(_qkey, {})[_row['status']] = _row['cnt']
 
-    # Summary counts — single aggregated query, total derived from it (no COUNT(*) needed)
-    all_uavs = UAVInstance.objects.exclude(status='deleted')
-    _status_agg = {row['status']: row['cnt'] for row in all_uavs.values('status').annotate(cnt=Count('pk'))}
-    total_drones = sum(_status_agg.values())
-    status_counts = {
-        code: {"label": label, "count": _status_agg.get(code, 0)}
-        for code, label in UAVInstance.STATUS_CHOICES if code != 'deleted'
-    }
+        _pos_loc_ids = set(position_location_ids)
+
+        def _loc_label(loc_id):
+            loc = _loc_dict.get(loc_id)
+            return loc.name if loc else '—'
+
+        for (_qct, _qobj, _qloc_id, _qpos_id, _qpend_id), _scounts in sorted(
+            _qty_map.items(),
+            key=lambda x: (
+                _make_qty_label(x[0][0], x[0][1], _fpv_ct_id, _fpv_types, _opt_types),
+                _loc_dict[x[0][2]].name if x[0][2] and x[0][2] in _loc_dict else '',
+            )
+        ):
+            _srows = []
+            for _s in _STATUS_ORDER_QTY:
+                _cnt = _scounts.get(_s, 0)
+                if _cnt:
+                    _srows.append({
+                        'status': _s,
+                        'label': _STATUS_LABELS_QTY.get(_s, _s),
+                        'count': _cnt,
+                        'actionable': _s in _ACTIONABLE_QTY,
+                        'actions': _QTY_ACTIONS.get(_s, []),
+                    })
+            if _srows:
+                _qloc = _loc_dict.get(_qloc_id)
+                _loc_name = _qloc.name if _qloc else '—'
+                qty_groups.append({
+                    'ct_id': _qct,
+                    'obj_id': _qobj,
+                    'location_id': _qloc_id or '',
+                    'location_name': _loc_name,
+                    'position_id': _qpos_id or '',
+                    'is_position_loc': _qloc_id in _pos_loc_ids,
+                    'pending_to_location_name': _loc_label(_qpend_id) if _qpend_id else '',
+                    'pending_to_is_position': bool(_qpend_id and _qpend_id in _pos_loc_ids),
+                    'type_label': _make_qty_label(_qct, _qobj, _fpv_ct_id, _fpv_types, _opt_types),
+                    'status_rows': _srows,
+                    'total': sum(_scounts.values()),
+                })
+
+        # Paginate at GROUP level — each page shows up to 20 drone-type groups
+        total_uavs = sum(_g['total'] for _g in badge_groups)
+        paginator = Paginator(badge_groups, 20)
+        page_number = request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+        current_groups = list(page_obj)
+
+        # Load full UAV details only for the current page's groups
+        current_uav_ids = [pk for _g in current_groups for pk in _group_uav_ids.get(_g['_key'], [])]
+        if current_uav_ids:
+            uavs_detail = {
+                uav.pk: uav
+                for uav in UAVInstance.objects.filter(pk__in=current_uav_ids)
+                    .select_related("content_type", "current_location", "position", "role", "pending_to_location")
+                    .prefetch_related(Prefetch("components", queryset=Component.objects.only("kind", "assigned_to_uav_id")))
+            }
+            for _g in current_groups:
+                _g['uavs'] = [uavs_detail[pk] for pk in _group_uav_ids.get(_g['_key'], []) if pk in uavs_detail]
+
+        # Build drone type choices — reuse already-fetched type dicts (no extra queries).
+        # Deduplicate by label: if two types produce the same display label, keep only the first.
+        _tc_seen = set()
+        for _dt in sorted(_fpv_types.values(), key=lambda d: _make_list_type_label(d, False)):
+            _lbl = '[Радіо] ' + _make_list_type_label(_dt, False)
+            if _lbl not in _tc_seen:
+                _tc_seen.add(_lbl)
+                type_choices.append((f"{_fpv_ct_id}-{_dt.pk}", _lbl))
+        for _dt in sorted(_opt_types.values(), key=lambda d: _make_list_type_label(d, True)):
+            _lbl = '[Оптика] ' + _make_list_type_label(_dt, True)
+            if _lbl not in _tc_seen:
+                _tc_seen.add(_lbl)
+                type_choices.append((f"{_opt_ct_id}-{_dt.pk}", _lbl))
+        type_choices.sort(key=lambda x: x[1])
+
+        # Summary counts — single aggregated query, total derived from it (no COUNT(*) needed)
+        all_uavs = UAVInstance.objects.exclude(status='deleted')
+        _status_agg = {row['status']: row['cnt'] for row in all_uavs.values('status').annotate(cnt=Count('pk'))}
+        total_drones = sum(_status_agg.values())
+        status_counts = {
+            code: {"label": label, "count": _status_agg.get(code, 0)}
+            for code, label in UAVInstance.STATUS_CHOICES if code != 'deleted'
+        }
+
+        drone_roles = DronePurpose.objects.all()
+
+        _positions = list(Position.objects.annotate(uav_count=Count('uavs')))
+        _pos_dict = {pos.pk: pos for pos in _positions}
+        for _g in qty_groups:
+            if _g['is_position_loc'] and _g['position_id']:
+                _pos = _pos_dict.get(_g['position_id'])
+                _g['location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['location_name']
+            if _g['pending_to_is_position'] and _g['position_id']:
+                _pos = _pos_dict.get(_g['position_id'])
+                _g['pending_to_location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['pending_to_location_name']
+
+    elif tab == 'locations':
+        _positions = list(Position.objects.annotate(uav_count=Count('uavs')))
+        _pos_dict = {pos.pk: pos for pos in _positions}
 
     # Components with filters
     comp_status_filter     = request.GET.get("comp_status", "")
@@ -543,32 +546,32 @@ def equipment_list(request):
     else:
         comp_page_obj = None
 
-    # Drone types
-    fpv_drone_types = FPVDroneType.objects.select_related(
-        "model", "model__manufacturer", "purpose",
-        "video_frequency", "power_template",
-    ).prefetch_related("control_frequencies")
-    optical_drone_types = OpticalDroneType.objects.select_related(
-        "model", "model__manufacturer", "purpose",
-        "video_template", "video_template__drone_model", "power_template",
-    ).prefetch_related("control_frequencies")
+    # ── Type data — only when the types tab is active ────────────────────────────
+    fpv_drone_types = []
+    optical_drone_types = []
+    if tab == 'types':
+        fpv_drone_types = FPVDroneType.objects.select_related(
+            "model", "model__manufacturer", "purpose",
+            "video_frequency", "power_template",
+        ).prefetch_related("control_frequencies")
+        optical_drone_types = OpticalDroneType.objects.select_related(
+            "model", "model__manufacturer", "purpose",
+            "video_template", "video_template__drone_model", "power_template",
+        ).prefetch_related("control_frequencies")
 
-    # Templates (exclude soft-deleted)
-    power_templates = PowerTemplate.objects.filter(is_deleted=False)
-    video_templates = VideoTemplate.objects.filter(is_deleted=False).select_related("drone_model")
+    # ── Template data — only for templates/components tabs ───────────────────────
+    power_templates = []
+    video_templates = []
+    if tab in ('templates', 'components'):
+        power_templates = PowerTemplate.objects.filter(is_deleted=False)
+        video_templates = VideoTemplate.objects.filter(is_deleted=False).select_related("drone_model")
 
-    # Reference data — evaluated once, reused in ctx to avoid duplicate queries
-    manufacturers = Manufacturer.objects.all()
-    drone_models = DroneModel.objects.select_related("manufacturer").all()
-    _positions = list(Position.objects.annotate(uav_count=Count('uavs')))
-    _pos_dict = {pos.pk: pos for pos in _positions}
-    for _g in qty_groups:
-        if _g['is_position_loc'] and _g['position_id']:
-            _pos = _pos_dict.get(_g['position_id'])
-            _g['location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['location_name']
-        if _g['pending_to_is_position'] and _g['position_id']:
-            _pos = _pos_dict.get(_g['position_id'])
-            _g['pending_to_location_name'] = f'Позиція "{_pos.name}"' if _pos else _g['pending_to_location_name']
+    # ── Reference lookups — only when needed ─────────────────────────────────────
+    manufacturers = []
+    drone_models = []
+    if tab in ('types', 'templates'):
+        manufacturers = Manufacturer.objects.all()
+        drone_models = DroneModel.objects.select_related("manufacturer").all()
 
     ctx = {
         "tab": tab,
@@ -581,7 +584,7 @@ def equipment_list(request):
         "kit_choices": list(UAVInstance.KIT_LABELS.items()),
         "purpose_filter": purpose_filter,
         "role_filter": role_filter,
-        "drone_roles": DronePurpose.objects.all(),
+        "drone_roles": drone_roles,
         "location_filter": location_filter,
         "date_from": date_from,
         "date_to": date_to,
@@ -608,51 +611,51 @@ def equipment_list(request):
         "total_uavs": total_uavs,
         "position_location_ids": position_location_ids,
         "qty_groups": qty_groups,
-        "can_add_uav":    _can(request.user, PERM_ADD_UAV),
-        "can_edit_uav":   _can(request.user, PERM_CHANGE_UAV),
-        "can_delete_uav": _can(request.user, PERM_DELETE_UAV),
+        "can_add_uav":    request.user.has_perm(PERM_ADD_UAV),
+        "can_edit_uav":   request.user.has_perm(PERM_CHANGE_UAV),
+        "can_delete_uav": request.user.has_perm(PERM_DELETE_UAV),
         "positions": _positions,
-        "can_add_component":    _is_master(request.user) or request.user.has_perm('equipment_accounting.add_component'),
-        "can_edit_component":   _is_master(request.user) or request.user.has_perm('equipment_accounting.change_component'),
-        "can_delete_component": _is_master(request.user) or request.user.has_perm('equipment_accounting.delete_component'),
-        "can_add_manufacturer":    _can(request.user, PERM_ADD_MANUFACTURER),
-        "can_edit_manufacturer":   _can(request.user, PERM_CHANGE_MANUFACTURER),
-        "can_delete_manufacturer": _can(request.user, PERM_DELETE_MANUFACTURER),
-        "can_add_dronemodel":    _can(request.user, PERM_ADD_DRONEMODEL),
-        "can_edit_dronemodel":   _can(request.user, PERM_CHANGE_DRONEMODEL),
-        "can_delete_dronemodel": _can(request.user, PERM_DELETE_DRONEMODEL),
-        "can_add_fpvtype":    _can(request.user, PERM_ADD_FPVTYPE),
-        "can_edit_fpvtype":   _can(request.user, PERM_CHANGE_FPVTYPE),
-        "can_delete_fpvtype": _can(request.user, PERM_DELETE_FPVTYPE),
-        "can_add_opticaltype":    _can(request.user, PERM_ADD_OPTICALTYPE),
-        "can_edit_opticaltype":   _can(request.user, PERM_CHANGE_OPTICALTYPE),
-        "can_delete_opticaltype": _can(request.user, PERM_DELETE_OPTICALTYPE),
-        "can_add_powertemplate":    _can(request.user, PERM_ADD_POWERTEMPLATE),
-        "can_edit_powertemplate":   _can(request.user, PERM_CHANGE_POWERTEMPLATE),
-        "can_delete_powertemplate": _can(request.user, PERM_DELETE_POWERTEMPLATE),
-        "can_see_powertemplate": _is_master(request.user) or any(
+        "can_add_component":    request.user.has_perm('equipment_accounting.add_component'),
+        "can_edit_component":   request.user.has_perm('equipment_accounting.change_component'),
+        "can_delete_component": request.user.has_perm('equipment_accounting.delete_component'),
+        "can_add_manufacturer":    request.user.has_perm(PERM_ADD_MANUFACTURER),
+        "can_edit_manufacturer":   request.user.has_perm(PERM_CHANGE_MANUFACTURER),
+        "can_delete_manufacturer": request.user.has_perm(PERM_DELETE_MANUFACTURER),
+        "can_add_dronemodel":    request.user.has_perm(PERM_ADD_DRONEMODEL),
+        "can_edit_dronemodel":   request.user.has_perm(PERM_CHANGE_DRONEMODEL),
+        "can_delete_dronemodel": request.user.has_perm(PERM_DELETE_DRONEMODEL),
+        "can_add_fpvtype":    request.user.has_perm(PERM_ADD_FPVTYPE),
+        "can_edit_fpvtype":   request.user.has_perm(PERM_CHANGE_FPVTYPE),
+        "can_delete_fpvtype": request.user.has_perm(PERM_DELETE_FPVTYPE),
+        "can_add_opticaltype":    request.user.has_perm(PERM_ADD_OPTICALTYPE),
+        "can_edit_opticaltype":   request.user.has_perm(PERM_CHANGE_OPTICALTYPE),
+        "can_delete_opticaltype": request.user.has_perm(PERM_DELETE_OPTICALTYPE),
+        "can_add_powertemplate":    request.user.has_perm(PERM_ADD_POWERTEMPLATE),
+        "can_edit_powertemplate":   request.user.has_perm(PERM_CHANGE_POWERTEMPLATE),
+        "can_delete_powertemplate": request.user.has_perm(PERM_DELETE_POWERTEMPLATE),
+        "can_see_powertemplate": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.view_powertemplate', 'equipment_accounting.add_powertemplate',
                 'equipment_accounting.change_powertemplate', 'equipment_accounting.delete_powertemplate',
             ]
         ),
-        "can_add_videotemplate":    _can(request.user, PERM_ADD_VIDEOTEMPLATE),
-        "can_edit_videotemplate":   _can(request.user, PERM_CHANGE_VIDEOTEMPLATE),
-        "can_delete_videotemplate": _can(request.user, PERM_DELETE_VIDEOTEMPLATE),
-        "can_see_videotemplate": _is_master(request.user) or any(
+        "can_add_videotemplate":    request.user.has_perm(PERM_ADD_VIDEOTEMPLATE),
+        "can_edit_videotemplate":   request.user.has_perm(PERM_CHANGE_VIDEOTEMPLATE),
+        "can_delete_videotemplate": request.user.has_perm(PERM_DELETE_VIDEOTEMPLATE),
+        "can_see_videotemplate": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.view_videotemplate', 'equipment_accounting.add_videotemplate',
                 'equipment_accounting.change_videotemplate', 'equipment_accounting.delete_videotemplate',
             ]
         ),
-        "can_tab_components": _is_master(request.user) or any(
+        "can_tab_components": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.add_component',
                 'equipment_accounting.change_component',
                 'equipment_accounting.delete_component',
             ]
         ),
-        "can_tab_types": _is_master(request.user) or any(
+        "can_tab_types": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.view_manufacturer',  'equipment_accounting.add_manufacturer',    'equipment_accounting.change_manufacturer',    'equipment_accounting.delete_manufacturer',
                 'equipment_accounting.view_dronemodel',   'equipment_accounting.add_dronemodel',       'equipment_accounting.change_dronemodel',      'equipment_accounting.delete_dronemodel',
@@ -660,19 +663,19 @@ def equipment_list(request):
                 'equipment_accounting.view_opticaldronetype', 'equipment_accounting.add_opticaldronetype', 'equipment_accounting.change_opticaldronetype', 'equipment_accounting.delete_opticaldronetype',
             ]
         ),
-        "can_tab_templates": _is_master(request.user) or any(
+        "can_tab_templates": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.view_powertemplate', 'equipment_accounting.add_powertemplate',  'equipment_accounting.change_powertemplate',  'equipment_accounting.delete_powertemplate',
                 'equipment_accounting.view_videotemplate', 'equipment_accounting.add_videotemplate',  'equipment_accounting.change_videotemplate',  'equipment_accounting.delete_videotemplate',
             ]
         ),
-        "can_add_location":    _can(request.user, PERM_ADD_LOCATION),
-        "can_edit_location":   _can(request.user, PERM_CHANGE_LOCATION),
-        "can_delete_location": _can(request.user, PERM_DELETE_LOCATION),
-        "can_add_position":    _can(request.user, PERM_ADD_POSITION),
-        "can_edit_position":   _can(request.user, PERM_CHANGE_POSITION),
-        "can_delete_position": _can(request.user, PERM_DELETE_POSITION),
-        "can_tab_locations": _is_master(request.user) or any(
+        "can_add_location":    request.user.has_perm(PERM_ADD_LOCATION),
+        "can_edit_location":   request.user.has_perm(PERM_CHANGE_LOCATION),
+        "can_delete_location": request.user.has_perm(PERM_DELETE_LOCATION),
+        "can_add_position":    request.user.has_perm(PERM_ADD_POSITION),
+        "can_edit_position":   request.user.has_perm(PERM_CHANGE_POSITION),
+        "can_delete_position": request.user.has_perm(PERM_DELETE_POSITION),
+        "can_tab_locations": any(
             request.user.has_perm(p) for p in [
                 'equipment_accounting.view_location',  'equipment_accounting.add_location',
                 'equipment_accounting.change_location', 'equipment_accounting.delete_location',
@@ -724,13 +727,25 @@ def component_stats(request):
             filter=Q(components__status='damaged')),
     ).filter(total__gt=0).order_by('category', 'model')
 
+    # Single aggregation query instead of 8 separate COUNT calls
+    _summary_raw = (
+        Component.objects
+        .exclude(status='given')
+        .filter(kind__in=('battery', 'spool'))
+        .values('kind', 'status')
+        .annotate(cnt=Count('pk'))
+    )
+    _summary_map = {}
+    for row in _summary_raw:
+        _summary_map.setdefault(row['kind'], {})[row['status']] = row['cnt']
+
     def _kind_summary(kind):
-        qs = Component.objects.filter(kind=kind).exclude(status='given')
+        m = _summary_map.get(kind, {})
         return {
-            'total':   qs.count(),
-            'in_use':  qs.filter(status='in_use').count(),
-            'free':    qs.filter(status='disassembled').count(),
-            'damaged': qs.filter(status='damaged').count(),
+            'total':   sum(m.values()),
+            'in_use':  m.get('in_use', 0),
+            'free':    m.get('disassembled', 0),
+            'damaged': m.get('damaged', 0),
         }
 
     return render(request, 'equipment_accounting/component_stats.html', {
@@ -1539,7 +1554,7 @@ def uav_detail(request, pk):
         'pending_movement': pending_movement,
         'locations': Location.objects.all(),
         'photos': photos,
-        'can_edit_uav': _can(request.user, PERM_CHANGE_UAV),
+        'can_edit_uav': request.user.has_perm(PERM_CHANGE_UAV),
     })
 
 
@@ -1865,7 +1880,7 @@ def _do_bulk_action(ids, action, to_location_id, position_id, position_name_new,
             position, _ = Position.objects.get_or_create(name=position_name_new.strip())
 
     if action == "delete":
-        if not _can(request.user, PERM_DELETE_UAV):
+        if not request.user.has_perm(PERM_DELETE_UAV):
             raise PermissionDenied
         old_rows = list(qs.values_list('pk', 'status'))
         type_labels = _type_labels_for_qs(qs)
