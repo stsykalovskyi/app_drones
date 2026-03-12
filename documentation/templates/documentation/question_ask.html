@@ -1,5 +1,43 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<style>
+    .ask-textarea {
+        width: 100%;
+        padding: .55rem .75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--input-bg);
+        color: var(--text);
+        font-size: .9rem;
+        font-family: inherit;
+        line-height: 1.6;
+        resize: vertical;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+        box-sizing: border-box;
+    }
+    .ask-textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .ask-btn {
+        margin-top: .85rem;
+        padding: .5rem 1.2rem;
+        background: var(--btn-bg);
+        color: var(--btn-text);
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: .88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity .15s;
+    }
+    .ask-btn:hover { opacity: .85; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
 
@@ -9,11 +47,10 @@
     <div class="card" style="margin-bottom:1.5rem">
       <form method="post" novalidate>
         {% csrf_token %}
-        <label class="form-label" style="font-weight:600;margin-bottom:.5rem;display:block">Ваше питання</label>
-        <textarea name="question_text" rows="4" class="form-control"
-          placeholder="Введіть питання до бази знань…"
-          style="width:100%;resize:vertical">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
-        <button type="submit" class="btn btn-primary" style="margin-top:1rem">Запитати Gemini</button>
+        <label style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:.5rem">Ваше питання</label>
+        <textarea name="question_text" rows="4" class="ask-textarea"
+          placeholder="Введіть питання до бази знань…">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
+        <button type="submit" class="ask-btn">Запитати Gemini</button>
       </form>
     </div>
 
