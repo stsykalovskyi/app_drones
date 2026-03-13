@@ -1,3 +1,5 @@
+import datetime
+
 from django import forms
 from django.contrib.contenttypes.models import ContentType
 
@@ -42,6 +44,11 @@ class StrikeReportForm(forms.ModelForm):
         widget=forms.Select(attrs=_SEL),
     )
 
+    def __init__(self, *args, **kwargs):
+        if not args and 'initial' not in kwargs:
+            kwargs.setdefault('initial', {})['strike_date'] = datetime.date.today()
+        super().__init__(*args, **kwargs)
+
     class Meta:
         model = StrikeReport
         fields = [
@@ -49,7 +56,10 @@ class StrikeReportForm(forms.ModelForm):
             'ammo_type', 'initiation_type', 'target_type', 'result_type', 'notes', 'video',
         ]
         widgets = {
-            'strike_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'strike_date': forms.DateInput(
+                attrs={'type': 'date', 'class': 'form-input'},
+                format='%Y-%m-%d',
+            ),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-input'}),
             'video': forms.FileInput(attrs={'class': 'form-input', 'accept': 'video/*'}),
         }
