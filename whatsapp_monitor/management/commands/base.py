@@ -358,6 +358,38 @@ class WhatsAppBaseCommand(BaseCommand):
             except Exception:
                 continue
 
+        # Fallback: find send button via JS (handles any icon/aria-label variant)
+        if not sent:
+            try:
+                clicked = page.evaluate("""() => {
+                    const candidates = [
+                        document.querySelector('[data-icon="send"]'),
+                        document.querySelector('[data-icon="send-white"]'),
+                        document.querySelector('button[aria-label="Надіслати"]'),
+                        document.querySelector('button[aria-label="Send"]'),
+                        document.querySelector('[data-testid="send"]'),
+                    ];
+                    for (const el of candidates) {
+                        if (el) {
+                            el.closest('button, div[role="button"]')?.click() || el.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                }""")
+                if clicked:
+                    sent = True
+            except Exception:
+                pass
+
+        # Last resort: Enter key sends in media preview modal
+        if not sent:
+            try:
+                page.keyboard.press('Enter')
+                sent = True
+            except Exception:
+                pass
+
         if not sent:
             page.screenshot(path='/mnt/f/wa_send_fail.png')
             raise RuntimeError('Send button not found after attaching file. Screenshot: /mnt/f/wa_send_fail.png')
