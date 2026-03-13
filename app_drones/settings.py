@@ -433,3 +433,58 @@ WHATSAPP_STRIKE_GROUP = os.environ.get("WHATSAPP_STRIKE_GROUP", "")
 # Seconds to wait after enqueuing a video before enqueuing the text message
 WHATSAPP_VIDEO_UPLOAD_DELAY = int(os.environ.get("WHATSAPP_VIDEO_UPLOAD_DELAY", "30"))
 
+# Logging
+_LOG_DIR = BASE_DIR / 'logs'
+_LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file_all': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': _LOG_DIR / 'app.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        'file_errors': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': _LOG_DIR / 'errors.log',
+            'maxBytes': 5 * 1024 * 1024,  # 5 MB
+            'backupCount': 5,
+            'level': 'ERROR',
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file_all', 'file_errors'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file_all', 'file_errors'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file_errors'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+

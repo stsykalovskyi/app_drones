@@ -101,7 +101,10 @@ class Command(WhatsAppBaseCommand):
                     self.stdout.write(self.style.SUCCESS(f'  ✓ Sent #{msg.id}'))
 
                 except Exception as exc:
-                    logger.error('Failed to send #%s: %s', msg.id, exc)
+                    logger.exception(
+                        'Failed to send msg #%s to group "%s": %s',
+                        msg.id, msg.group_name, exc,
+                    )
                     msg.retry_count += 1
                     msg.error = str(exc)
                     if msg.retry_count >= MAX_RETRIES:
@@ -126,7 +129,7 @@ class Command(WhatsAppBaseCommand):
                             self._open_whatsapp(page)
                             current_group = None
                         except Exception as e:
-                            logger.error('Reconnect failed: %s', e)
+                            logger.exception('Reconnect after QR failed: %s', e)
 
         except KeyboardInterrupt:
             self.stdout.write('\nStopped by user.')
@@ -158,6 +161,6 @@ class Command(WhatsAppBaseCommand):
                 msg.save(update_fields=['status'])
                 return msg
         except Exception as exc:
-            logger.error('DB error: %s', exc)
+            logger.exception('DB error in _fetch_next: %s', exc)
             time.sleep(poll_interval)
             return None

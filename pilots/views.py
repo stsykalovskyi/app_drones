@@ -81,7 +81,7 @@ def _enqueue_strike_report_bg(report_id):
                 send_after=None,
             )
     except Exception as e:
-        logger.error('_enqueue_strike_report_bg failed for report #%s: %s', report_id, e)
+        logger.exception('WhatsApp enqueue failed for strike report #%s: %s', report_id, e)
 
 
 @login_required
