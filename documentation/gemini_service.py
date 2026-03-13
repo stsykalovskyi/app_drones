@@ -18,32 +18,16 @@ def _get_client():
 
 
 def _load_docs_context() -> str:
-    """Read all supported files from DOCS_FOLDER and return combined text."""
-    docs_path = Path(getattr(settings, 'DOCS_FOLDER', Path(settings.BASE_DIR) / 'docs'))
-    if not docs_path.exists():
-        return ""
-
-    parts = []
-    for file_path in sorted(docs_path.rglob('*')):
-        if not file_path.is_file() or file_path.name.startswith('.'):
-            continue
-        suffix = file_path.suffix.lower()
-        rel_name = file_path.relative_to(docs_path)
-
-        if suffix in ('.txt', '.md'):
-            try:
-                text = file_path.read_text(encoding='utf-8', errors='ignore').strip()
-                if text:
-                    parts.append(f"=== {rel_name} ===\n{text}")
-            except Exception:
-                pass
-
-        elif suffix == '.pdf':
-            text = _extract_pdf_text(file_path)
-            if text:
-                parts.append(f"=== {rel_name} ===\n{text}")
-
-    return '\n\n'.join(parts)
+    """Load active documents from KnowledgeDocument DB records (pre-extracted text)."""
+    try:
+        from documentation.models import KnowledgeDocument
+        docs = KnowledgeDocument.objects.filter(
+            is_active=True, status=KnowledgeDocument.STATUS_READY
+        ).exclude(extracted_text='')
+        parts = [f"=== {doc.title} ===\n{doc.extracted_text}" for doc in docs]
+        return '\n\n'.join(parts)
+    except Exception:
+        return ''
 
 
 def _extract_pdf_text(file_path: Path) -> str:

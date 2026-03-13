@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — текст{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ doc.title }}</h1>
+  <a href="{% url 'documentation:knowledge_docs' %}" style="font-size:.85rem;color:var(--accent)">← Документи</a>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:2rem;margin-bottom:1rem;font-size:.82rem;color:var(--text-muted);flex-wrap:wrap">
+    <span>Файл: <strong style="color:var(--text)">{{ doc.filename }}</strong></span>
+    {% if doc.page_count %}<span>Сторінок: <strong style="color:var(--text)">{{ doc.page_count }}</strong></span>{% endif %}
+    <span>Символів: <strong style="color:var(--text)">{{ doc.extracted_text|length }}</strong></span>
+    <span>Активний: <strong style="color:var(--text)">{% if doc.is_active %}Так{% else %}Ні{% endif %}</strong></span>
+  </div>
+  <pre style="white-space:pre-wrap;font-family:inherit;font-size:.83rem;line-height:1.7;color:var(--text);max-height:70vh;overflow-y:auto;margin:0;padding:.75rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">{{ doc.extracted_text }}</pre>
+</div>
+{% endblock %}
