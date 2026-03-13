@@ -34,9 +34,25 @@ tail -f logs/app.log
 
 Відправляє повідомлення та відео у WhatsApp групи через Playwright/Chromium (WhatsApp Web).
 
-### Перший запуск (авторизація)
+### Налаштування `.env`
 
-Необхідно один раз авторизуватися — відсканувати QR код:
+```
+WHATSAPP_GROUP=Назва групи
+WHATSAPP_STRIKE_GROUP=Назва групи для звітів ударів
+```
+
+---
+
+### Локальне налаштування
+
+#### 1. Встановити залежності
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+#### 2. Авторизація (QR код)
 
 ```bash
 python manage.py run_whatsapp_setup
@@ -44,21 +60,51 @@ python manage.py run_whatsapp_setup
 
 Відкриється вікно браузера. Відскануйте QR код телефоном. Після появи списку чатів сесія збережеться у `./whatsapp_session/` і команда завершиться.
 
-### Запуск воркера
+#### 3. Запуск воркера
+
+```bash
+python manage.py run_whatsapp_sender
+```
+
+---
+
+### Production (сервер)
+
+Django app працює в Docker контейнері `app_drones`, але воркер та бот запускаються **на хості** з host `.venv`.
+
+#### 1. Авторизація
+
+На сервері потрібен дисплей — використовуйте X11 forwarding або VNC:
+
+```bash
+ssh -X backend
+cd /root/MyProjects/python/app_drones
+python manage.py run_whatsapp_setup
+```
+
+> Якщо X11 недоступний — запустіть локально з `--session-dir` що вказує на продакшн директорію, або скопіюйте `whatsapp_session/` з локальної машини на сервер.
+
+#### 2. Запуск воркера у screen
 
 ```bash
 screen -S wasender
 python manage.py run_whatsapp_sender
+# Ctrl+A, D — відʼєднатись
 ```
 
-Воркер опитує чергу `OutgoingMessage` кожні 5 секунд. Повернутися до сесії: `screen -r wasender`.
+Повернутися: `screen -r wasender`. Перевірити статус: `screen -list`.
 
-### Налаштування `.env`
+#### 3. Перезапуск після деплою
 
+Деплой перезапускає воркер автоматично (якщо screen сесія ще не існує). Щоб перезапустити вручну:
+
+```bash
+screen -S wasender -X quit
+screen -S wasender
+python manage.py run_whatsapp_sender
 ```
-WHATSAPP_GROUP=Назва групи
-WHATSAPP_STRIKE_GROUP=Назва групи для звітів ударів
-```
+
+---
 
 ### Якщо WhatsApp змінить UI
 
