@@ -48,3 +48,12 @@ whatsapp_session/
 
 # Log files
 logs/
+# Gemini auth tokens
+.gemini_token.json
+client_secrets.json
+
+# Knowledge base source docs (uploaded via UI, not tracked in git)
+docs/
+
+# Claude internal files
+.claude/
