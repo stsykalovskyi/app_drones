@@ -1074,6 +1074,11 @@
                     <li><a href="{% url 'documentation:question_ask' %}"{% if uname == 'question_ask' %} class="active"{% endif %}>
                         <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         <span class="nav-label">Задати питання</span></a></li>
+                    {% if request.user.is_superuser %}
+                    <li><a href="{% url 'documentation:knowledge_docs' %}"{% if uname == 'knowledge_docs' %} class="active"{% endif %}>
+                        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <span class="nav-label">Документи БЗ</span></a></li>
+                    {% endif %}
                 </ul>
             </li>
             {% if perms.pilots.view_droneorder %}
