@@ -3,26 +3,11 @@
 
 {% block head %}
 <style>
-  .doc-row {
-    display: grid;
-    grid-template-columns: 1fr 80px 90px 110px 120px auto;
-    align-items: center;
-    gap: 1rem;
-    padding: .75rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .doc-row:last-child { border-bottom: none; }
-  .doc-row:first-child { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding-bottom: .5rem; }
-  .badge { display: inline-block; padding: .2em .6em; border-radius: 20px; font-size: .72rem; font-weight: 700; }
-  .badge-success  { background: rgba(34,197,94,.15);  color: #22c55e; }
-  .badge-warning  { background: rgba(234,179,8,.15);  color: #ca8a04; }
-  .badge-danger   { background: rgba(239,68,68,.15);  color: #ef4444; }
-  .badge-secondary{ background: rgba(148,163,184,.12); color: var(--text-muted); }
-  button.button.sm, a.button.sm { padding: .3rem .65rem; font-size: .75rem; }
-  button.button.danger { background: rgba(239,68,68,.15); color: #ef4444; box-shadow: none; }
-  button.button.danger:hover { background: #ef4444; color: #fff; }
-  button.button:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
-  .toggle-switch { position: relative; display: inline-block; width: 34px; height: 20px; cursor: pointer; }
+  button.button.sm, a.button.sm { padding: .3rem .7rem; font-size: .78rem; }
+  button.button.danger { background: rgba(239,68,68,.12); color: #ef4444; box-shadow: none; border: 1px solid rgba(239,68,68,.25); }
+  button.button.danger:hover { background: #ef4444; color: #fff; box-shadow: none; transform: none; }
+  button.button:disabled { opacity: .4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+  .toggle-switch { position: relative; display: inline-block; width: 34px; height: 20px; cursor: pointer; vertical-align: middle; }
   .toggle-switch input { opacity: 0; width: 0; height: 0; }
   .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; transition: .2s; }
   .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
@@ -34,13 +19,20 @@
 {% endblock %}
 
 {% block content %}
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap">
-  <h1 style="margin:0;font-size:1.35rem;font-weight:800">{{ title }}</h1>
-  <a href="{% url 'documentation:question_ask' %}" style="font-size:.85rem;color:var(--accent)">← Задати питання</a>
-</div>
+<h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
 
+{% if messages %}
+{% for msg in messages %}
+<div class="card" style="margin-bottom:1rem;border-color:var(--accent);background:var(--accent-dim);padding:.75rem 1rem;font-size:.88rem">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+{# ── Upload form ── #}
 <div class="card" style="margin-bottom:1.5rem">
-  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" novalidate>
+  <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Завантажити документ</div>
+  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="strike-form" novalidate>
     {% csrf_token %}
     <div class="form-row">
       <div class="field">
@@ -58,59 +50,65 @@
   </form>
 </div>
 
-<div class="card">
+{# ── Documents table ── #}
+<div class="card" style="padding:0;overflow:hidden">
   {% if docs %}
-  <div class="doc-row">
-    <div>Документ</div>
-    <div>Розмір</div>
-    <div>Сторінок</div>
-    <div>Статус</div>
-    <div>Активний</div>
-    <div>Дії</div>
+  <div class="table-wrap" style="margin:0">
+    <table class="data-table" style="margin:0">
+      <thead>
+        <tr>
+          <th>Документ</th>
+          <th>Розмір</th>
+          <th>Стор.</th>
+          <th>Статус</th>
+          <th>Активний</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in docs %}
+        <tr id="doc-row-{{ doc.pk }}">
+          <td>
+            <div style="font-weight:600;font-size:.88rem">{{ doc.title }}</div>
+            <div style="font-size:.72rem;color:var(--text-muted);margin-top:.15rem">{{ doc.filename }}</div>
+            {% if doc.error_message %}
+            <div style="font-size:.72rem;color:#ef4444;margin-top:.2rem">{{ doc.error_message|truncatechars:80 }}</div>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;color:var(--text-muted);font-size:.82rem">
+            {% if doc.file_size %}{{ doc.file_size_human }}{% else %}—{% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:.82rem">{{ doc.page_count|default:"—" }}</td>
+          <td>
+            <span class="badge badge-{{ doc.status_color }}" id="status-badge-{{ doc.pk }}" data-status="{{ doc.status }}">
+              {% if doc.status == 'processing' %}<span class="spin">↻</span> {% endif %}{{ doc.get_status_display }}
+            </span>
+          </td>
+          <td>
+            <label class="toggle-switch">
+              <input type="checkbox" {% if doc.is_active %}checked{% endif %} onchange="toggleDoc({{ doc.pk }}, this)">
+              <span class="toggle-slider"></span>
+            </label>
+          </td>
+          <td>
+            <div style="display:flex;gap:.35rem;align-items:center">
+              <button class="button sm" id="process-btn-{{ doc.pk }}"
+                onclick="processDoc({{ doc.pk }})"
+                {% if doc.status == 'processing' %}disabled{% endif %}
+                title="Обробити (витягти текст)">Обробити</button>
+              {% if doc.extracted_text %}
+              <a href="{% url 'documentation:knowledge_doc_text' doc.pk %}" class="button sm ghost">Текст</a>
+              {% endif %}
+              <button class="button sm danger" onclick="deleteDoc({{ doc.pk }}, '{{ doc.title|escapejs }}')" title="Видалити">Видалити</button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  {% for doc in docs %}
-  <div class="doc-row" id="doc-row-{{ doc.pk }}">
-    <div>
-      <div style="font-weight:600;font-size:.88rem;margin-bottom:.2rem">{{ doc.title }}</div>
-      <div style="font-size:.72rem;color:var(--text-muted)">{{ doc.filename }}</div>
-      {% if doc.error_message %}
-      <div style="font-size:.72rem;color:#ef4444;margin-top:.2rem">{{ doc.error_message|truncatechars:80 }}</div>
-      {% endif %}
-    </div>
-    <div style="font-size:.82rem;color:var(--text-muted)">
-      {% if doc.file_size %}{{ doc.file_size_human }}{% else %}—{% endif %}
-    </div>
-    <div style="font-size:.82rem;color:var(--text-muted)">
-      {{ doc.page_count|default:"—" }}
-    </div>
-    <div>
-      <span class="badge badge-{{ doc.status_color }}" id="status-badge-{{ doc.pk }}"
-        data-status="{{ doc.status }}">
-        {% if doc.status == 'processing' %}<span class="spin">↻</span> {% endif %}
-        {{ doc.get_status_display }}
-      </span>
-    </div>
-    <div>
-      <label class="toggle-switch">
-        <input type="checkbox" {% if doc.is_active %}checked{% endif %}
-          onchange="toggleDoc({{ doc.pk }}, this)">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-      <button class="button sm" id="process-btn-{{ doc.pk }}"
-        onclick="processDoc({{ doc.pk }})"
-        {% if doc.status == 'processing' %}disabled{% endif %}
-        title="Обробити (витягти текст)">⚙</button>
-      {% if doc.extracted_text %}
-      <a href="{% url 'documentation:knowledge_doc_text' doc.pk %}" class="button sm ghost" title="Переглянути текст">📄</a>
-      {% endif %}
-      <button class="button sm danger" onclick="deleteDoc({{ doc.pk }}, '{{ doc.title|escapejs }}')" title="Видалити">✕</button>
-    </div>
-  </div>
-  {% endfor %}
   {% else %}
-  <div style="color:var(--text-muted);font-size:.88rem;text-align:center;padding:2rem 0">
+  <div style="text-align:center;color:var(--text-muted);padding:3rem 1rem;font-size:.9rem">
     Документів поки немає. Завантажте перший PDF або TXT файл.
   </div>
   {% endif %}
@@ -125,60 +123,53 @@ function processDoc(pk) {
   btn.disabled = true;
   badge.innerHTML = '<span class="spin">↻</span> Обробляється';
   badge.className = 'badge badge-warning';
-
   fetch('/documentation/docs/' + pk + '/process/', {method:'POST', headers:{'X-CSRFToken':CSRF}})
-  .then(r => r.json())
-  .then(() => pollStatus(pk));
+    .then(r => r.json())
+    .then(() => pollStatus(pk));
 }
 
 function pollStatus(pk) {
   setTimeout(function() {
     fetch('/documentation/docs/' + pk + '/status/')
-    .then(r => r.json())
-    .then(function(data) {
-      var badge = document.getElementById('status-badge-' + pk);
-      var btn = document.getElementById('process-btn-' + pk);
-      var colorMap = {pending:'secondary', processing:'warning', ready:'success', error:'danger'};
-      badge.className = 'badge badge-' + (colorMap[data.status] || 'secondary');
-      if (data.status === 'processing') {
-        badge.innerHTML = '<span class="spin">↻</span> ' + data.status_display;
-        pollStatus(pk);
-      } else {
-        badge.textContent = data.status_display;
-        btn.disabled = false;
-        if (data.status === 'ready') {
-          // reload to show 📄 button
-          location.reload();
+      .then(r => r.json())
+      .then(function(data) {
+        var badge = document.getElementById('status-badge-' + pk);
+        var btn = document.getElementById('process-btn-' + pk);
+        var colorMap = {pending:'secondary', processing:'warning', ready:'success', error:'danger'};
+        badge.className = 'badge badge-' + (colorMap[data.status] || 'secondary');
+        if (data.status === 'processing') {
+          badge.innerHTML = '<span class="spin">↻</span> ' + data.status_display;
+          pollStatus(pk);
+        } else {
+          badge.textContent = data.status_display;
+          btn.disabled = false;
+          if (data.status === 'ready') location.reload();
         }
-      }
-    });
+      });
   }, 3000);
 }
 
-// Start polling for any doc already processing on load
 document.querySelectorAll('[data-status="processing"]').forEach(function(el) {
-  var pk = el.id.replace('status-badge-', '');
-  pollStatus(parseInt(pk));
+  var pk = parseInt(el.id.replace('status-badge-', ''));
+  pollStatus(pk);
 });
 
 function toggleDoc(pk, checkbox) {
   fetch('/documentation/docs/' + pk + '/toggle/', {method:'POST', headers:{'X-CSRFToken':CSRF}})
-  .then(r => r.json())
-  .then(function(data) {
-    checkbox.checked = data.is_active;
-  });
+    .then(r => r.json())
+    .then(function(data) { checkbox.checked = data.is_active; });
 }
 
 function deleteDoc(pk, title) {
   showModal('confirm-modal', 'Видалити документ', 'Видалити "' + title + '"? Файл та витягнутий текст будуть видалені.', function() {
     fetch('/documentation/docs/' + pk + '/delete/', {method:'POST', headers:{'X-CSRFToken':CSRF}})
-    .then(r => r.json())
-    .then(function(data) {
-      if (data.ok) {
-        var row = document.getElementById('doc-row-' + pk);
-        if (row) row.remove();
-      }
-    });
+      .then(r => r.json())
+      .then(function(data) {
+        if (data.ok) {
+          var row = document.getElementById('doc-row-' + pk);
+          if (row) row.remove();
+        }
+      });
   });
 }
 </script>
