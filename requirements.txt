@@ -19,4 +19,6 @@ google-generativeai
 google-genai
 google-auth-oauthlib
 pypdf
+pytesseract
+pdf2image
 python-docx
