@@ -298,7 +298,10 @@ class WhatsAppBaseCommand(BaseCommand):
             logger.warning('Caption input not found — sending file without caption')
             time.sleep(3)
 
-        # 4. Type caption while preview is shown (before Send)
+        # 4. Type caption and send by pressing Enter while caption field is focused.
+        # Enter in the media-preview caption field sends the file+caption together.
+        # This avoids the ambiguity of finding the correct Send button in the modal
+        # (the compose-box send button is also in the DOM at the same time).
         caption_sent = False
         if caption and caption_el is not None:
             try:
@@ -310,56 +313,42 @@ class WhatsAppBaseCommand(BaseCommand):
                         page.keyboard.type(line, delay=20)
                     if i < len(cap_lines) - 1:
                         page.keyboard.press('Shift+Enter')
+                # Enter while focused on caption field sends the media message
+                page.keyboard.press('Enter')
                 caption_sent = True
+                # Wait for modal to close as confirmation
+                try:
+                    page.wait_for_selector(
+                        '[data-testid="media-caption-input"]',
+                        state='detached', timeout=10_000,
+                    )
+                except Exception:
+                    time.sleep(2)
             except Exception as e:
-                logger.warning('Failed to type caption: %s', e)
+                logger.warning('Failed to type/send caption: %s', e)
 
-        # 5. Wait for Send button to become enabled (video processed by browser).
-        # Use icon-based selectors — data-icon does not change with UI language.
-        SEND_SELS = [
-            'span[data-icon="send"]',
-            'span[data-icon="send-white"]',
-            '[data-testid="send"]',
-            '[data-testid="compose-btn-send"]',
-            # Language-aware aria-label fallbacks
-            'button[aria-label="Надіслати"]',
-            'button[aria-label="Send"]',
-            'button[aria-label*="end"]',
-        ]
-        try:
-            page.wait_for_function(
-                """() => {
-                    const sels = [
-                        'span[data-icon="send"]',
-                        'span[data-icon="send-white"]',
-                        '[data-testid="send"]',
-                        '[data-testid="compose-btn-send"]',
-                        'button[aria-label="Надіслати"]',
-                        'button[aria-label="Send"]',
-                    ];
-                    for (const s of sels) {
-                        const el = document.querySelector(s);
-                        if (el) return true;
-                    }
-                    return false;
-                }""",
-                timeout=15_000,
-            )
-        except Exception:
-            time.sleep(2)  # fallback if wait_for_function fails
-
-        # 6. Click Send
-        sent = False
-        for sel in SEND_SELS:
-            try:
-                page.wait_for_selector(sel, timeout=3_000).click()
-                sent = True
-                break
-            except Exception:
-                continue
+        # 5. If no caption or caption send failed — find and click Send button.
+        if not caption_sent:
+            SEND_SELS = [
+                'span[data-icon="send"]',
+                'span[data-icon="send-white"]',
+                '[data-testid="send"]',
+                '[data-testid="compose-btn-send"]',
+                'button[aria-label="Надіслати"]',
+                'button[aria-label="Send"]',
+                'button[aria-label*="end"]',
+            ]
+            sent = False
+            for sel in SEND_SELS:
+                try:
+                    page.wait_for_selector(sel, timeout=3_000).click()
+                    sent = True
+                    break
+                except Exception:
+                    continue
 
         # Fallback: find send button via JS (handles any icon/aria-label variant)
-        if not sent:
+        if not caption_sent and not sent:
             try:
                 clicked = page.evaluate("""() => {
                     const candidates = [
@@ -390,7 +379,7 @@ class WhatsAppBaseCommand(BaseCommand):
             except Exception:
                 pass
 
-        if not sent:
+        if not caption_sent and not sent:
             page.screenshot(path='/mnt/f/wa_send_fail.png')
             raise RuntimeError('Send button not found after attaching file. Screenshot: /mnt/f/wa_send_fail.png')
 
