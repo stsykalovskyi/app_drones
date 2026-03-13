@@ -18,35 +18,16 @@
   .badge-warning  { background: rgba(234,179,8,.15);  color: #ca8a04; }
   .badge-danger   { background: rgba(239,68,68,.15);  color: #ef4444; }
   .badge-secondary{ background: rgba(148,163,184,.12); color: var(--text-muted); }
-  .icon-btn {
-    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: .3rem .55rem; cursor: pointer; font-size: .8rem; color: var(--text-muted);
-    transition: border-color .15s, color .15s;
-  }
-  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .icon-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
-  .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .toggle-switch {
-    position: relative; display: inline-block; width: 34px; height: 20px; cursor: pointer;
-  }
+  button.button.sm, a.button.sm { padding: .3rem .65rem; font-size: .75rem; }
+  button.button.danger { background: rgba(239,68,68,.15); color: #ef4444; box-shadow: none; }
+  button.button.danger:hover { background: #ef4444; color: #fff; }
+  button.button:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .toggle-switch { position: relative; display: inline-block; width: 34px; height: 20px; cursor: pointer; }
   .toggle-switch input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider {
-    position: absolute; inset: 0; background: var(--border);
-    border-radius: 20px; transition: .2s;
-  }
-  .toggle-slider:before {
-    content: ''; position: absolute; width: 14px; height: 14px;
-    left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
-  }
+  .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; transition: .2s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
   .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
   .toggle-switch input:checked + .toggle-slider:before { transform: translateX(14px); }
-  .upload-form { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; }
-  .upload-form input[type=text], .upload-form input[type=file] {
-    padding: .45rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    background: var(--input-bg); color: var(--text); font-size: .88rem; outline: none;
-  }
-  .upload-form input[type=text] { width: 220px; }
-  .upload-form input[type=text]:focus, .upload-form input[type=file]:focus { border-color: var(--accent); }
   .spin { animation: spin .7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -59,12 +40,21 @@
 </div>
 
 <div class="card" style="margin-bottom:1.5rem">
-  <div style="font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.75rem">Завантажити документ</div>
-  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="upload-form">
+  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
-    <input type="text" name="title" placeholder="Назва (необов'язково)">
-    <input type="file" name="file" accept=".pdf,.txt,.md" required>
-    <button type="submit" class="ask-btn" style="margin:0;padding:.45rem 1rem;background:var(--btn-bg);color:var(--btn-text);border:none;border-radius:var(--radius-sm);font-size:.88rem;font-weight:600;cursor:pointer">Завантажити</button>
+    <div class="form-row">
+      <div class="field">
+        <label for="upload-title">Назва</label>
+        <input type="text" name="title" id="upload-title" class="form-input" placeholder="Необов'язково — буде використано ім'я файлу">
+      </div>
+      <div class="field">
+        <label for="upload-file">Файл <span style="color:var(--accent)">*</span></label>
+        <input type="file" name="file" id="upload-file" class="form-input" accept=".pdf,.txt,.md" required>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="button">Завантажити</button>
+    </div>
   </form>
 </div>
 
@@ -108,14 +98,14 @@
       </label>
     </div>
     <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-      <button class="icon-btn" id="process-btn-{{ doc.pk }}"
+      <button class="button sm" id="process-btn-{{ doc.pk }}"
         onclick="processDoc({{ doc.pk }})"
         {% if doc.status == 'processing' %}disabled{% endif %}
         title="Обробити (витягти текст)">⚙</button>
       {% if doc.extracted_text %}
-      <a href="{% url 'documentation:knowledge_doc_text' doc.pk %}" class="icon-btn" title="Переглянути текст" style="text-decoration:none;display:inline-flex;align-items:center">📄</a>
+      <a href="{% url 'documentation:knowledge_doc_text' doc.pk %}" class="button sm ghost" title="Переглянути текст">📄</a>
       {% endif %}
-      <button class="icon-btn danger" onclick="deleteDoc({{ doc.pk }}, '{{ doc.title|escapejs }}')" title="Видалити">✕</button>
+      <button class="button sm danger" onclick="deleteDoc({{ doc.pk }}, '{{ doc.title|escapejs }}')" title="Видалити">✕</button>
     </div>
   </div>
   {% endfor %}
