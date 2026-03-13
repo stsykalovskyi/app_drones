@@ -192,6 +192,7 @@ def question_ask(request):
         return render(request, 'documentation/question_ask.html', {
             'title': 'Задати питання',
             'answered': question,
+            'answer_html': render_markdown(answer_text),
             'recent_questions': Question.objects.filter(
                 user=request.user
             ).order_by('-created_at')[:20],

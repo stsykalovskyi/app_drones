@@ -2,6 +2,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
     .ask-textarea {
         width: 100%;
@@ -33,8 +34,67 @@
         font-weight: 600;
         cursor: pointer;
         transition: opacity .15s;
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
     }
     .ask-btn:hover { opacity: .85; }
+    .ask-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .loader {
+        display: none;
+        width: 14px; height: 14px;
+        border: 2px solid rgba(255,255,255,.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .answer-body { line-height: 1.75; color: var(--text); }
+    .answer-body h1,.answer-body h2,.answer-body h3 { margin: 1rem 0 .4rem; font-weight: 700; }
+    .answer-body p { margin: .4rem 0; }
+    .answer-body ul,.answer-body ol { padding-left: 1.4rem; margin: .4rem 0; }
+    .answer-body li { margin: .2rem 0; }
+    .answer-body code { background: var(--input-bg); padding: .1em .35em; border-radius: 3px; font-size: .88em; }
+    .answer-body pre { background: var(--input-bg); padding: .75rem; border-radius: var(--radius-sm); overflow-x: auto; }
+
+    .history-item {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: .75rem;
+        cursor: pointer;
+        transition: opacity .15s;
+    }
+    .history-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .history-item:hover { opacity: .75; }
+
+    .qa-modal-backdrop {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.55);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .qa-modal-backdrop.open { display: flex; }
+    .qa-modal {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        max-width: 680px;
+        width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 1.5rem;
+        position: relative;
+    }
+    .qa-modal-close {
+        position: absolute; top: .75rem; right: .75rem;
+        background: none; border: none;
+        font-size: 1.2rem; cursor: pointer;
+        color: var(--text-muted); line-height: 1;
+    }
+    .qa-modal-close:hover { color: var(--text); }
 </style>
 {% endblock %}
 
@@ -45,36 +105,36 @@
 
   <div>
     <div class="card" style="margin-bottom:1.5rem">
-      <form method="post" novalidate>
+      <form method="post" novalidate id="ask-form">
         {% csrf_token %}
         <label style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:.5rem">Ваше питання</label>
-        <textarea name="question_text" rows="4" class="ask-textarea"
+        <textarea name="question_text" rows="4" class="ask-textarea" id="ask-textarea"
           placeholder="Введіть питання до бази знань…"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
-        <button type="submit" class="ask-btn">Запитати Gemini</button>
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitAsk();}">{% if answered %}{{ answered.question_text }}{% endif %}</textarea>
+        <button type="button" class="ask-btn" id="ask-btn" onclick="submitAsk()">
+          <span class="loader" id="ask-loader"></span>
+          <span id="ask-btn-text">Запитати</span>
+        </button>
       </form>
     </div>
 
     {% if answered %}
     <div class="card" style="border-color:var(--accent);background:var(--accent-dim)">
       <div style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem">Відповідь</div>
-      <div style="white-space:pre-wrap;line-height:1.7;color:var(--text)">{{ answered.answer_text }}</div>
+      <div class="answer-body">{{ answer_html|safe }}</div>
     </div>
     {% endif %}
   </div>
 
   <div>
     <div class="card">
-      <div style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Мої питання</div>
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Історія питань</div>
       {% if recent_questions %}
-      <div style="display:flex;flex-direction:column;gap:.75rem">
+      <div style="display:flex;flex-direction:column;gap:.75rem" id="history-list">
         {% for q in recent_questions %}
-        <div style="border-bottom:1px solid var(--border);padding-bottom:.75rem">
-          <div style="font-size:.85rem;font-weight:600;margin-bottom:.3rem">{{ q.question_text|truncatechars:80 }}</div>
-          {% if q.answer_text %}
-          <div style="font-size:.78rem;color:var(--text-secondary);line-height:1.5">{{ q.answer_text|truncatechars:120 }}</div>
-          {% endif %}
-          <div style="font-size:.7rem;color:var(--text-muted);margin-top:.3rem">{{ q.created_at|date:"d.m.Y H:i" }}</div>
+        <div class="history-item" data-q="{{ q.question_text|escapejs }}" data-a="{{ q.answer_text|escapejs }}">
+          <div style="font-size:.85rem;font-weight:600;margin-bottom:.25rem;line-height:1.4">{{ q.question_text|truncatechars:70 }}</div>
+          <div style="font-size:.7rem;color:var(--text-muted)">{{ q.created_at|date:"d.m.Y H:i" }}</div>
         </div>
         {% endfor %}
       </div>
@@ -85,4 +145,48 @@
   </div>
 
 </div>
+
+<!-- History modal -->
+<div class="qa-modal-backdrop" id="qa-modal-backdrop" onclick="if(event.target===this)closeQA()">
+  <div class="qa-modal">
+    <button class="qa-modal-close" onclick="closeQA()">✕</button>
+    <div style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.5rem">Питання</div>
+    <div id="modal-question" style="font-weight:600;margin-bottom:1rem;line-height:1.5"></div>
+    <div style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem">Відповідь</div>
+    <div class="answer-body" id="modal-answer"></div>
+  </div>
+</div>
+
+<script>
+  function submitAsk() {
+    const textarea = document.getElementById('ask-textarea');
+    if (!textarea.value.trim()) return;
+    const btn = document.getElementById('ask-btn');
+    document.getElementById('ask-loader').style.display = 'block';
+    document.getElementById('ask-btn-text').textContent = 'Очікуйте…';
+    btn.disabled = true;
+    document.getElementById('ask-form').submit();
+  }
+
+  // History item click → open modal
+  document.querySelectorAll('.history-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      openQA(el.dataset.q, el.dataset.a);
+    });
+  });
+
+  function openQA(question, answer) {
+    document.getElementById('modal-question').textContent = question;
+    document.getElementById('modal-answer').innerHTML = marked.parse(answer || '');
+    document.getElementById('qa-modal-backdrop').classList.add('open');
+  }
+
+  function closeQA() {
+    document.getElementById('qa-modal-backdrop').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeQA();
+  });
+</script>
 {% endblock %}
