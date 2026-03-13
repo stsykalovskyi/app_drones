@@ -171,7 +171,12 @@ def comment_create(request, slug):
 
 @login_required
 def question_ask(request):
+    import json
     recent_questions = Question.objects.filter(user=request.user).order_by('-created_at')[:20]
+    history_json = json.dumps([
+        {'q': item.question_text, 'a': item.answer_text, 'date': item.created_at.strftime('%d.%m.%Y %H:%M')}
+        for item in recent_questions
+    ], ensure_ascii=False)
 
     if request.method == 'POST':
         question_text = request.POST.get('question_text', '').strip()
@@ -189,16 +194,21 @@ def question_ask(request):
             answer_text=answer_text,
             is_answered=bool(answer_text),
         )
+        recent_questions = Question.objects.filter(user=request.user).order_by('-created_at')[:20]
+        history_json = json.dumps([
+            {'q': item.question_text, 'a': item.answer_text, 'date': item.created_at.strftime('%d.%m.%Y %H:%M')}
+            for item in recent_questions
+        ], ensure_ascii=False)
         return render(request, 'documentation/question_ask.html', {
             'title': 'Задати питання',
             'answered': question,
             'answer_html': render_markdown(answer_text),
-            'recent_questions': Question.objects.filter(
-                user=request.user
-            ).order_by('-created_at')[:20],
+            'recent_questions': recent_questions,
+            'history_json': history_json,
         })
 
     return render(request, 'documentation/question_ask.html', {
         'title': 'Задати питання',
         'recent_questions': recent_questions,
+        'history_json': history_json,
     })

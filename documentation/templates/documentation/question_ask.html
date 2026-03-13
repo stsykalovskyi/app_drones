@@ -132,7 +132,7 @@
       {% if recent_questions %}
       <div style="display:flex;flex-direction:column;gap:.75rem" id="history-list">
         {% for q in recent_questions %}
-        <div class="history-item" data-q="{{ q.question_text|escapejs }}" data-a="{{ q.answer_text|escapejs }}">
+        <div class="history-item" data-idx="{{ forloop.counter0 }}">
           <div style="font-size:.85rem;font-weight:600;margin-bottom:.25rem;line-height:1.4">{{ q.question_text|truncatechars:70 }}</div>
           <div style="font-size:.7rem;color:var(--text-muted)">{{ q.created_at|date:"d.m.Y H:i" }}</div>
         </div>
@@ -168,10 +168,12 @@
     document.getElementById('ask-form').submit();
   }
 
-  // History item click → open modal
+  var QA_HISTORY = {{ history_json|safe }};
+
   document.querySelectorAll('.history-item').forEach(function(el) {
     el.addEventListener('click', function() {
-      openQA(el.dataset.q, el.dataset.a);
+      var item = QA_HISTORY[parseInt(el.dataset.idx)];
+      if (item) openQA(item.q, item.a);
     });
   });
 
