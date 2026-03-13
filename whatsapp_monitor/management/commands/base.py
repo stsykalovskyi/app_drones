@@ -207,17 +207,25 @@ class WhatsAppBaseCommand(BaseCommand):
         # 1. Open the attach menu
         CLIP_SELS = [
             '[data-testid="clip"]',
+            '[data-testid="attach-media"]',
+            'span[data-icon="clip"]',
+            'span[data-icon="attach-media"]',
             'button[aria-label*="ttach"]',
+            'button[title*="ttach"]',
+            '[title="Attach"]',
             'span[data-icon="plus"]',
         ]
         for sel in CLIP_SELS:
             try:
-                page.wait_for_selector(sel, timeout=5_000).click()
+                page.wait_for_selector(sel, timeout=3_000).click()
                 break
             except Exception:
                 continue
         else:
-            raise RuntimeError('Attach button not found')
+            page.screenshot(path='/tmp/wa_attach_fail.png')
+            raise RuntimeError(
+                'Attach button not found. Screenshot saved: /tmp/wa_attach_fail.png'
+            )
 
         # 2. Set the file — try file-chooser interception first,
         #    then fall back to set_input_files directly on the hidden input.
