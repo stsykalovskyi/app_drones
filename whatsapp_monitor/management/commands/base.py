@@ -314,24 +314,32 @@ class WhatsAppBaseCommand(BaseCommand):
             except Exception as e:
                 logger.warning('Failed to type caption: %s', e)
 
-        # 5. Wait for Send button to become enabled (video processed by browser)
+        # 5. Wait for Send button to become enabled (video processed by browser).
+        # Use icon-based selectors — data-icon does not change with UI language.
         SEND_SELS = [
+            'span[data-icon="send"]',
+            'span[data-icon="send-white"]',
             '[data-testid="send"]',
             '[data-testid="compose-btn-send"]',
-            'button[aria-label*="Send"]',
-            'span[data-icon="send"]',
+            # Language-aware aria-label fallbacks
+            'button[aria-label="Надіслати"]',
+            'button[aria-label="Send"]',
+            'button[aria-label*="end"]',
         ]
         try:
             page.wait_for_function(
                 """() => {
                     const sels = [
+                        'span[data-icon="send"]',
+                        'span[data-icon="send-white"]',
                         '[data-testid="send"]',
                         '[data-testid="compose-btn-send"]',
-                        'button[aria-label*="Send"]'
+                        'button[aria-label="Надіслати"]',
+                        'button[aria-label="Send"]',
                     ];
                     for (const s of sels) {
                         const el = document.querySelector(s);
-                        if (el && !el.disabled) return true;
+                        if (el) return true;
                     }
                     return false;
                 }""",
@@ -344,14 +352,15 @@ class WhatsAppBaseCommand(BaseCommand):
         sent = False
         for sel in SEND_SELS:
             try:
-                page.wait_for_selector(sel, timeout=5_000).click()
+                page.wait_for_selector(sel, timeout=3_000).click()
                 sent = True
                 break
             except Exception:
                 continue
 
         if not sent:
-            raise RuntimeError('Send button not found after attaching file')
+            page.screenshot(path='/mnt/f/wa_send_fail.png')
+            raise RuntimeError('Send button not found after attaching file. Screenshot: /mnt/f/wa_send_fail.png')
 
         # 7. Wait for upload to complete — spinner disappears when message is queued.
         #    Falls back to a fixed sleep if the spinner selector changed.
