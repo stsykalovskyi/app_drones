@@ -34,14 +34,16 @@
   <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Завантажити документ</div>
   <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="strike-form" novalidate>
     {% csrf_token %}
-    <div class="form-row">
-      <div class="field">
-        <label for="upload-title">Назва</label>
-        <input type="text" name="title" id="upload-title" class="form-input" placeholder="Необов'язково — буде використано ім'я файлу">
-      </div>
-      <div class="field">
-        <label for="upload-file">Файл <span style="color:var(--accent)">*</span></label>
-        <input type="file" name="file" id="upload-file" class="form-input" accept=".pdf,.txt,.md" required>
+    <div class="field">
+      <label for="upload-title">Назва <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">(необов'язково)</span></label>
+      <input type="text" name="title" id="upload-title" class="form-input" placeholder="Залиште порожнім — буде використано ім'я файлу">
+    </div>
+    <div class="field">
+      <label>Файл <span style="color:var(--accent)">*</span> <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">PDF, TXT або MD</span></label>
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        <label for="upload-file" class="button ghost" style="cursor:pointer;margin:0">Вибрати файл</label>
+        <input type="file" name="file" id="upload-file" accept=".pdf,.txt,.md" required style="display:none">
+        <span id="upload-filename" style="font-size:.85rem;color:var(--text-muted)">Файл не вибрано</span>
       </div>
     </div>
     <div class="form-actions">
@@ -116,6 +118,12 @@
 
 <script>
 const CSRF = '{{ csrf_token }}';
+
+document.getElementById('upload-file').addEventListener('change', function() {
+  var label = document.getElementById('upload-filename');
+  label.textContent = this.files.length ? this.files[0].name : 'Файл не вибрано';
+  label.style.color = this.files.length ? 'var(--text)' : 'var(--text-muted)';
+});
 
 function processDoc(pk) {
   var btn = document.getElementById('process-btn-' + pk);
