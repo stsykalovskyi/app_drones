@@ -184,7 +184,14 @@ class WhatsAppBaseCommand(BaseCommand):
 
         box.click()
         time.sleep(0.3)
-        page.keyboard.type(text, delay=30)
+        # Split on newlines: type each line, use Shift+Enter between them.
+        # Plain Enter would send the message immediately in WhatsApp Web.
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            if line:
+                page.keyboard.type(line, delay=30)
+            if i < len(lines) - 1:
+                page.keyboard.press('Shift+Enter')
         time.sleep(0.3)
         page.keyboard.press('Enter')
         time.sleep(1.0)
@@ -269,7 +276,12 @@ class WhatsAppBaseCommand(BaseCommand):
             try:
                 caption_el.click()
                 time.sleep(0.2)
-                page.keyboard.type(caption, delay=20)
+                cap_lines = caption.split('\n')
+                for i, line in enumerate(cap_lines):
+                    if line:
+                        page.keyboard.type(line, delay=20)
+                    if i < len(cap_lines) - 1:
+                        page.keyboard.press('Shift+Enter')
                 caption_sent = True
             except Exception as e:
                 logger.warning('Failed to type caption: %s', e)
