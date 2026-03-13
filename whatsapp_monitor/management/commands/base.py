@@ -313,86 +313,60 @@ class WhatsAppBaseCommand(BaseCommand):
                         page.keyboard.type(line, delay=20)
                     if i < len(cap_lines) - 1:
                         page.keyboard.press('Shift+Enter')
-                # Dump all interactive elements + screenshot before sending
-                page.screenshot(path='/mnt/f/wa_before_send.png')
-                btns = page.evaluate("""() => {
-                    const els = document.querySelectorAll(
-                        'button, div[role="button"], span[role="button"]'
-                    );
-                    return Array.from(els).map(el => ({
-                        tag:    el.tagName,
-                        testid: el.getAttribute('data-testid'),
-                        icon:   el.querySelector('[data-icon]')?.getAttribute('data-icon'),
-                        aria:   el.getAttribute('aria-label'),
-                        inFooter: !!document.querySelector('footer')?.contains(el),
-                    }));
-                }""")
-                import json as _json
-                logger.info('Buttons before send:\\n%s', _json.dumps(btns, ensure_ascii=False, indent=2))
-
-                # Enter while focused on caption field sends the media message
-                page.keyboard.press('Enter')
-                # Verify modal closed — if it stays open the file was not sent
-                modal_closed = False
-                try:
-                    page.wait_for_selector(
-                        '[data-testid="media-caption-input"]',
-                        state='detached', timeout=10_000,
-                    )
-                    modal_closed = True
-                except Exception:
-                    pass
-
-                if modal_closed:
-                    caption_sent = True
-                else:
-                    page.screenshot(path='/mnt/f/wa_after_enter.png')
-                    logger.warning(
-                        'Modal still open after Enter — file may be too large or '
-                        'WhatsApp rejected it. Screenshot: /mnt/f/wa_after_enter.png'
-                    )
-            except Exception as e:
-                logger.warning('Failed to type/send caption: %s', e)
-
-        # 5. If caption send failed — click Send button in media preview modal.
-        # The green circular Send button is OUTSIDE the footer (footer = compose area).
-        # We search outside footer to avoid clicking the compose-box send button.
-        sent = False
-        if not caption_sent:
-            # JS: find buttons outside footer — the last one should be the Send button
-            try:
+                # Click the media-preview Send button (DIV[aria-label="Надіслати"]
+                # outside footer, icon=wds-ic-send-filled — confirmed via debug log).
+                # Do NOT use Enter: it closes the modal without sending the file.
                 clicked = page.evaluate("""() => {
                     const footer = document.querySelector('footer');
-                    const allBtns = Array.from(
-                        document.querySelectorAll('button, div[role="button"]')
-                    );
-                    const modalBtns = allBtns.filter(b => !footer || !footer.contains(b));
-                    if (!modalBtns.length) return null;
-                    // Send button is the last interactive element in the modal
-                    const btn = modalBtns[modalBtns.length - 1];
-                    btn.click();
-                    return btn.getAttribute('aria-label') || btn.tagName;
+                    // Find all elements with send aria-label, prefer ones outside footer
+                    const candidates = Array.from(document.querySelectorAll(
+                        '[aria-label="Надіслати"], [aria-label="Send"]'
+                    ));
+                    const mediaBtn = candidates.find(el => !footer?.contains(el));
+                    if (mediaBtn) { mediaBtn.click(); return mediaBtn.tagName; }
+                    // Fallback: any element with the send icon outside footer
+                    const icons = Array.from(document.querySelectorAll(
+                        '[data-icon="wds-ic-send-filled"], [data-icon="send"]'
+                    ));
+                    const iconBtn = icons.find(el => !footer?.contains(el));
+                    if (iconBtn) {
+                        (iconBtn.closest('[aria-label]') || iconBtn).click();
+                        return 'icon:' + iconBtn.getAttribute('data-icon');
+                    }
+                    return null;
                 }""")
                 if clicked:
-                    logger.info('Clicked modal button: %s', clicked)
-                    sent = True
+                    caption_sent = True
+                    logger.info('Clicked media send button: %s', clicked)
+                    # Wait for modal to close as confirmation
+                    try:
+                        page.wait_for_selector(
+                            '[data-testid="media-caption-input"]',
+                            state='detached', timeout=15_000,
+                        )
+                    except Exception:
+                        time.sleep(3)
+                else:
+                    page.screenshot(path='/mnt/f/wa_send_fail.png')
+                    logger.warning('Media send button not found. Screenshot: /mnt/f/wa_send_fail.png')
             except Exception as e:
-                logger.warning('JS modal button click failed: %s', e)
+                logger.warning('Failed to click media send button: %s', e)
 
-        # Fallback: find send button via JS (handles any icon/aria-label variant)
-        if not caption_sent and not sent:
+        # 5. If caption send failed — last resort button-click fallbacks
+        sent = False
+        if not caption_sent:
             try:
                 clicked = page.evaluate("""() => {
                     const candidates = [
+                        document.querySelector('[data-icon="wds-ic-send-filled"]'),
                         document.querySelector('[data-icon="send"]'),
-                        document.querySelector('[data-icon="send-white"]'),
-                        document.querySelector('button[aria-label="Надіслати"]'),
-                        document.querySelector('button[aria-label="Send"]'),
+                        document.querySelector('[aria-label="Надіслати"]'),
+                        document.querySelector('[aria-label="Send"]'),
                         document.querySelector('[data-testid="send"]'),
                     ];
                     for (const el of candidates) {
                         if (el) {
-                            el.closest('button, div[role="button"]')?.click() || el.click();
+                            (el.closest('button, div[role="button"]') || el).click();
                             return true;
                         }
                     }
@@ -400,14 +374,6 @@ class WhatsAppBaseCommand(BaseCommand):
                 }""")
                 if clicked:
                     sent = True
-            except Exception:
-                pass
-
-        # Last resort: Enter key sends in media preview modal
-        if not sent:
-            try:
-                page.keyboard.press('Enter')
-                sent = True
             except Exception:
                 pass
 
