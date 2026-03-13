@@ -313,32 +313,33 @@ class WhatsAppBaseCommand(BaseCommand):
                         page.keyboard.type(line, delay=20)
                     if i < len(cap_lines) - 1:
                         page.keyboard.press('Shift+Enter')
-                # Click the media-preview Send button (DIV[aria-label="Надіслати"]
-                # outside footer, icon=wds-ic-send-filled — confirmed via debug log).
-                # Do NOT use Enter: it closes the modal without sending the file.
-                clicked = page.evaluate("""() => {
-                    const footer = document.querySelector('footer');
-                    // Find all elements with send aria-label, prefer ones outside footer
-                    const candidates = Array.from(document.querySelectorAll(
-                        '[aria-label="Надіслати"], [aria-label="Send"]'
-                    ));
-                    const mediaBtn = candidates.find(el => !footer?.contains(el));
-                    if (mediaBtn) { mediaBtn.click(); return mediaBtn.tagName; }
-                    // Fallback: any element with the send icon outside footer
-                    const icons = Array.from(document.querySelectorAll(
-                        '[data-icon="wds-ic-send-filled"], [data-icon="send"]'
-                    ));
-                    const iconBtn = icons.find(el => !footer?.contains(el));
-                    if (iconBtn) {
-                        (iconBtn.closest('[aria-label]') || iconBtn).click();
-                        return 'icon:' + iconBtn.getAttribute('data-icon');
-                    }
-                    return null;
-                }""")
-                if clicked:
+                # Click the media-preview Send button using Playwright locator —
+                # JS evaluate().click() does not trigger React synthetic events.
+                # Confirmed selector: DIV[aria-label="Надіслати"] outside footer,
+                # data-icon="wds-ic-send-filled".
+                send_clicked = False
+                footer_handle = page.query_selector('footer')
+                for label in ('Надіслати', 'Send'):
+                    locs = page.locator(f'[aria-label="{label}"]')
+                    for i in range(locs.count()):
+                        loc = locs.nth(i)
+                        try:
+                            in_footer = footer_handle and footer_handle.evaluate(
+                                '(footer, el) => footer.contains(el)',
+                                loc.element_handle(),
+                            )
+                            if not in_footer:
+                                loc.click()
+                                send_clicked = True
+                                break
+                        except Exception:
+                            continue
+                    if send_clicked:
+                        break
+
+                if send_clicked:
                     caption_sent = True
-                    logger.info('Clicked media send button: %s', clicked)
-                    # Wait for modal to close as confirmation
+                    logger.info('Clicked media send button via locator')
                     try:
                         page.wait_for_selector(
                             '[data-testid="media-caption-input"]',
