@@ -328,6 +328,7 @@ class WhatsAppBaseCommand(BaseCommand):
                 logger.warning('Failed to type/send caption: %s', e)
 
         # 5. If no caption or caption send failed — find and click Send button.
+        sent = False
         if not caption_sent:
             SEND_SELS = [
                 'span[data-icon="send"]',
