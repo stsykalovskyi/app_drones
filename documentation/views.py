@@ -6,7 +6,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import CategoryForm, CommentForm, PageForm
 from .gemini_service import ask_gemini
@@ -167,6 +169,16 @@ def comment_create(request, slug):
         messages.success(request, "Коментар додано.")
 
     return redirect("documentation:page_detail", slug=slug)
+
+
+@require_POST
+@login_required
+def question_delete(request, pk):
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+    question = get_object_or_404(Question, pk=pk)
+    question.delete()
+    return JsonResponse({'ok': True})
 
 
 @login_required

@@ -133,9 +133,20 @@
       {% if recent_questions %}
       <div style="display:flex;flex-direction:column;gap:.75rem" id="history-list">
         {% for q in recent_questions %}
-        <div class="history-item" data-idx="{{ forloop.counter0 }}">
-          <div style="font-size:.85rem;font-weight:600;margin-bottom:.25rem;line-height:1.4">{{ q.question_text|truncatechars:70 }}</div>
-          <div style="font-size:.7rem;color:var(--text-muted)">{{ q.created_at|date:"d.m.Y H:i" }}</div>
+        <div class="history-item" data-idx="{{ forloop.counter0 }}" id="history-item-{{ q.pk }}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.85rem;font-weight:600;margin-bottom:.25rem;line-height:1.4">{{ q.question_text|truncatechars:70 }}</div>
+              <div style="font-size:.7rem;color:var(--text-muted)">{{ q.created_at|date:"d.m.Y H:i" }}</div>
+            </div>
+            {% if request.user.is_superuser %}
+            <button class="delete-q-btn" data-pk="{{ q.pk }}" title="Видалити"
+              style="flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.85rem;padding:.1rem .3rem;line-height:1;border-radius:3px;transition:color .15s"
+              onmouseover="this.style.color='var(--danger,#e05)'"
+              onmouseout="this.style.color='var(--text-muted)'"
+              onclick="event.stopPropagation()">✕</button>
+            {% endif %}
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -190,6 +201,26 @@
 
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeQA();
+  });
+
+  document.querySelectorAll('.delete-q-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var pk = btn.dataset.pk;
+      showModal('confirm-modal', 'Видалити запис', 'Видалити це питання та відповідь?', function() {
+        fetch('/documentation/ask/' + pk + '/delete/', {
+          method: 'POST',
+          headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            var item = document.getElementById('history-item-' + pk);
+            if (item) item.remove();
+          }
+        });
+      });
+    });
   });
 </script>
 {% endblock %}

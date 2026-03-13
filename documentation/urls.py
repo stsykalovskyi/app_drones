@@ -7,6 +7,7 @@ app_name = "documentation"
 urlpatterns = [
     path("", views.page_list, name="documentation_page"),
     path("ask/", views.question_ask, name="question_ask"),
+    path("ask/<int:pk>/delete/", views.question_delete, name="question_delete"),
     path("create/", views.page_create, name="page_create"),
     path("category/create/", views.category_create, name="category_create"),
     path("<slug:slug>/", views.page_detail, name="page_detail"),
