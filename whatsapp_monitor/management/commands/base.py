@@ -313,6 +313,23 @@ class WhatsAppBaseCommand(BaseCommand):
                         page.keyboard.type(line, delay=20)
                     if i < len(cap_lines) - 1:
                         page.keyboard.press('Shift+Enter')
+                # Dump all interactive elements + screenshot before sending
+                page.screenshot(path='/mnt/f/wa_before_send.png')
+                btns = page.evaluate("""() => {
+                    const els = document.querySelectorAll(
+                        'button, div[role="button"], span[role="button"]'
+                    );
+                    return Array.from(els).map(el => ({
+                        tag:    el.tagName,
+                        testid: el.getAttribute('data-testid'),
+                        icon:   el.querySelector('[data-icon]')?.getAttribute('data-icon'),
+                        aria:   el.getAttribute('aria-label'),
+                        inFooter: !!document.querySelector('footer')?.contains(el),
+                    }));
+                }""")
+                import json as _json
+                logger.info('Buttons before send:\\n%s', _json.dumps(btns, ensure_ascii=False, indent=2))
+
                 # Enter while focused on caption field sends the media message
                 page.keyboard.press('Enter')
                 # Verify modal closed — if it stays open the file was not sent
