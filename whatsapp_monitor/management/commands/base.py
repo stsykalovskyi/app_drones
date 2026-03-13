@@ -204,59 +204,75 @@ class WhatsAppBaseCommand(BaseCommand):
         (WhatsApp UI changed or caption input not found). The caller should send
         the text as a separate message when False is returned.
         """
-        # 1. Open the attach menu
-        CLIP_SELS = [
-            '[data-testid="clip"]',
-            '[data-testid="attach-media"]',
-            'span[data-icon="clip"]',
-            'span[data-icon="attach-media"]',
-            'button[aria-label*="ttach"]',
-            'button[title*="ttach"]',
-            '[title="Attach"]',
-            'span[data-icon="plus"]',
-        ]
-        for sel in CLIP_SELS:
-            try:
-                page.wait_for_selector(sel, timeout=3_000).click()
-                break
-            except Exception:
-                continue
-        else:
-            page.screenshot(path='/tmp/wa_attach_fail.png')
-            raise RuntimeError(
-                'Attach button not found. Screenshot saved: /tmp/wa_attach_fail.png'
-            )
-
-        # 2. Set the file — try file-chooser interception first,
-        #    then fall back to set_input_files directly on the hidden input.
         FILE_INPUT_SELS = [
             'input[type="file"][accept*="video"]',
             'input[type="file"][accept*="image"]',
             'input[type="file"]',
         ]
-        attached = False
-        try:
-            with page.expect_file_chooser(timeout=8_000) as fc_info:
-                for sel in FILE_INPUT_SELS:
-                    el = page.query_selector(sel)
-                    if el:
-                        page.evaluate('el => el.click()', el)
-                        break
-            fc_info.value.set_files(file_path)
-            attached = True
-        except Exception:
-            pass
 
-        if not attached:
-            for sel in FILE_INPUT_SELS:
-                el = page.query_selector(sel)
-                if el:
+        # Strategy 1: set file directly on hidden input — works if WhatsApp keeps
+        # the input in DOM without needing to open the attach menu first.
+        attached = False
+        for sel in FILE_INPUT_SELS:
+            el = page.query_selector(sel)
+            if el:
+                try:
                     el.set_input_files(file_path)
                     attached = True
                     break
+                except Exception:
+                    continue
+
+        # Strategy 2: click attach button to reveal the input, then set file.
+        if not attached:
+            CLIP_SELS = [
+                '[data-testid="clip"]',
+                '[data-testid="attach-media"]',
+                'span[data-icon="clip"]',
+                'span[data-icon="attach-media"]',
+                'button[aria-label*="ttach"]',
+                'button[title*="ttach"]',
+                '[title="Attach"]',
+                'span[data-icon="plus"]',
+            ]
+            clip_clicked = False
+            for sel in CLIP_SELS:
+                try:
+                    page.wait_for_selector(sel, timeout=3_000).click()
+                    clip_clicked = True
+                    break
+                except Exception:
+                    continue
+
+            if clip_clicked:
+                time.sleep(0.5)
+                # Try file-chooser interception first
+                try:
+                    with page.expect_file_chooser(timeout=6_000) as fc_info:
+                        for sel in FILE_INPUT_SELS:
+                            el = page.query_selector(sel)
+                            if el:
+                                page.evaluate('el => el.click()', el)
+                                break
+                    fc_info.value.set_files(file_path)
+                    attached = True
+                except Exception:
+                    pass
+
+                if not attached:
+                    for sel in FILE_INPUT_SELS:
+                        el = page.query_selector(sel)
+                        if el:
+                            try:
+                                el.set_input_files(file_path)
+                                attached = True
+                                break
+                            except Exception:
+                                continue
 
         if not attached:
-            raise RuntimeError('File input not found on WhatsApp Web page')
+            page.screenshot(path='/mnt/f/wa_attach_fail.png')
+            raise RuntimeError('File input not found. Screenshot: /mnt/f/wa_attach_fail.png')
 
         # 3. Wait for preview — caption input is the most reliable signal
         #    that the preview is fully rendered and ready for interaction.
