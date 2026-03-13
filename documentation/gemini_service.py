@@ -4,9 +4,12 @@ Auth: API key via GEMINI_API_KEY setting.
 Model: gemini-2.5-flash (free tier available).
 """
 
+import logging
 from pathlib import Path
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _get_client():
@@ -32,30 +35,41 @@ def _load_docs_context() -> str:
 
 def _extract_pdf_text(file_path: Path) -> str:
     """Extract text from PDF. Tries text layer first, falls back to OCR."""
+    logger.info('Extracting text from: %s', file_path)
+
     # 1. Try text layer (fast, free)
     try:
         import pypdf
         reader = pypdf.PdfReader(str(file_path))
         text = '\n'.join(p.extract_text() or '' for p in reader.pages).strip()
         if len(text) > 100:
+            logger.info('Text layer extracted: %d chars', len(text))
             return text
-    except Exception:
-        pass
+        logger.info('Text layer too short (%d chars), trying OCR', len(text))
+    except Exception as e:
+        logger.warning('pypdf failed: %s', e)
 
     # 2. OCR fallback via pytesseract (graphical PDFs)
     try:
         import pytesseract
         from pdf2image import convert_from_path
+        logger.info('Starting OCR (pdf2image + tesseract) for %s', file_path.name)
         images = convert_from_path(str(file_path), dpi=200)
+        logger.info('Converted %d pages to images', len(images))
         pages = []
-        for img in images:
-            pages.append(pytesseract.image_to_string(img, lang='ukr+rus'))
-        return '\n'.join(pages).strip()
-    except ImportError:
-        pass
-    except Exception:
-        pass
+        for i, img in enumerate(images):
+            page_text = pytesseract.image_to_string(img, lang='ukr+rus')
+            logger.info('Page %d/%d: %d chars', i + 1, len(images), len(page_text))
+            pages.append(page_text)
+        result = '\n'.join(pages).strip()
+        logger.info('OCR complete: %d total chars', len(result))
+        return result
+    except ImportError as e:
+        logger.error('OCR dependency missing: %s', e)
+    except Exception as e:
+        logger.exception('OCR failed for %s: %s', file_path.name, e)
 
+    logger.error('All extraction methods failed for %s', file_path.name)
     return ''
 
 
