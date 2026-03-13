@@ -200,203 +200,192 @@ class WhatsAppBaseCommand(BaseCommand):
     def _send_file(self, page, file_path: str, caption: str = '') -> bool:
         """Attach and send a local media file (video/image) via WhatsApp Web.
 
-        Returns True if caption was successfully included, False if it was skipped
-        (WhatsApp UI changed or caption input not found). The caller should send
-        the text as a separate message when False is returned.
+        Returns True if caption was included, False if skipped (caller should
+        send text separately).
+
+        Flow:
+          1. Click attach button → submenu opens
+          2. Intercept file chooser when submenu option is clicked; set file
+          3. Wait for preview modal (confirmed by send icon appearing)
+          4. Type caption in caption field (contenteditable outside footer)
+          5. Click DIV[aria-label="Надіслати"] outside footer (confirmed selector)
+          6. Wait for modal to close
         """
-        FILE_INPUT_SELS = [
-            'input[type="file"][accept*="video"]',
-            'input[type="file"][accept*="image"]',
-            'input[type="file"]',
+        # ── 1. Open attach menu ───────────────────────────────────────────────
+        ATTACH_SELS = [
+            'button[aria-label="Вкласти"]',       # Ukrainian (confirmed)
+            'button[aria-label="Attach"]',          # English
+            'span[data-icon="plus-rounded"]',       # icon fallback
+            '[data-testid="clip"]',
         ]
+        for sel in ATTACH_SELS:
+            try:
+                page.wait_for_selector(sel, timeout=5_000).click()
+                break
+            except Exception:
+                continue
+        else:
+            page.screenshot(path='/mnt/f/wa_attach_fail.png')
+            raise RuntimeError('Attach button not found. Screenshot: /mnt/f/wa_attach_fail.png')
 
-        # Strategy 1: set file directly on hidden input — works if WhatsApp keeps
-        # the input in DOM without needing to open the attach menu first.
+        time.sleep(0.4)
+
+        # ── 2. Select file via file-chooser interceptor ───────────────────────
+        # Use expect_file_chooser so we intercept at the browser level regardless
+        # of which submenu item or input element triggers the dialog.
         attached = False
-        for sel in FILE_INPUT_SELS:
-            el = page.query_selector(sel)
-            if el:
-                try:
-                    el.set_input_files(file_path)
-                    attached = True
-                    break
-                except Exception:
-                    continue
+        try:
+            with page.expect_file_chooser(timeout=10_000) as fc_info:
+                # Try known submenu labels for photos/videos
+                PHOTO_LABELS = [
+                    'Фото та відео', 'Photos & Videos',
+                    'Медіафайли', 'Photo & video',
+                ]
+                clicked_submenu = False
+                for label in PHOTO_LABELS:
+                    try:
+                        page.locator(f'[aria-label="{label}"]').first.click(timeout=2_000)
+                        clicked_submenu = True
+                        break
+                    except Exception:
+                        continue
 
-        # Strategy 2: click attach button to reveal the input, then set file.
-        if not attached:
-            CLIP_SELS = [
-                # Ukrainian UI (confirmed via debug_wa_selectors)
-                'button[aria-label="Вкласти"]',
-                'span[data-icon="plus-rounded"]',
-                # English UI fallbacks
-                'button[aria-label="Attach"]',
-                'button[aria-label*="ttach"]',
-                # Legacy data-testid (older WhatsApp versions)
-                '[data-testid="clip"]',
-                '[data-testid="attach-media"]',
-                'span[data-icon="clip"]',
-                'span[data-icon="attach-media"]',
-                'span[data-icon="plus"]',
-            ]
-            clip_clicked = False
-            for sel in CLIP_SELS:
-                try:
-                    page.wait_for_selector(sel, timeout=3_000).click()
-                    clip_clicked = True
-                    break
-                except Exception:
-                    continue
-
-            if clip_clicked:
-                time.sleep(0.5)
-                # Try file-chooser interception first
-                try:
-                    with page.expect_file_chooser(timeout=6_000) as fc_info:
-                        for sel in FILE_INPUT_SELS:
-                            el = page.query_selector(sel)
-                            if el:
-                                page.evaluate('el => el.click()', el)
-                                break
-                    fc_info.value.set_files(file_path)
-                    attached = True
-                except Exception:
-                    pass
-
-                if not attached:
-                    for sel in FILE_INPUT_SELS:
+                if not clicked_submenu:
+                    # Fallback: click first file input in DOM
+                    for sel in ('input[type="file"][accept*="video"]',
+                                'input[type="file"][accept*="image"]',
+                                'input[type="file"]'):
                         el = page.query_selector(sel)
                         if el:
-                            try:
-                                el.set_input_files(file_path)
-                                attached = True
-                                break
-                            except Exception:
-                                continue
+                            page.evaluate('el => el.click()', el)
+                            break
+
+            fc_info.value.set_files(file_path)
+            attached = True
+        except Exception as e:
+            logger.warning('File chooser interceptor failed: %s — trying set_input_files', e)
+
+        # Fallback: set_input_files directly on whatever input is visible
+        if not attached:
+            for sel in ('input[type="file"][accept*="video"]',
+                        'input[type="file"][accept*="image"]',
+                        'input[type="file"]'):
+                el = page.query_selector(sel)
+                if el:
+                    try:
+                        el.set_input_files(file_path)
+                        attached = True
+                        break
+                    except Exception:
+                        continue
 
         if not attached:
             page.screenshot(path='/mnt/f/wa_attach_fail.png')
             raise RuntimeError('File input not found. Screenshot: /mnt/f/wa_attach_fail.png')
 
-        # 3. Wait for preview — caption input is the most reliable signal
-        #    that the preview is fully rendered and ready for interaction.
-        CAPTION_SELS = [
-            '[data-testid="media-caption-input"]',
-            'div[contenteditable="true"][data-tab]',  # fallback if testid changes
-        ]
-        caption_el = None
-        for sel in CAPTION_SELS:
-            try:
-                caption_el = page.wait_for_selector(sel, state='visible', timeout=20_000)
-                break
-            except Exception:
-                continue
-
-        if caption_el is None:
-            # Caption input not found — WhatsApp UI may have changed.
-            # Fall back to a short sleep so preview at least partially loads.
-            logger.warning('Caption input not found — sending file without caption')
-            time.sleep(3)
-
-        # 4. Type caption and send by pressing Enter while caption field is focused.
-        # Enter in the media-preview caption field sends the file+caption together.
-        # This avoids the ambiguity of finding the correct Send button in the modal
-        # (the compose-box send button is also in the DOM at the same time).
-        caption_sent = False
-        if caption and caption_el is not None:
-            try:
-                caption_el.click()
-                time.sleep(0.2)
-                cap_lines = caption.split('\n')
-                for i, line in enumerate(cap_lines):
-                    if line:
-                        page.keyboard.type(line, delay=20)
-                    if i < len(cap_lines) - 1:
-                        page.keyboard.press('Shift+Enter')
-                # Click the media-preview Send button using Playwright locator —
-                # JS evaluate().click() does not trigger React synthetic events.
-                # Confirmed selector: DIV[aria-label="Надіслати"] outside footer,
-                # data-icon="wds-ic-send-filled".
-                send_clicked = False
-                footer_handle = page.query_selector('footer')
-                for label in ('Надіслати', 'Send'):
-                    locs = page.locator(f'[aria-label="{label}"]')
-                    for i in range(locs.count()):
-                        loc = locs.nth(i)
-                        try:
-                            in_footer = footer_handle and footer_handle.evaluate(
-                                '(footer, el) => footer.contains(el)',
-                                loc.element_handle(),
-                            )
-                            if not in_footer:
-                                loc.click()
-                                send_clicked = True
-                                break
-                        except Exception:
-                            continue
-                    if send_clicked:
-                        break
-
-                if send_clicked:
-                    caption_sent = True
-                    logger.info('Clicked media send button via locator')
-                    try:
-                        page.wait_for_selector(
-                            '[data-testid="media-caption-input"]',
-                            state='detached', timeout=15_000,
-                        )
-                    except Exception:
-                        time.sleep(3)
-                else:
-                    page.screenshot(path='/mnt/f/wa_send_fail.png')
-                    logger.warning('Media send button not found. Screenshot: /mnt/f/wa_send_fail.png')
-            except Exception as e:
-                logger.warning('Failed to click media send button: %s', e)
-
-        # 5. If caption send failed — last resort button-click fallbacks
-        sent = False
-        if not caption_sent:
-            try:
-                clicked = page.evaluate("""() => {
-                    const candidates = [
-                        document.querySelector('[data-icon="wds-ic-send-filled"]'),
-                        document.querySelector('[data-icon="send"]'),
-                        document.querySelector('[aria-label="Надіслати"]'),
-                        document.querySelector('[aria-label="Send"]'),
-                        document.querySelector('[data-testid="send"]'),
-                    ];
-                    for (const el of candidates) {
-                        if (el) {
-                            (el.closest('button, div[role="button"]') || el).click();
-                            return true;
-                        }
-                    }
-                    return false;
-                }""")
-                if clicked:
-                    sent = True
-            except Exception:
-                pass
-
-        if not caption_sent and not sent:
-            page.screenshot(path='/mnt/f/wa_send_fail.png')
-            raise RuntimeError('Send button not found after attaching file. Screenshot: /mnt/f/wa_send_fail.png')
-
-        # 7. Wait for upload to complete — spinner disappears when message is queued.
-        #    Falls back to a fixed sleep if the spinner selector changed.
+        # ── 3. Wait for preview modal ─────────────────────────────────────────
+        # The media send icon appearing means the preview modal is ready.
         try:
             page.wait_for_function(
-                """() => {
-                    const spinners = [
-                        '[data-icon="msg-time"]',
-                        '[data-testid="msg-loading-spinner"]',
-                    ];
-                    return spinners.every(s => !document.querySelector(s));
-                }""",
-                timeout=60_000,
+                """() => !!document.querySelector('[data-icon="wds-ic-send-filled"]')""",
+                timeout=20_000,
             )
         except Exception:
-            time.sleep(5)  # fallback
+            time.sleep(3)
+
+        # ── 4. Type caption ───────────────────────────────────────────────────
+        caption_sent = False
+        if caption:
+            # Caption input: contenteditable div NOT inside footer
+            cap_el = None
+            for loc in page.locator('div[contenteditable="true"]').all():
+                try:
+                    in_footer = loc.evaluate(
+                        'el => !!document.querySelector("footer")?.contains(el)'
+                    )
+                    if not in_footer:
+                        cap_el = loc
+                        break
+                except Exception:
+                    continue
+
+            if cap_el:
+                try:
+                    cap_el.click()
+                    time.sleep(0.2)
+                    lines = caption.split('\n')
+                    for i, line in enumerate(lines):
+                        if line:
+                            page.keyboard.type(line, delay=20)
+                        if i < len(lines) - 1:
+                            page.keyboard.press('Shift+Enter')
+                except Exception as e:
+                    logger.warning('Failed to type caption: %s', e)
+                    cap_el = None
+
+            # ── 5. Click media send button ────────────────────────────────────
+            # Confirmed: DIV[aria-label="Надіслати"] with data-icon="wds-ic-send-filled"
+            # located OUTSIDE footer.
+            send_clicked = False
+            for label in ('Надіслати', 'Send'):
+                locs = page.locator(f'[aria-label="{label}"]')
+                for i in range(locs.count()):
+                    loc = locs.nth(i)
+                    try:
+                        in_footer = loc.evaluate(
+                            'el => !!document.querySelector("footer")?.contains(el)'
+                        )
+                        if not in_footer:
+                            loc.click()
+                            send_clicked = True
+                            logger.info('Clicked send button #%d [aria-label="%s"]', i, label)
+                            break
+                    except Exception:
+                        continue
+                if send_clicked:
+                    break
+
+            if send_clicked:
+                caption_sent = True
+                # Wait for modal to close — confirms message was dispatched
+                try:
+                    page.wait_for_function(
+                        """() => !document.querySelector('[data-icon="wds-ic-send-filled"]')""",
+                        timeout=15_000,
+                    )
+                except Exception:
+                    time.sleep(3)
+            else:
+                page.screenshot(path='/mnt/f/wa_send_fail.png')
+                logger.warning('Send button not found. Screenshot: /mnt/f/wa_send_fail.png')
+
+        # ── 6. Fallback: no caption — just find and click any send button ─────
+        if not caption_sent:
+            sent = False
+            for label in ('Надіслати', 'Send'):
+                locs = page.locator(f'[aria-label="{label}"]')
+                for i in range(locs.count()):
+                    loc = locs.nth(i)
+                    try:
+                        in_footer = loc.evaluate(
+                            'el => !!document.querySelector("footer")?.contains(el)'
+                        )
+                        if not in_footer:
+                            loc.click()
+                            sent = True
+                            break
+                    except Exception:
+                        continue
+                if sent:
+                    break
+
+            if not sent:
+                page.screenshot(path='/mnt/f/wa_send_fail.png')
+                raise RuntimeError(
+                    'Send button not found after attaching file. '
+                    'Screenshot: /mnt/f/wa_send_fail.png'
+                )
+            time.sleep(3)
 
         self.stdout.write(self.style.SUCCESS(
             f'Sent file: {file_path!r}'
