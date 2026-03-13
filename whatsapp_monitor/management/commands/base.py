@@ -315,15 +315,25 @@ class WhatsAppBaseCommand(BaseCommand):
                         page.keyboard.press('Shift+Enter')
                 # Enter while focused on caption field sends the media message
                 page.keyboard.press('Enter')
-                caption_sent = True
-                # Wait for modal to close as confirmation
+                # Verify modal closed — if it stays open the file was not sent
+                modal_closed = False
                 try:
                     page.wait_for_selector(
                         '[data-testid="media-caption-input"]',
                         state='detached', timeout=10_000,
                     )
+                    modal_closed = True
                 except Exception:
-                    time.sleep(2)
+                    pass
+
+                if modal_closed:
+                    caption_sent = True
+                else:
+                    page.screenshot(path='/mnt/f/wa_after_enter.png')
+                    logger.warning(
+                        'Modal still open after Enter — file may be too large or '
+                        'WhatsApp rejected it. Screenshot: /mnt/f/wa_after_enter.png'
+                    )
             except Exception as e:
                 logger.warning('Failed to type/send caption: %s', e)
 
