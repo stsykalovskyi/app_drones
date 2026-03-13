@@ -3,18 +3,31 @@
 
 {% block head %}
 <style>
+  /* small action buttons */
   button.button.sm, a.button.sm { padding: .3rem .7rem; font-size: .78rem; }
   button.button.danger { background: rgba(239,68,68,.12); color: #ef4444; box-shadow: none; border: 1px solid rgba(239,68,68,.25); }
   button.button.danger:hover { background: #ef4444; color: #fff; box-shadow: none; transform: none; }
   button.button:disabled { opacity: .4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+  /* toggle */
   .toggle-switch { position: relative; display: inline-block; width: 34px; height: 20px; cursor: pointer; vertical-align: middle; }
   .toggle-switch input { opacity: 0; width: 0; height: 0; }
   .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; transition: .2s; }
   .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
   .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
   .toggle-switch input:checked + .toggle-slider:before { transform: translateX(14px); }
+  /* spinner */
   .spin { animation: spin .7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  /* file picker button (label acting as button) */
+  .file-pick-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .6rem 1rem; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border-active);
+    font-size: .85rem; font-weight: 600; cursor: pointer;
+    transition: background .15s;
+  }
+  .file-pick-btn:hover { background: var(--accent-dim); }
 </style>
 {% endblock %}
 
@@ -31,19 +44,22 @@
 
 {# ── Upload form ── #}
 <div class="card" style="margin-bottom:1.5rem">
-  <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem">Завантажити документ</div>
+  <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1.25rem">Завантажити документ</div>
   <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="strike-form" novalidate>
     {% csrf_token %}
     <div class="field">
-      <label for="upload-title">Назва <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">(необов'язково)</span></label>
-      <input type="text" name="title" id="upload-title" class="form-input" placeholder="Залиште порожнім — буде використано ім'я файлу">
+      <label for="upload-title">Назва</label>
+      <input type="text" name="title" id="upload-title" class="form-input" placeholder="Необов'язково — буде використано ім'я файлу">
     </div>
     <div class="field">
-      <label>Файл <span style="color:var(--accent)">*</span> <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">PDF, TXT або MD</span></label>
+      <label>Файл <span style="color:var(--accent)">*</span></label>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-        <label for="upload-file" class="button ghost" style="cursor:pointer;margin:0">Вибрати файл</label>
+        <label for="upload-file" class="file-pick-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Вибрати файл
+        </label>
         <input type="file" name="file" id="upload-file" accept=".pdf,.txt,.md" required style="display:none">
-        <span id="upload-filename" style="font-size:.85rem;color:var(--text-muted)">Файл не вибрано</span>
+        <span id="upload-filename" style="font-size:.85rem;color:var(--text-muted)">PDF, TXT або MD</span>
       </div>
     </div>
     <div class="form-actions">
