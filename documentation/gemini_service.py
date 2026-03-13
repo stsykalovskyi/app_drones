@@ -63,7 +63,7 @@ def _extract_pdf_text(file_path: Path) -> str:
         for i, page in enumerate(doc):
             pix = page.get_pixmap(matrix=mat)
             img = PIL.Image.open(io.BytesIO(pix.tobytes('png')))
-            page_text = pytesseract.image_to_string(img, lang='ukr+rus')
+            page_text = pytesseract.image_to_string(img, lang='ukr+rus+eng')
             logger.info('Page %d/%d: %d chars', i + 1, len(doc), len(page_text))
             pages.append(page_text)
         result = '\n'.join(pages).strip()
