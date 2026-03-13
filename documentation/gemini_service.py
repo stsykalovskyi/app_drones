@@ -49,17 +49,22 @@ def _extract_pdf_text(file_path: Path) -> str:
     except Exception as e:
         logger.warning('pypdf failed: %s', e)
 
-    # 2. OCR fallback via pytesseract (graphical PDFs)
+    # 2. OCR fallback via pytesseract + PyMuPDF (no poppler needed)
     try:
+        import io
+        import fitz  # PyMuPDF
+        import PIL.Image
         import pytesseract
-        from pdf2image import convert_from_path
-        logger.info('Starting OCR (pdf2image + tesseract) for %s', file_path.name)
-        images = convert_from_path(str(file_path), dpi=200)
-        logger.info('Converted %d pages to images', len(images))
+        logger.info('Starting OCR (PyMuPDF + tesseract) for %s', file_path.name)
+        doc = fitz.open(str(file_path))
+        logger.info('Opened PDF: %d pages', len(doc))
         pages = []
-        for i, img in enumerate(images):
+        mat = fitz.Matrix(200 / 72, 200 / 72)  # 200 DPI
+        for i, page in enumerate(doc):
+            pix = page.get_pixmap(matrix=mat)
+            img = PIL.Image.open(io.BytesIO(pix.tobytes('png')))
             page_text = pytesseract.image_to_string(img, lang='ukr+rus')
-            logger.info('Page %d/%d: %d chars', i + 1, len(images), len(page_text))
+            logger.info('Page %d/%d: %d chars', i + 1, len(doc), len(page_text))
             pages.append(page_text)
         result = '\n'.join(pages).strip()
         logger.info('OCR complete: %d total chars', len(result))
