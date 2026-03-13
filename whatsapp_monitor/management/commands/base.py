@@ -337,26 +337,30 @@ class WhatsAppBaseCommand(BaseCommand):
             except Exception as e:
                 logger.warning('Failed to type/send caption: %s', e)
 
-        # 5. If no caption or caption send failed — find and click Send button.
+        # 5. If caption send failed — click Send button in media preview modal.
+        # The green circular Send button is OUTSIDE the footer (footer = compose area).
+        # We search outside footer to avoid clicking the compose-box send button.
         sent = False
         if not caption_sent:
-            SEND_SELS = [
-                'span[data-icon="send"]',
-                'span[data-icon="send-white"]',
-                '[data-testid="send"]',
-                '[data-testid="compose-btn-send"]',
-                'button[aria-label="Надіслати"]',
-                'button[aria-label="Send"]',
-                'button[aria-label*="end"]',
-            ]
-            sent = False
-            for sel in SEND_SELS:
-                try:
-                    page.wait_for_selector(sel, timeout=3_000).click()
+            # JS: find buttons outside footer — the last one should be the Send button
+            try:
+                clicked = page.evaluate("""() => {
+                    const footer = document.querySelector('footer');
+                    const allBtns = Array.from(
+                        document.querySelectorAll('button, div[role="button"]')
+                    );
+                    const modalBtns = allBtns.filter(b => !footer || !footer.contains(b));
+                    if (!modalBtns.length) return null;
+                    // Send button is the last interactive element in the modal
+                    const btn = modalBtns[modalBtns.length - 1];
+                    btn.click();
+                    return btn.getAttribute('aria-label') || btn.tagName;
+                }""")
+                if clicked:
+                    logger.info('Clicked modal button: %s', clicked)
                     sent = True
-                    break
-                except Exception:
-                    continue
+            except Exception as e:
+                logger.warning('JS modal button click failed: %s', e)
 
         # Fallback: find send button via JS (handles any icon/aria-label variant)
         if not caption_sent and not sent:
