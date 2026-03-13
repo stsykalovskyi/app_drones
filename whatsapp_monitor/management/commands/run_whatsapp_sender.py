@@ -91,8 +91,13 @@ class Command(WhatsAppBaseCommand):
                         current_group = msg.group_name
 
                     if msg.media_path:
-                        self._send_file(page, msg.media_path)
-                    if msg.message_text:
+                        caption_sent = self._send_file(
+                            page, msg.media_path, caption=msg.message_text
+                        )
+                        # If caption failed (WhatsApp UI changed), send text separately
+                        if msg.message_text and not caption_sent:
+                            self._send_message(page, msg.message_text)
+                    else:
                         self._send_message(page, msg.message_text)
 
                     msg.status  = OutgoingMessage.Status.SENT

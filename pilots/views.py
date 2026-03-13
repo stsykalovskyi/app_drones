@@ -27,7 +27,6 @@ def _enqueue_strike_report_bg(report_id):
     """
     import os
     import logging
-    from datetime import datetime, timezone, timedelta
     from django.conf import settings
     from django.db import connection
 
@@ -58,27 +57,19 @@ def _enqueue_strike_report_bg(report_id):
             lines.append(f'Примітки: {report.notes}')
         text = '\n'.join(lines)
 
-        now = datetime.now(tz=timezone.utc)
-        video_delay = getattr(settings, 'WHATSAPP_VIDEO_UPLOAD_DELAY', 30)
-
         if report.video:
+            # Single message: video with report text as caption.
+            # If caption fails in sender, it falls back to sending text separately.
             video_abs = os.path.join(str(settings.MEDIA_ROOT), report.video.name)
             OutgoingMessage.objects.create(
                 group_name=group,
                 media_path=video_abs,
-                message_text='',
-                send_after=None,
-            )
-            OutgoingMessage.objects.create(
-                group_name=group,
                 message_text=text,
-                send_after=now + timedelta(seconds=video_delay),
             )
         else:
             OutgoingMessage.objects.create(
                 group_name=group,
                 message_text=text,
-                send_after=None,
             )
     except Exception as e:
         logger.exception('WhatsApp enqueue failed for strike report #%s: %s', report_id, e)

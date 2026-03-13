@@ -190,8 +190,13 @@ class WhatsAppBaseCommand(BaseCommand):
         time.sleep(1.0)
         self.stdout.write(self.style.SUCCESS(f'Sent: {text!r}'))
 
-    def _send_file(self, page, file_path: str):
-        """Attach and send a local media file (video/image) via WhatsApp Web."""
+    def _send_file(self, page, file_path: str, caption: str = '') -> bool:
+        """Attach and send a local media file (video/image) via WhatsApp Web.
+
+        Returns True if caption was successfully included, False if it was skipped
+        (WhatsApp UI changed or caption input not found). The caller should send
+        the text as a separate message when False is returned.
+        """
         # 1. Open the attach menu
         CLIP_SELS = [
             '[data-testid="clip"]',
@@ -206,7 +211,6 @@ class WhatsAppBaseCommand(BaseCommand):
                 continue
         else:
             raise RuntimeError('Attach button not found')
-        time.sleep(0.8)
 
         # 2. Set the file — try file-chooser interception first,
         #    then fall back to set_input_files directly on the hidden input.
@@ -239,32 +243,94 @@ class WhatsAppBaseCommand(BaseCommand):
         if not attached:
             raise RuntimeError('File input not found on WhatsApp Web page')
 
-        # 3. Wait for preview / thumbnail to render
-        try:
-            page.wait_for_selector(
-                '[data-testid="media-caption-input"],'
-                '[data-testid="send"]',
-                timeout=15_000,
-            )
-        except Exception:
-            pass
-        time.sleep(2)
+        # 3. Wait for preview — caption input is the most reliable signal
+        #    that the preview is fully rendered and ready for interaction.
+        CAPTION_SELS = [
+            '[data-testid="media-caption-input"]',
+            'div[contenteditable="true"][data-tab]',  # fallback if testid changes
+        ]
+        caption_el = None
+        for sel in CAPTION_SELS:
+            try:
+                caption_el = page.wait_for_selector(sel, state='visible', timeout=20_000)
+                break
+            except Exception:
+                continue
 
-        # 4. Click Send
+        if caption_el is None:
+            # Caption input not found — WhatsApp UI may have changed.
+            # Fall back to a short sleep so preview at least partially loads.
+            logger.warning('Caption input not found — sending file without caption')
+            time.sleep(3)
+
+        # 4. Type caption while preview is shown (before Send)
+        caption_sent = False
+        if caption and caption_el is not None:
+            try:
+                caption_el.click()
+                time.sleep(0.2)
+                page.keyboard.type(caption, delay=20)
+                caption_sent = True
+            except Exception as e:
+                logger.warning('Failed to type caption: %s', e)
+
+        # 5. Wait for Send button to become enabled (video processed by browser)
         SEND_SELS = [
             '[data-testid="send"]',
             '[data-testid="compose-btn-send"]',
             'button[aria-label*="Send"]',
             'span[data-icon="send"]',
         ]
+        try:
+            page.wait_for_function(
+                """() => {
+                    const sels = [
+                        '[data-testid="send"]',
+                        '[data-testid="compose-btn-send"]',
+                        'button[aria-label*="Send"]'
+                    ];
+                    for (const s of sels) {
+                        const el = document.querySelector(s);
+                        if (el && !el.disabled) return true;
+                    }
+                    return false;
+                }""",
+                timeout=15_000,
+            )
+        except Exception:
+            time.sleep(2)  # fallback if wait_for_function fails
+
+        # 6. Click Send
+        sent = False
         for sel in SEND_SELS:
             try:
-                page.wait_for_selector(sel, timeout=8_000).click()
+                page.wait_for_selector(sel, timeout=5_000).click()
+                sent = True
                 break
             except Exception:
                 continue
-        else:
+
+        if not sent:
             raise RuntimeError('Send button not found after attaching file')
 
-        time.sleep(3)
-        self.stdout.write(self.style.SUCCESS(f'Sent file: {file_path!r}'))
+        # 7. Wait for upload to complete — spinner disappears when message is queued.
+        #    Falls back to a fixed sleep if the spinner selector changed.
+        try:
+            page.wait_for_function(
+                """() => {
+                    const spinners = [
+                        '[data-icon="msg-time"]',
+                        '[data-testid="msg-loading-spinner"]',
+                    ];
+                    return spinners.every(s => !document.querySelector(s));
+                }""",
+                timeout=60_000,
+            )
+        except Exception:
+            time.sleep(5)  # fallback
+
+        self.stdout.write(self.style.SUCCESS(
+            f'Sent file: {file_path!r}'
+            + (' (with caption)' if caption_sent else ' (no caption)')
+        ))
+        return caption_sent
