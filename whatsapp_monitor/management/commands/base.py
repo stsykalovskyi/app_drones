@@ -226,13 +226,17 @@ class WhatsAppBaseCommand(BaseCommand):
         # Strategy 2: click attach button to reveal the input, then set file.
         if not attached:
             CLIP_SELS = [
+                # Ukrainian UI (confirmed via debug_wa_selectors)
+                'button[aria-label="Вкласти"]',
+                'span[data-icon="plus-rounded"]',
+                # English UI fallbacks
+                'button[aria-label="Attach"]',
+                'button[aria-label*="ttach"]',
+                # Legacy data-testid (older WhatsApp versions)
                 '[data-testid="clip"]',
                 '[data-testid="attach-media"]',
                 'span[data-icon="clip"]',
                 'span[data-icon="attach-media"]',
-                'button[aria-label*="ttach"]',
-                'button[title*="ttach"]',
-                '[title="Attach"]',
                 'span[data-icon="plus"]',
             ]
             clip_clicked = False
