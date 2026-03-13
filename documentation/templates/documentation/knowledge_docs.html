@@ -18,10 +18,30 @@
   /* spinner */
   .spin { animation: spin .7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  /* file picker button (label acting as button) */
+  /* form field styles (local, mirrors strike_report_form) */
+  .upload-form .field { margin-bottom: 1.25rem; }
+  .upload-form label {
+    display: block; font-size: .78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-muted); margin-bottom: .4rem;
+  }
+  .upload-form .form-input {
+    width: 100%; padding: .65rem .85rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--input-bg); color: var(--text);
+    font-size: .9rem; font-family: inherit;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none; appearance: none; -webkit-appearance: none;
+    box-sizing: border-box;
+  }
+  .upload-form .form-input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .upload-form .form-actions { display: flex; gap: .75rem; align-items: center; margin-top: 1.5rem; }
+  /* file picker button */
   .file-pick-btn {
     display: inline-flex; align-items: center; gap: .4rem;
-    padding: .6rem 1rem; border-radius: var(--radius-sm);
+    padding: .65rem 1rem; border-radius: var(--radius-sm);
     background: transparent; color: var(--text);
     border: 1px solid var(--border-active);
     font-size: .85rem; font-weight: 600; cursor: pointer;
@@ -45,7 +65,7 @@
 {# ── Upload form ── #}
 <div class="card" style="margin-bottom:1.5rem">
   <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1.25rem">Завантажити документ</div>
-  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="strike-form" novalidate>
+  <form method="post" action="{% url 'documentation:knowledge_doc_upload' %}" enctype="multipart/form-data" class="upload-form" novalidate>
     {% csrf_token %}
     <div class="field">
       <label for="upload-title">Назва</label>
