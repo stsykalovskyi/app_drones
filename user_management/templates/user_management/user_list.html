@@ -28,7 +28,7 @@
                     <a href="{% url 'user_management:impersonate_start' u.pk %}"
                        style="padding:.3rem .75rem;background:var(--btn-bg);color:var(--btn-text);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;text-decoration:none;white-space:nowrap"
                        onclick="var href=this.href; showModal('confirm-modal','Увійти як {{ u.profile.display_name|default:u.username|escapejs }}','Переглядати сайт від імені цього користувача?',function(){location.href=href;}); return false;">
-                        Увійти як
+                        Увійти
                     </a>
                 </td>
             </tr>

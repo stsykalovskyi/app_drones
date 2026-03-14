@@ -456,7 +456,8 @@
     var btns = document.querySelectorAll('.tab-btn');
     var panels = document.querySelectorAll('.tab-panel');
     btns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
             btns.forEach(function(b) { b.classList.remove('active'); });
             panels.forEach(function(p) { p.classList.remove('active'); });
             btn.classList.add('active');
