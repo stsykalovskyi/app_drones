@@ -213,51 +213,77 @@ class WhatsAppBaseCommand(BaseCommand):
         """
         # ── 1. Open attach menu ───────────────────────────────────────────────
         ATTACH_SELS = [
-            'button[aria-label="Вкласти"]',       # Ukrainian (confirmed)
-            'button[aria-label="Attach"]',          # English
-            'span[data-icon="plus-rounded"]',       # icon fallback
+            'button[aria-label="Вкласти"]',            # Ukrainian
+            'button[aria-label="Attach"]',              # English
+            'span[data-icon="attach-menu-plus"]',       # newer WA Web (2025)
+            'span[data-icon="plus-rounded"]',           # older icon
             '[data-testid="clip"]',
         ]
+        attach_clicked = False
         for sel in ATTACH_SELS:
             try:
                 page.wait_for_selector(sel, timeout=5_000).click()
+                attach_clicked = True
+                self.stdout.write(f'Attach button clicked via: {sel}')
                 break
             except Exception:
                 continue
-        else:
+
+        if not attach_clicked:
             page.screenshot(path='/mnt/f/wa_attach_fail.png')
             raise RuntimeError('Attach button not found. Screenshot: /mnt/f/wa_attach_fail.png')
 
-        time.sleep(0.4)
+        time.sleep(1.0)  # wait for submenu to fully render
+
+        # Debug: screenshot right after attach click to capture submenu state
+        page.screenshot(path='/mnt/f/wa_attach_menu.png')
 
         # ── 2. Select file via file-chooser interceptor ───────────────────────
-        # Use expect_file_chooser so we intercept at the browser level regardless
-        # of which submenu item or input element triggers the dialog.
         attached = False
         try:
             with page.expect_file_chooser(timeout=10_000) as fc_info:
-                # Try known submenu labels for photos/videos
+                # Try known submenu labels for photos/videos (all known WA Web variants)
                 PHOTO_LABELS = [
-                    'Фото та відео', 'Photos & Videos',
-                    'Медіафайли', 'Photo & video',
+                    'Фото та відео',    # Ukrainian
+                    'Photos & Videos',  # English (capital V)
+                    'Photos & videos',  # English (lowercase v)
+                    'Photo & video',
+                    'Медіафайли',
+                    'Photo or video',
                 ]
                 clicked_submenu = False
                 for label in PHOTO_LABELS:
                     try:
                         page.locator(f'[aria-label="{label}"]').first.click(timeout=2_000)
                         clicked_submenu = True
+                        self.stdout.write(f'Submenu clicked via aria-label: {label}')
                         break
                     except Exception:
                         continue
 
                 if not clicked_submenu:
-                    # Fallback: click first file input in DOM
+                    # Try icon-based selectors (WhatsApp Web uses data-icon on spans)
+                    for icon_name in ('photos-outline', 'photo-video', 'album'):
+                        try:
+                            el = page.query_selector(f'span[data-icon="{icon_name}"]')
+                            if el:
+                                el.click()
+                                clicked_submenu = True
+                                self.stdout.write(f'Submenu clicked via data-icon: {icon_name}')
+                                break
+                        except Exception:
+                            continue
+
+                if not clicked_submenu:
+                    # Fallback: click first file input directly
                     for sel in ('input[type="file"][accept*="video"]',
                                 'input[type="file"][accept*="image"]',
                                 'input[type="file"]'):
                         el = page.query_selector(sel)
                         if el:
                             page.evaluate('el => el.click()', el)
+                            clicked_submenu = True
+                            self.stdout.write(f'File input clicked directly: {sel}')
                             break
 
             fc_info.value.set_files(file_path)
@@ -265,7 +291,7 @@ class WhatsAppBaseCommand(BaseCommand):
         except Exception as e:
             logger.warning('File chooser interceptor failed: %s — trying set_input_files', e)
 
-        # Fallback: set_input_files directly on whatever input is visible
+        # Fallback: set_input_files directly on whatever input is in DOM
         if not attached:
             for sel in ('input[type="file"][accept*="video"]',
                         'input[type="file"][accept*="image"]',
@@ -275,6 +301,7 @@ class WhatsAppBaseCommand(BaseCommand):
                     try:
                         el.set_input_files(file_path)
                         attached = True
+                        self.stdout.write(f'set_input_files succeeded: {sel}')
                         break
                     except Exception:
                         continue
