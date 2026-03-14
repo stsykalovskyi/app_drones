@@ -52,7 +52,7 @@ jobs:
             docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py migrate --no-input"
 
             # Find all fixtures and apply them
-            FIXTURE_NAMES=$(find . -path '*/fixtures/*.json' -exec basename {} .json \; | tr '\n' ' ')
+            FIXTURE_NAMES=$(find . -not -path '*/node_modules/*' -path '*/fixtures/*.json' -exec basename {} .json \; | tr '\n' ' ')
             if [ -n "$FIXTURE_NAMES" ]; then
               docker exec app_drones /bin/bash -c "source /app/.venv/bin/activate && python /app/manage.py loaddata $FIXTURE_NAMES"
             fi
