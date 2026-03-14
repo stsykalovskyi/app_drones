@@ -60,11 +60,26 @@ def _enqueue_strike_report_bg(report_id):
 
         if report.video:
             # Single message: video with report text as caption.
-            # If caption fails in sender, it falls back to sending text separately.
-            video_abs = os.path.join(str(settings.MEDIA_ROOT), report.video.name)
+            local_path = os.path.join(str(settings.MEDIA_ROOT), report.video.name)
+            if not os.path.exists(local_path):
+                # File is on B2 — download to temp dir for the sender
+                import tempfile, pathlib
+                tmp_dir = pathlib.Path(settings.BASE_DIR) / 'temp'
+                tmp_dir.mkdir(exist_ok=True)
+                ext = pathlib.Path(report.video.name).suffix
+                tmp_file = tempfile.NamedTemporaryFile(
+                    dir=tmp_dir, suffix=ext, delete=False
+                )
+                try:
+                    content = report.video.read()
+                    tmp_file.write(content)
+                    tmp_file.flush()
+                    local_path = tmp_file.name
+                finally:
+                    tmp_file.close()
             OutgoingMessage.objects.create(
                 group_name=group,
-                media_path=video_abs,
+                media_path=local_path,
                 message_text=text,
             )
         else:
