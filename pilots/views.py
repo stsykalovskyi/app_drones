@@ -150,9 +150,10 @@ def strike_report_delete(request, pk):
             # also remove local file if it still exists on disk
             from django.conf import settings as _s
             import os as _os
-            local_path = _s.MEDIA_ROOT / report.video.name
-            if _os.path.exists(local_path):
-                _os.remove(local_path)
+            if report.video.name:
+                local_path = _s.MEDIA_ROOT / report.video.name
+                if _os.path.exists(local_path):
+                    _os.remove(local_path)
         report.delete()
         messages.success(request, 'Звіт видалено.')
         return redirect('pilots:strike_report_list')
