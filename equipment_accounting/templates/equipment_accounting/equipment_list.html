@@ -365,6 +365,49 @@
 
         /* Toolbar controls: wrap and collapse export button text */
         .toolbar-controls { flex-wrap: wrap; gap: 0.4rem !important; }
+
+        /* ── Templates tab: auto-show block view, hide toggle buttons ── */
+        #pt-list-view { display: none !important; }
+        #pt-block-view { display: grid !important; }
+        #pt-list-btn, #pt-block-btn { display: none; }
+        #vt-list-view { display: none !important; }
+        #vt-block-view { display: grid !important; }
+        #vt-list-btn, #vt-block-btn { display: none; }
+
+        /* ── Components tab: card layout ── */
+        #tab-components .eq-table thead { display: none; }
+        #tab-components .eq-table tbody > tr {
+            display: block; position: relative;
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem; padding: 0.65rem 0.75rem;
+            background: var(--surface);
+        }
+        #tab-components .eq-table tbody > tr > td { display: block; border: none; padding: 0.1rem 0; font-size: 0.85rem; }
+        #tab-components .eq-table td.td-check { display: none; }
+        #tab-components .eq-table td[data-label="Тип"] { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.15rem; }
+        #tab-components .eq-table td[data-label="Статус"] { margin-bottom: 0.1rem; }
+        #tab-components .eq-table td[data-label="Закріплена за"] { font-size: 0.8rem; color: var(--text-secondary); }
+        #tab-components .eq-table td[data-label="Дата"] { font-size: 0.75rem; color: var(--text-muted); }
+        #tab-components .eq-table td.actions-cell { display: flex !important; gap: 0.3rem; padding-top: 0.25rem; }
+
+        /* ── Locations & Positions: card layout ── */
+        #tab-locations .eq-table thead { display: none; }
+        #tab-locations .eq-table tbody > tr {
+            display: block; position: relative;
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem; padding: 0.65rem 0.75rem;
+            background: var(--surface);
+        }
+        #tab-locations .eq-table tbody > tr > td { display: block; border: none; padding: 0.1rem 0; font-size: 0.85rem; }
+        #tab-locations .eq-table td[data-label="Назва"] { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.15rem; }
+        #tab-locations .eq-table td[data-label="БПЛА"] { font-size: 0.8rem; }
+        #tab-locations .eq-table td[data-label="Ремонт"] { font-size: 0.8rem; }
+        #tab-locations .eq-table td[data-label="Примітки"] { font-size: 0.78rem; color: var(--text-muted); }
+        #tab-locations .eq-table td.actions-cell {
+            display: flex !important; gap: 0.3rem;
+            position: absolute; top: 0.65rem; right: 0.6rem;
+            background: none; padding: 0;
+        }
     }
 
     /* Badge / card view */
@@ -1263,6 +1306,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
             </div>
             {% endif %}
 
+        <div class="table-wrap">
         <table class="eq-table">
             <thead>
                 <tr>
@@ -1277,7 +1321,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
             <tbody>
                 {% for c in comp_page_obj %}
                 <tr>
-                    {% if can_edit_component or can_delete_component %}<td><input type="checkbox" name="selected" value="{{ c.pk }}" class="comp-row-check"></td>{% endif %}
+                    {% if can_edit_component or can_delete_component %}<td class="td-check"><input type="checkbox" name="selected" value="{{ c.pk }}" class="comp-row-check"></td>{% endif %}
                     <td data-label="Тип">{{ c }}</td>
                     <td data-label="Статус"><span class="status-badge">{{ c.get_status_display }}</span></td>
                     <td data-label="Закріплена за">{{ c.assigned_to_uav|default:"—" }}</td>
@@ -1316,6 +1360,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
                 {% endfor %}
             </tbody>
         </table>
+        </div>
 
         {% if comp_page_obj.paginator.num_pages > 1 %}
         <div class="pagination">
@@ -1638,6 +1683,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
             {% if can_add_location %}<a href="{% url 'equipment_accounting:location_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
         {% if locations %}
+        <div class="table-wrap">
         <table class="eq-table">
             <thead>
                 <tr>
@@ -1671,6 +1717,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="empty-state"><p>Локацій ще немає.</p></div>
         {% endif %}
@@ -1684,6 +1731,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
             {% if can_add_position %}<a href="{% url 'equipment_accounting:position_create' %}" class="button">+ Додати</a>{% endif %}
         </div>
         {% if all_positions %}
+        <div class="table-wrap">
         <table class="eq-table">
             <thead>
                 <tr>
@@ -1711,6 +1759,7 @@ document.getElementById('collapse-all-btn').addEventListener('click', function (
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="empty-state"><p>Позицій ще немає.</p></div>
         {% endif %}
