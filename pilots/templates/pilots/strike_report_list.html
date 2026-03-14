@@ -130,6 +130,9 @@
     }
     .report-card__video:hover { text-decoration: underline; }
 
+    #videoModal { z-index: 1100; }
+    #videoModal video { width: 100%; max-height: 70vh; border-radius: var(--radius); background: #000; }
+
     .empty-state {
         text-align: center;
         color: var(--text-muted);
@@ -219,7 +222,7 @@
         <div class="report-card__notes">{{ r.notes|truncatechars:120 }}</div>
         {% endif %}
         {% if r.video %}
-        <a href="{{ r.video.url }}" target="_blank" class="report-card__video">▶ Переглянути відео</a>
+        <a href="{% url 'pilots:strike_video' r.pk %}" class="report-card__video" onclick="openVideo(this, event)">▶ Переглянути відео</a>
         {% endif %}
     </div>
     {% endif %}
@@ -236,4 +239,37 @@
 </div>
 {% endif %}
 
+<div class="modal-overlay" id="videoModal">
+    <div class="modal-box" style="max-width:720px;width:95%">
+        <h3 id="videoModalTitle" style="margin-bottom:0.75rem"></h3>
+        <video id="videoPlayer" controls></video>
+        <div class="modal-actions" style="margin-top:0.75rem">
+            <button type="button" class="btn-cancel" onclick="closeVideo()">Закрити</button>
+        </div>
+    </div>
+</div>
+<script>
+function openVideo(link, e) {
+    e.preventDefault();
+    var modal = document.getElementById('videoModal');
+    var player = document.getElementById('videoPlayer');
+    var title = link.closest('.report-card').querySelector('.report-card__crew').textContent;
+    document.getElementById('videoModalTitle').textContent = title;
+    player.src = link.href;
+    player.load();
+    modal.classList.add('visible');
+    modal.addEventListener('click', function onOut(ev) {
+        if (ev.target === modal) { closeVideo(); modal.removeEventListener('click', onOut); }
+    });
+    document.addEventListener('keydown', function onKey(ev) {
+        if (ev.key === 'Escape') { closeVideo(); document.removeEventListener('keydown', onKey); }
+    });
+}
+function closeVideo() {
+    var player = document.getElementById('videoPlayer');
+    player.pause();
+    player.src = '';
+    document.getElementById('videoModal').classList.remove('visible');
+}
+</script>
 {% endblock %}

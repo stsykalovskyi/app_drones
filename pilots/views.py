@@ -3,6 +3,7 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import OrderStatusForm, StrikeReportForm
@@ -120,6 +121,39 @@ def strike_report_delete(request, pk):
         messages.success(request, 'Звіт видалено.')
         return redirect('pilots:strike_report_list')
     raise PermissionDenied
+
+
+@login_required
+def strike_video(request, pk):
+    """Return a presigned URL (B2) or serve local file for video playback."""
+    report = get_object_or_404(StrikeReport, pk=pk)
+    if not (request.user == report.pilot or request.user.has_perm('pilots.change_strikereport')):
+        raise PermissionDenied
+    if not report.video:
+        raise Http404
+
+    import os
+    from django.conf import settings
+    local_path = settings.MEDIA_ROOT / report.video.name
+    if os.path.exists(local_path):
+        from django.http import FileResponse
+        return FileResponse(open(local_path, 'rb'), content_type='video/mp4')
+
+    # B2: generate presigned URL valid for 1 hour
+    import boto3
+    client = boto3.client(
+        's3',
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=getattr(settings, 'AWS_S3_REGION_NAME', None),
+    )
+    url = client.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': report.video.name},
+        ExpiresIn=3600,
+    )
+    return HttpResponseRedirect(url)
 
 
 @login_required
