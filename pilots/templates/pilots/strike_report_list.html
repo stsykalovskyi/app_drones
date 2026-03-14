@@ -141,6 +141,18 @@
     @media (max-width: 600px) {
         .reports-grid { grid-template-columns: 1fr; }
     }
+
+    .report-card__delete {
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: var(--text-muted);
+        padding: 0;
+        line-height: 1;
+        font-size: 0.9rem;
+        transition: color 0.15s;
+    }
+    .report-card__delete:hover { color: #ef4444; }
 </style>
 {% endblock %}
 
@@ -163,6 +175,10 @@
         <span class="report-card__crew">{{ r.crew }}</span>
         {% if perms.pilots.change_strikereport %}
         <span class="report-card__pilot">{{ r.pilot.profile.display_name|default:r.pilot.username }}</span>
+        {% endif %}
+        {% if request.user.is_superuser %}
+        <button class="report-card__delete" title="Видалити звіт"
+                onclick="openDeleteModal({{ r.pk }}, '{{ r.crew|escapejs }} — {{ r.strike_date|date:"d.m.Y"|escapejs }}')">✕</button>
         {% endif %}
     </div>
 
@@ -215,5 +231,38 @@
     <div class="empty-state__icon">📋</div>
     Звітів поки немає.
 </div>
+{% endif %}
+
+{% if request.user.is_superuser %}
+<div id="deleteModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+        <div class="modal__header">
+            <h2 class="modal__title">Видалити звіт?</h2>
+        </div>
+        <div class="modal__body">
+            <p>Звіт <strong id="deleteModalLabel"></strong> буде видалено разом із відеофайлом. Дію неможливо скасувати.</p>
+        </div>
+        <div class="modal__footer">
+            <form id="deleteForm" method="post">
+                {% csrf_token %}
+                <button type="button" class="button ghost" onclick="closeDeleteModal()">Скасувати</button>
+                <button type="submit" class="button" style="background:#ef4444;border-color:#ef4444">Видалити</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+function openDeleteModal(pk, label) {
+    document.getElementById('deleteModalLabel').textContent = label;
+    document.getElementById('deleteForm').action = '/pilots/strikes/' + pk + '/delete/';  // matches urls.py: pilots/<int:pk>/delete/
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
+</script>
 {% endif %}
 {% endblock %}

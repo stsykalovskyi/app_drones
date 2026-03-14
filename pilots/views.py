@@ -99,6 +99,20 @@ def strike_report_create(request):
 
 
 @login_required
+def strike_report_delete(request, pk):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    report = get_object_or_404(StrikeReport, pk=pk)
+    if request.method == 'POST':
+        if report.video:
+            report.video.delete(save=False)
+        report.delete()
+        messages.success(request, 'Звіт видалено.')
+        return redirect('pilots:strike_report_list')
+    raise PermissionDenied
+
+
+@login_required
 def strike_report_list(request):
     if request.user.has_perm('pilots.change_strikereport'):
         reports = StrikeReport.objects.select_related('pilot', 'pilot__profile').all()
