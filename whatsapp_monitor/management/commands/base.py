@@ -242,7 +242,7 @@ class WhatsAppBaseCommand(BaseCommand):
         attached = False
         try:
             with page.expect_file_chooser(timeout=10_000) as fc_info:
-                # Try known submenu labels for photos/videos (all known WA Web variants)
+                # Try known submenu labels for photos/videos
                 PHOTO_LABELS = [
                     'Фото та відео',    # Ukrainian
                     'Photos & Videos',  # English (capital V)
@@ -253,16 +253,25 @@ class WhatsAppBaseCommand(BaseCommand):
                 ]
                 clicked_submenu = False
                 for label in PHOTO_LABELS:
+                    # 1) aria-label attribute
                     try:
-                        page.locator(f'[aria-label="{label}"]').first.click(timeout=2_000)
+                        page.locator(f'[aria-label="{label}"]').first.click(timeout=1_500)
                         clicked_submenu = True
                         self.stdout.write(f'Submenu clicked via aria-label: {label}')
                         break
                     except Exception:
-                        continue
+                        pass
+                    # 2) visible text content (WhatsApp Web often uses text nodes, no aria-label)
+                    try:
+                        page.get_by_text(label, exact=True).first.click(timeout=1_500)
+                        clicked_submenu = True
+                        self.stdout.write(f'Submenu clicked via text: {label}')
+                        break
+                    except Exception:
+                        pass
 
                 if not clicked_submenu:
-                    # Try icon-based selectors (WhatsApp Web uses data-icon on spans)
+                    # Try icon-based selectors
                     for icon_name in ('photos-outline', 'photo-video', 'album'):
                         try:
                             el = page.query_selector(f'span[data-icon="{icon_name}"]')
