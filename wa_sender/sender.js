@@ -123,17 +123,17 @@ async function sendText(sock, jid, text) {
 async function sendMedia(sock, jid, mediaPath, caption) {
     const ext = path.extname(mediaPath).toLowerCase();
     const isVideo = ['.mp4', '.mov', '.avi', '.mkv', '.3gp'].includes(ext);
-    const buf = fs.readFileSync(mediaPath);
 
     if (isVideo) {
         await sock.sendMessage(jid, {
-            video: buf,
+            video: { stream: fs.createReadStream(mediaPath) },
             caption: caption || '',
             mimetype: 'video/mp4',
+            fileLength: fs.statSync(mediaPath).size,
         });
     } else {
         await sock.sendMessage(jid, {
-            image: buf,
+            image: { stream: fs.createReadStream(mediaPath) },
             caption: caption || '',
         });
     }
