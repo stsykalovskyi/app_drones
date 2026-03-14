@@ -46,6 +46,10 @@ temp/
 # WhatsApp browser session (contains auth cookies, never commit)
 whatsapp_session/
 
+# Baileys Node.js sender
+wa_sender/node_modules/
+wa_sender/auth_state/
+
 # Log files
 logs/
 # Gemini auth tokens

@@ -1,0 +1,16 @@
+{
+  "name": "wa-sender",
+  "version": "1.0.0",
+  "description": "WhatsApp sender daemon using Baileys (no browser)",
+  "main": "sender.js",
+  "type": "module",
+  "scripts": {
+    "start": "node sender.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "better-sqlite3": "^11.10.0",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
