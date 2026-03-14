@@ -23,26 +23,26 @@ def master_required(view_func):
 
 def _enqueue_strike_report_bg(report_id):
     """
-    Run in a background thread: fetch the saved report and enqueue WhatsApp messages.
-    Uses a fresh DB connection so it never blocks the request thread.
+    Background thread flow:
+      1. Enqueue WA message with local video path.
+      2. Poll OutgoingMessage.status until SENT/FAILED (max 10 min).
+      3. Upload local video to B2 via boto3.
+      4. Delete local file.
     """
     import os
+    import time
     import logging
     from django.conf import settings
     from django.db import connection
 
     logger = logging.getLogger(__name__)
     try:
-        # Close the inherited connection so Django opens a fresh one in this thread
         connection.close()
 
         from pilots.models import StrikeReport
         from whatsapp_monitor.models import OutgoingMessage
 
         group = getattr(settings, 'WHATSAPP_STRIKE_GROUP', '')
-        if not group:
-            return
-
         report = StrikeReport.objects.select_related('pilot', 'pilot__profile').get(pk=report_id)
 
         lines = [
@@ -58,37 +58,48 @@ def _enqueue_strike_report_bg(report_id):
             lines.append(f'Примітки: {report.notes}')
         text = '\n'.join(lines)
 
-        if report.video:
-            # Single message: video with report text as caption.
-            local_path = os.path.join(str(settings.MEDIA_ROOT), report.video.name)
-            if not os.path.exists(local_path):
-                # File is on B2 — download to temp dir for the sender
-                import tempfile, pathlib
-                tmp_dir = pathlib.Path(settings.BASE_DIR) / 'temp'
-                tmp_dir.mkdir(exist_ok=True)
-                ext = pathlib.Path(report.video.name).suffix
-                tmp_file = tempfile.NamedTemporaryFile(
-                    dir=tmp_dir, suffix=ext, delete=False
+        local_path = (
+            os.path.join(str(settings.MEDIA_ROOT), report.video.name)
+            if report.video else None
+        )
+
+        # 1. Enqueue WA message
+        if group:
+            msg = OutgoingMessage.objects.create(
+                group_name=group,
+                media_path=local_path or '',
+                message_text=text,
+            )
+
+            # 2. Wait until sender processes the message (max 10 min)
+            if local_path:
+                for _ in range(120):  # 120 × 5 s = 10 min
+                    time.sleep(5)
+                    msg.refresh_from_db()
+                    if msg.status in (OutgoingMessage.Status.SENT, OutgoingMessage.Status.FAILED):
+                        break
+
+        # 3. Upload to B2 and delete local file
+        b2_key_id = os.getenv('B2_KEY_ID')
+        if local_path and os.path.exists(local_path) and b2_key_id:
+            try:
+                import boto3
+                client = boto3.client(
+                    's3',
+                    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    region_name=getattr(settings, 'AWS_S3_REGION_NAME', None),
                 )
-                try:
-                    content = report.video.read()
-                    tmp_file.write(content)
-                    tmp_file.flush()
-                    local_path = tmp_file.name
-                finally:
-                    tmp_file.close()
-            OutgoingMessage.objects.create(
-                group_name=group,
-                media_path=local_path,
-                message_text=text,
-            )
-        else:
-            OutgoingMessage.objects.create(
-                group_name=group,
-                message_text=text,
-            )
+                with open(local_path, 'rb') as f:
+                    client.upload_fileobj(f, settings.AWS_STORAGE_BUCKET_NAME, report.video.name)
+                os.remove(local_path)
+                logger.info('Strike report #%s: video uploaded to B2, local file removed.', report_id)
+            except Exception as e:
+                logger.error('B2 upload failed for strike report #%s: %s', report_id, e)
+
     except Exception as e:
-        logger.exception('WhatsApp enqueue failed for strike report #%s: %s', report_id, e)
+        logger.exception('Strike report bg task failed #%s: %s', report_id, e)
 
 
 @login_required
@@ -98,6 +109,16 @@ def strike_report_create(request):
         if form.is_valid():
             report = form.save(commit=False)
             report.pilot = request.user
+            # Always save video locally first (B2 upload happens after WA send)
+            if 'video' in request.FILES:
+                from django.core.files.storage import FileSystemStorage
+                fss = FileSystemStorage()
+                video_file = request.FILES['video']
+                from django.utils import timezone
+                now = timezone.now()
+                rel_path = f'strikes/videos/{now.year}/{now.month:02d}/{video_file.name}'
+                saved_name = fss.save(rel_path, video_file)
+                report.video = saved_name
             report.save()
             import threading
             threading.Thread(
