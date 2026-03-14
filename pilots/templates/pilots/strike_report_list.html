@@ -177,8 +177,11 @@
         <span class="report-card__pilot">{{ r.pilot.profile.display_name|default:r.pilot.username }}</span>
         {% endif %}
         {% if request.user.is_superuser %}
-        <button class="report-card__delete" title="Видалити звіт"
-                onclick="openDeleteModal({{ r.pk }}, '{{ r.crew|escapejs }} — {{ r.strike_date|date:"d.m.Y"|escapejs }}')">✕</button>
+        <form method="post" action="{% url 'pilots:strike_report_delete' r.pk %}"
+              data-confirm="Видалити звіт «{{ r.crew }} — {{ r.strike_date|date:'d.m.Y' }}»? Відео буде видалено з диску.">
+            {% csrf_token %}
+            <button type="submit" class="report-card__delete" title="Видалити звіт">✕</button>
+        </form>
         {% endif %}
     </div>
 
@@ -233,36 +236,4 @@
 </div>
 {% endif %}
 
-{% if request.user.is_superuser %}
-<div id="deleteModal" class="modal-overlay" style="display:none">
-    <div class="modal">
-        <div class="modal__header">
-            <h2 class="modal__title">Видалити звіт?</h2>
-        </div>
-        <div class="modal__body">
-            <p>Звіт <strong id="deleteModalLabel"></strong> буде видалено разом із відеофайлом. Дію неможливо скасувати.</p>
-        </div>
-        <div class="modal__footer">
-            <form id="deleteForm" method="post">
-                {% csrf_token %}
-                <button type="button" class="button ghost" onclick="closeDeleteModal()">Скасувати</button>
-                <button type="submit" class="button" style="background:#ef4444;border-color:#ef4444">Видалити</button>
-            </form>
-        </div>
-    </div>
-</div>
-<script>
-function openDeleteModal(pk, label) {
-    document.getElementById('deleteModalLabel').textContent = label;
-    document.getElementById('deleteForm').action = '/pilots/strikes/' + pk + '/delete/';  // matches urls.py: pilots/<int:pk>/delete/
-    document.getElementById('deleteModal').style.display = 'flex';
-}
-function closeDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'none';
-}
-document.getElementById('deleteModal').addEventListener('click', function(e) {
-    if (e.target === this) closeDeleteModal();
-});
-</script>
-{% endif %}
 {% endblock %}
