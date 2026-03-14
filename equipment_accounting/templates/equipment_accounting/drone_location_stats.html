@@ -109,6 +109,7 @@
     </div>
 
     {% if locations_with_pos %}
+    <div class="table-wrap">
     <table class="eq-table">
         <thead>
             <tr>
@@ -145,6 +146,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div class="empty-state"><p>Даних немає.</p></div>
     {% endif %}

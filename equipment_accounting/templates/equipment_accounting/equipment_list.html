@@ -345,6 +345,26 @@
         @media (max-width: 440px) {
             .badge-grid { grid-template-columns: 1fr; }
         }
+
+        /* Quantity view: filter bar wraps, form cells stack */
+        .qty-filter-bar { flex-wrap: wrap; }
+        .qty-filter-select, .qty-filter-clear { flex: 1 1 calc(50% - 0.4rem); min-width: 120px; }
+
+        .qty-form-cell { flex-direction: column; align-items: flex-start; }
+        .qty-action-select, .qty-loc-select, .qty-pos-select,
+        .qty-pos-new, .qty-input { width: 100%; box-sizing: border-box; }
+        .qty-apply { align-self: flex-end; }
+
+        /* Qty table: stack rows as cards */
+        .qty-table { display: block; }
+        .qty-table tr { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); align-items: center; }
+        .qty-table td { display: block; border: none; padding: 0; }
+        .qty-table td.qty-status { font-weight: 600; font-size: 0.82rem; flex: 1; }
+        .qty-table td.qty-count  { font-size: 0.95rem; font-weight: 700; color: var(--accent); }
+        .qty-table td.qty-form-cell { width: 100%; }
+
+        /* Toolbar controls: wrap and collapse export button text */
+        .toolbar-controls { flex-wrap: wrap; gap: 0.4rem !important; }
     }
 
     /* Badge / card view */

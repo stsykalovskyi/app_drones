@@ -220,6 +220,30 @@
     .move-modal-select:focus { border-color: var(--accent); }
     .form-field { margin-bottom: 0.85rem; }
     .form-field:last-of-type { margin-bottom: 0; }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+        .toolbar { flex-wrap: wrap; }
+        .toolbar > div { flex-wrap: wrap; }
+
+        /* History table → card layout */
+        .history-table thead { display: none; }
+        .history-table tr { display: block; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
+        .history-table td {
+            display: flex; align-items: baseline; gap: 0.4rem;
+            padding: 0.1rem 0; border: none; font-size: 0.83rem;
+        }
+        .history-table td::before {
+            content: attr(data-label);
+            font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-muted); flex-shrink: 0; min-width: 3.8rem;
+        }
+        .history-table td:empty { display: none; }
+        .history-table td.td-date { color: var(--text-muted); font-size: 0.8rem; }
+
+        /* Components tables: scrollable */
+        .comp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
 </style>
 {% endblock %}
 
@@ -344,6 +368,7 @@
         <h2>Закріплені комплектуючі</h2>
     </div>
     {% if assigned_components %}
+    <div class="comp-table-wrap">
     <table class="eq-table">
         <thead>
             <tr>
@@ -374,6 +399,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div class="empty-state">Комплектуючих ще не закріплено.</div>
     {% endif %}
@@ -386,6 +412,7 @@
         <h2>Вільні комплектуючі</h2>
     </div>
     {% if free_components %}
+    <div class="comp-table-wrap">
     <table class="eq-table">
         <thead>
             <tr>
@@ -409,6 +436,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div class="empty-state">Вільних комплектуючих немає.</div>
     {% endif %}
@@ -517,7 +545,8 @@
         <h2>Історія переміщень</h2>
     </div>
     {% if movements %}
-    <table class="eq-table">
+    <div class="table-wrap">
+    <table class="eq-table history-table">
         <thead>
             <tr>
                 <th>Дата</th>
@@ -531,12 +560,12 @@
         <tbody>
             {% for m in movements %}
             <tr>
-                <td style="white-space:nowrap; color:var(--text-secondary);">{{ m.created_at|date:"d.m.Y H:i" }}</td>
-                <td>{{ m.get_reason_display }}</td>
-                <td>{{ m.from_location.name|default:"—" }}</td>
-                <td>{{ m.to_location.name }}</td>
-                <td>{% if m.moved_by %}{{ m.moved_by.profile.display_name }}{% else %}—{% endif %}</td>
-                <td>
+                <td class="td-date" data-label="Дата">{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                <td data-label="Подія">{{ m.get_reason_display }}</td>
+                <td data-label="Звідки">{{ m.from_location.name|default:"—" }}</td>
+                <td data-label="Куди">{{ m.to_location.name }}</td>
+                <td data-label="Хто">{% if m.moved_by %}{{ m.moved_by.profile.display_name }}{% else %}—{% endif %}</td>
+                <td data-label="Статус">
                     {% if m.confirmed_at %}
                         <span style="color:#22c55e;font-size:0.8rem;">&#10003; {{ m.confirmed_at|date:"d.m H:i" }}</span>
                     {% elif m.pre_transit_status and can_edit_uav %}
@@ -552,6 +581,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div class="empty-state">Переміщень ще не зафіксовано.</div>
     {% endif %}

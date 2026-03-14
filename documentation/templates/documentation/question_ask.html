@@ -96,13 +96,23 @@
         color: var(--text-muted); line-height: 1;
     }
     .qa-modal-close:hover { color: var(--text); }
+
+    .qa-layout {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    @media (max-width: 700px) {
+        .qa-layout { grid-template-columns: 1fr; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <h1 style="margin:0 0 1.5rem;font-size:1.35rem;font-weight:800">{{ title }}</h1>
 
-<div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
+<div class="qa-layout">
 
   <div>
     <div class="card" style="margin-bottom:1.5rem">

@@ -20,7 +20,9 @@
     }
     @media (max-width: 768px) {
         .stats-layout { grid-template-columns: 1fr; }
-        .filter-sidebar { order: -1; }
+        .filter-sidebar { order: -1; position: static; }
+        .eq-table { min-width: 500px; }
+        .section-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
 
     /* ── Filter sidebar ── */
