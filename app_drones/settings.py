@@ -176,6 +176,22 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# ── Backblaze B2 storage (activated when B2_KEY_ID is set) ────────────────────
+_B2_KEY_ID = os.getenv('B2_KEY_ID')
+if _B2_KEY_ID:
+    STORAGES = {
+        'default': {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+    AWS_ACCESS_KEY_ID = _B2_KEY_ID
+    AWS_SECRET_ACCESS_KEY = os.getenv('B2_APPLICATION_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = os.getenv('B2_ENDPOINT_URL')  # e.g. https://s3.us-west-004.backblazeb2.com
+    AWS_S3_REGION_NAME = os.getenv('B2_REGION', 'us-west-004')
+    AWS_QUERYSTRING_AUTH = False   # public URLs without signatures
+    AWS_S3_FILE_OVERWRITE = False  # keep original filename on conflict
+    MEDIA_URL = f"{os.getenv('B2_ENDPOINT_URL')}/{os.getenv('B2_BUCKET_NAME')}/"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 

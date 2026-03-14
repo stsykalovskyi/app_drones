@@ -22,3 +22,5 @@ pypdf
 pytesseract
 pymupdf
 python-docx
+django-storages[s3]
+boto3
