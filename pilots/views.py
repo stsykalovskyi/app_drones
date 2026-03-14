@@ -105,7 +105,17 @@ def strike_report_delete(request, pk):
     report = get_object_or_404(StrikeReport, pk=pk)
     if request.method == 'POST':
         if report.video:
-            report.video.delete(save=False)
+            # delete from storage backend (B2 or local)
+            try:
+                report.video.delete(save=False)
+            except Exception:
+                pass
+            # also remove local file if it still exists on disk
+            from django.conf import settings as _s
+            import os as _os
+            local_path = _s.MEDIA_ROOT / report.video.name
+            if _os.path.exists(local_path):
+                _os.remove(local_path)
         report.delete()
         messages.success(request, 'Звіт видалено.')
         return redirect('pilots:strike_report_list')
