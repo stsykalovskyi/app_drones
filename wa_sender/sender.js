@@ -37,6 +37,16 @@ const AUTH_DIR   = path.resolve(__dirname, getArg('--auth', './auth_state'));
 const POLL_MS    = parseInt(getArg('--poll', '3000'), 10);
 const MAX_RETRY  = 3;
 
+// Docker container maps project root → /app
+// Translate /app/... paths to actual host paths so Node.js can read media files
+const APP_ROOT   = path.resolve(__dirname, '..');  // wa_sender/../ = project root
+
+function resolveMediaPath(p) {
+    if (!p) return p;
+    if (p.startsWith('/app/')) return path.join(APP_ROOT, p.slice(5));
+    return p;
+}
+
 const logger = pino({ level: 'info' });
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
@@ -230,7 +240,7 @@ async function startSender() {
             }
 
             if (row.media_path) {
-                await sendMedia(sock, jid, row.media_path, row.message_text);
+                await sendMedia(sock, jid, resolveMediaPath(row.media_path), row.message_text);
             } else {
                 await sendText(sock, jid, row.message_text);
             }
